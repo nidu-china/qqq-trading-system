@@ -9,9 +9,22 @@ QQQ 0DTE 双向突破 v6.1 - ±$2虚值期权 + Black-Scholes定价
 """
 import json
 import math
+import os
+import glob
+import time
 import numpy as np
 import pandas as pd
-from datetime import datetime, date, time as dtime
+from datetime import datetime, date, time as dtime, timezone
+from zoneinfo import ZoneInfo
+
+try:
+    from longbridge.openapi import Config, QuoteContext, Period, AdjustType, TradeSessions
+except Exception:
+    Config = QuoteContext = Period = AdjustType = TradeSessions = None
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, 'data')
+TZ_ET = ZoneInfo('America/New_York')
 
 # ===== 策略参数（回测最优 - v6.1全过滤 09:35-15:00）=====
 CFG = {
@@ -80,12 +93,114 @@ def time_to_expiry(current_time, expire_time=dtime(16, 0)):
 
 
 # ===== 数据加载 =====
+def load_env_files():
+    """加载项目/.env 或 ~/.hermes/.env 中的 Longbridge 密钥"""
+    env_paths = [
+        os.path.join(BASE_DIR, '.env'),
+        os.path.expanduser('~/.hermes/.env'),
+        os.path.expanduser('~\\.hermes\\.env'),
+        r'C:\Users\Admin\.hermes\.env',
+    ]
+    for env_file in env_paths:
+        if not os.path.exists(env_file):
+            continue
+        with open(env_file, encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#') or '=' not in line:
+                    continue
+                k, v = line.split('=', 1)
+                os.environ[k.strip()] = v.strip().strip('"').strip("'")
+        print(f"🔐 Loaded env from: {env_file}")
+        return env_file
+    return None
+
+
+def fetch_longbridge_1min(symbol='QQQ.US', count=1000):
+    """调用 Longbridge 拉取最近1分钟K线，并按美东交易日保存到 data/ 目录"""
+    if Config is None:
+        raise RuntimeError('longbridge SDK 未安装，请先安装 requirements.txt')
+
+    load_env_files()
+    os.makedirs(DATA_DIR, exist_ok=True)
+
+    quote_ctx = QuoteContext(Config.from_apikey_env())
+    candles = quote_ctx.candlesticks(
+        symbol, Period.Min_1, count,
+        AdjustType.NoAdjust, TradeSessions.All
+    )
+    if not candles:
+        print('⚠️ Longbridge 未返回K线')
+        return []
+
+    rows = []
+    for c in candles:
+        ts = c.timestamp
+        # Longbridge timestamp 通常带UTC时区；统一转美东，回测按美东交易窗口判断
+        if hasattr(ts, 'astimezone'):
+            ts_et = ts.astimezone(TZ_ET)
+        else:
+            ts_et = pd.Timestamp(ts).tz_localize('UTC').tz_convert(TZ_ET).to_pydatetime()
+        rows.append({
+            'Datetime': ts_et.strftime('%Y-%m-%d %H:%M:%S'),
+            'Open': float(c.open),
+            'High': float(c.high),
+            'Low': float(c.low),
+            'Close': float(c.close),
+            'Volume': int(c.volume),
+        })
+
+    df = pd.DataFrame(rows).sort_values('Datetime')
+    saved = []
+    for day, day_df in df.groupby(df['Datetime'].str[:10]):
+        out_path = os.path.join(DATA_DIR, f'QQQ_1min_{day}.csv')
+        if os.path.exists(out_path):
+            old = pd.read_csv(out_path)
+            day_df = pd.concat([old, day_df], ignore_index=True)
+            day_df = day_df.drop_duplicates(subset='Datetime', keep='last')
+            day_df = day_df.sort_values('Datetime')
+        day_df.to_csv(out_path, index=False)
+        saved.append(out_path)
+        print(f"💾 {out_path}: {len(day_df)}行")
+
+    return saved
+
+
 def load_1min_data(csv_path):
-    """加载1分钟数据"""
+    """加载1分钟数据，兼容项目内 today.csv 小写列名"""
     df = pd.read_csv(csv_path)
+    rename_map = {
+        'timestamp': 'Datetime',
+        'open': 'Open',
+        'high': 'High',
+        'low': 'Low',
+        'close': 'Close',
+        'volume': 'Volume',
+    }
+    df = df.rename(columns=rename_map)
+    required = ['Datetime', 'Open', 'High', 'Low', 'Close', 'Volume']
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        raise ValueError(f'{csv_path} 缺少字段: {missing}')
+    df = df[required].copy()
     df['Datetime'] = pd.to_datetime(df['Datetime'])
     df = df.sort_values('Datetime').reset_index(drop=True)
     return df
+
+
+def load_data_dir(data_dir=DATA_DIR):
+    """读取 data/ 下按天保存的 QQQ_1min_YYYY-MM-DD.csv"""
+    files = sorted(glob.glob(os.path.join(data_dir, 'QQQ_1min_*.csv')))
+    if not files:
+        return pd.DataFrame(), []
+    all_dfs = []
+    for path in files:
+        df = load_1min_data(path)
+        print(f"📂 {os.path.basename(path)}: {len(df)}行 {df['Datetime'].min()} ~ {df['Datetime'].max()}")
+        all_dfs.append(df)
+    merged = pd.concat(all_dfs, ignore_index=True)
+    merged = merged.sort_values('Datetime').drop_duplicates(subset='Datetime', keep='last').reset_index(drop=True)
+    return merged, files
 
 
 def build_5min_reference(df_1min):
@@ -188,11 +303,12 @@ def run_backtest(df_1min, cfg):
         if pos is None and daily_count < cfg['max_trades']:
             if start_min <= hm <= end_min:
 
-                # 用过去N根1分钟K线的高低点作为突破参考
-                if i >= lookback:
-                    upper = max(H[i-lookback:i])   # 过去N根1min最高价
-                    lower = min(L[i-lookback:i])    # 过去N根1min最低价
-                    avg_vol = np.mean(V[i-lookback:i])  # 过去N根平均成交量
+                # 用上一根K线之前的N根1分钟K线高低点作为突破参考
+                # 避免把被判断的K线(i-1)自身纳入参考区间，否则 C[i-1] > upper / C[i-1] < lower 几乎不会成立。
+                if i >= lookback + 1:
+                    upper = max(H[i-lookback-1:i-1])   # i-1之前N根1min最高价
+                    lower = min(L[i-lookback-1:i-1])    # i-1之前N根1min最低价
+                    avg_vol = np.mean(V[i-lookback-1:i-1])  # i-1之前N根平均成交量
 
                     # 跳空过滤
                     gap = abs(C[i-1] - C[i-2]) / C[i-2] if i >= 2 and C[i-2] > 0 else 0
@@ -279,23 +395,28 @@ def run_backtest(df_1min, cfg):
 
 # ===== 主函数 =====
 def main():
-    data_dir = '/mnt/c/Users/Admin/Desktop/QQQ_Live/data'
+    import argparse
 
-    # 加载所有1分钟数据
-    files = [
-        (f'{data_dir}/QQQ_1min_2024_2025.csv', False),
-        (f'{data_dir}/QQQ_1min_2026.csv', False),
-    ]
+    parser = argparse.ArgumentParser(description='QQQ 0DTE v6 回测')
+    parser.add_argument('--fetch', action='store_true', help='先调用 Longbridge 拉取最近1分钟K线并保存到 data/')
+    parser.add_argument('--symbol', default='QQQ.US', help='Longbridge 标的，默认 QQQ.US')
+    parser.add_argument('--count', type=int, default=1000, help='拉取K线数量，默认1000')
+    parser.add_argument('--data-dir', default=DATA_DIR, help='K线CSV目录，默认项目 data/')
+    args = parser.parse_args()
 
-    all_dfs = []
-    for path, _ in files:
-        df = load_1min_data(path)
-        print(f"📂 {path.split('/')[-1]}: {len(df)}行 {df['Datetime'].min()} ~ {df['Datetime'].max()}")
-        all_dfs.append(df)
+    if args.fetch:
+        print(f"📥 从 Longbridge 拉取 {args.symbol} 最近 {args.count} 根1分钟K线...")
+        fetch_longbridge_1min(args.symbol, args.count)
+        # 避免接口刚写入后文件系统延迟
+        time.sleep(0.2)
 
-    merged = pd.concat(all_dfs, ignore_index=True)
-    merged = merged.sort_values('Datetime').drop_duplicates(subset='Datetime', keep='first').reset_index(drop=True)
-    print(f"\n🔄 合并: {len(merged)}行 1分钟数据")
+    merged, files = load_data_dir(args.data_dir)
+    if merged.empty:
+        raise FileNotFoundError(
+            f"{args.data_dir} 下没有 QQQ_1min_*.csv。可先运行: python backtest_v6.py --fetch --count 1000"
+        )
+
+    print(f"\n🔄 合并: {len(merged)}行 1分钟数据，文件数: {len(files)}")
 
     # 运行回测
     print("⏳ 回测中...")
@@ -339,7 +460,7 @@ def main():
     print(f"  胜率: {win_rate}%")
     print(f"  总得分: {total_pnl:+.2f}%")
     print(f"  交易天数: {len(daily_summary)}天")
-    print(f"  周期: {dates[0]} ~ {dates[-1]}")
+    print(f"  周期: {dates[0]} ~ {dates[-1]}" if dates else "  周期: N/A")
     print(f"{'='*60}")
 
     # 退出原因
@@ -372,7 +493,7 @@ def main():
         'meta': {
             'strategy': 'QQQ 0DTE ITM双向突破 v6 (BS定价)',
             'params': {k: v for k, v in CFG.items()},
-            'period': f'{dates[0]} ~ {dates[-1]}',
+            'period': f'{dates[0]} ~ {dates[-1]}' if dates else 'N/A',
             'total_trades': total,
             'win_rate': win_rate,
             'total_pnl_pct': round(total_pnl, 2),
@@ -382,7 +503,8 @@ def main():
         'daily': list(daily_summary.values()),
         'trades': trades,
     }
-    out_path = f'{data_dir}/records.json'
+    os.makedirs(args.data_dir, exist_ok=True)
+    out_path = os.path.join(args.data_dir, 'records.json')
     with open(out_path, 'w', encoding='utf-8') as f:
         json.dump(output, f, ensure_ascii=False, indent=2)
     print(f"\n💾 已保存: {out_path}")

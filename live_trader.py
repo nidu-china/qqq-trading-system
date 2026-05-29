@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-QQQ 0DTE 动态市场状态突破策略 - 实盘交易系统 v6.3
+QQQ 0DTE 动态市场状态突破策略 - 实盘交易系统 v6.4
 根据市场状态 trending / neutral / choppy 动态调整 lookback、量能、实体、回踩、仓位和超时参数。
 预加载滤镜(SMA20+SMA50+价格位置+趋势+VWAP+MACD) + 核心过滤(量能+动量+实体)
 按方向冷却 | 衰竭反转独立信号 | engine.status() 实时状态
 
 功能：
 1. 实时订阅QQQ 1分钟K线 → 聚合5分钟
-2. v6.3 动态市场状态突破信号检测
+2. v6.4 动态市场状态突破信号检测（融合高胜率回测突破入场）
 3. 自动下单（长桥API）
 4. 风控：止损/止盈/跟踪止损/日亏损熔断
 5. 飞书推送交易信号
@@ -22,6 +22,27 @@ import numpy as np
 from zoneinfo import ZoneInfo
 TZ_ET = ZoneInfo("America/New_York")    # 美东（自动EDT/EST切换）
 TZ_HKT = timezone(timedelta(hours=8))   # 北京/香港时间
+
+
+def now_et():
+    """当前美东时间；实盘所有交易窗口、交易日、today.csv 时间统一使用它。"""
+    return datetime.now(TZ_ET)
+
+
+def to_et(dt):
+    """把长桥/系统时间统一转换为美东时间。"""
+    if hasattr(dt, "astimezone"):
+        if getattr(dt, "tzinfo", None) is None:
+            return dt.replace(tzinfo=TZ_HKT).astimezone(TZ_ET)
+        return dt.astimezone(TZ_ET)
+    return now_et()
+
+
+def is_regular_session(dt):
+    """是否美股常规盘中时间：09:30:00 <= ET <= 16:00:00。"""
+    et = to_et(dt)
+    minute = et.hour * 60 + et.minute
+    return (9 * 60 + 30) <= minute <= (16 * 60)
 
 # stdout兜底（打包后console=False时为None，由入口main_app.py统一处理）
 if sys.stdout is None:
@@ -47,7 +68,7 @@ from longbridge.openapi import (
     OrderSide, OrderType, TimeInForceType, OutsideRTH
 )
 
-# ===== 配置（v6.3 动态过滤 - 市场状态自适应）=====
+# ===== 配置（v6.4 动态过滤 - 市场状态自适应 + 高胜率回测突破入场）=====
 # 优先从 settings.json 读取，没有则用硬编码默认值
 _DEFAULT_CONFIG = {
     'symbol': 'QQQ.US',
@@ -62,11 +83,11 @@ _DEFAULT_CONFIG = {
     'timeout_stage2_bars': 10, 'timeout_stage2_min': 0.60,
     'timeout_stage3_bars': 15,
     'option_offset': 2.0, 'order_pct': 8, 'contract_multiplier': 100,
-    'pos_pct': 8, 'max_trades': 999, 'daily_limit': 25,
-    'start_time': '09:35', 'end_time': '15:50',
+    'pos_pct': 8, 'max_trades': 8, 'daily_limit': 25,
+    'start_time': '09:40', 'end_time': '14:00',
     'trail_activate': 0.10, 'trail_drop': 0.05,
     'max_gap': 0.0020, 'vol_mult': 0.8, 'min_body': 0.0003,
-    'reversal_drop': 0.002, 'reversal_bounce': 0.001,
+    'reversal_drop': 0.008, 'reversal_bounce': 0.001,
     'check_interval': 20, 'capital': 100000,
 }
 
@@ -106,7 +127,7 @@ def _maybe_reload_config():
         new_cfg = _load_config()
         CONFIG.clear()
         CONFIG.update(new_cfg)
-        print(f"⚙️ 配置已热重载 ({datetime.now().strftime('%H:%M:%S')})")
+        print(f"⚙️ 配置已热重载 ({now_et().strftime('%H:%M:%S')})")
         return True
     except Exception as e:
         print(f"[Config] 热重载失败: {e}")
@@ -126,7 +147,7 @@ def get_option_symbol(stock_price, direction, offset=2.0):
     - Put:  strike = ceil(stock - offset)  → 行权价 ≥ stock-offset，始终 < stock（虚值）
     """
     # 用美东时间计算到期日（0DTE=当天美东日期）
-    now_et = datetime.now(TZ_ET)
+    et_now = now_et()
     
     # 行权价取整到$1（期权只有整数行权价）
     # OTM保证：Call取floor确保strike≤stock+offset且strike>stock
@@ -145,7 +166,7 @@ def get_option_symbol(stock_price, direction, offset=2.0):
         strike = int(stock_price) - 1
     
     # 到期日格式：YYMMDD（0DTE = 美东当天）
-    expiry = now_et.strftime('%y%m%d')
+    expiry = now_et().strftime('%y%m%d')
     
     # 长桥格式：QQQ260422C656000.US（行权价×1000，6位，带.US后缀）
     symbol = f"QQQ{expiry}{option_type}{strike * 1000:06d}.US"
@@ -519,7 +540,7 @@ class FilterEngine:
                 'min_body': 0.0002,      # 实体放宽（趋势中大K线少）
                 'preloaded_pass': 3,     # 6取3（SMA20/SMA50/位置/趋势/VWAP/MACD）
                 'gap_mult': 1.5,         # 跳空容忍度放大50%
-                'tp_partial_pct': 1.00,  # 盈利100%平仓一半（让利润跑）
+                'tp_partial_pct': 0.50,  # 盈利50%触发止盈；1张时直接全平
                 'sl_pct': 0.25,          # 止损25%（容忍波动）
                 'timeout_bars': 9999,    # 不设超时（趋势行情让利润跑，纯靠止盈/跟踪止损出场）
                 'pos_mult': 0.7,         # 追涨仓位70%（动量直入风险控制）
@@ -528,16 +549,16 @@ class FilterEngine:
             return {
                 'regime': 'choppy',
                 'detail': detail,
-                'lookback': 2,           # 2分钟极速入场（抓每次反弹）
+                'lookback': 3,           # 3分钟确认突破（减少震荡假突破）
                 'pullback': False,       # 不需要回踩（突破即入场）
-                'vol_mult': 0.6,         # 量能更放宽（震荡中量能波动大）
-                'min_body': 0.0001,      # 实体更放宽（震荡中小K线多）
-                'preloaded_pass': 2,     # 6取2（震荡市放宽，只要方向对）
+                'vol_mult': 0.6,         # 量能保持宽松（不因缩量错过小波段）
+                'min_body': 0.0002,      # 实体略收紧（过滤太小的假突破）
+                'preloaded_pass': 3,     # 6取3（提高震荡市入场质量）
                 'gap_mult': 2.0,         # 跳空容忍度放大100%
-                'tp_partial_pct': 0.50,  # 盈利50%就平（快进快出不贪）
+                'tp_partial_pct': 0.50,  # 盈利50%就平一半（快进快出不贪）
                 'sl_pct': 0.30,          # 止损30%（容忍震荡幅度）
-                'timeout_bars': 8,       # 超时8分钟（震荡行情抓波段）
-                'pos_mult': 0.8,         # 仓位80%（choppy方向对时收益可观）
+                'timeout_bars': 5,       # 超时5分钟（震荡行情快进快出）
+                'pos_mult': 0.6,         # 仓位60%（保留进攻性，降低震荡误判风险）
             }
         else:  # neutral
             return {
@@ -551,7 +572,7 @@ class FilterEngine:
                 'gap_mult': 1.0,         # 标准跳空
                 'tp_partial_pct': 0.80,  # 盈利80%平仓一半
                 'sl_pct': 0.25,          # 止损25%
-                'timeout_bars': 4,       # 超时4分钟（neutral频繁止损，缩短持仓）
+                'timeout_bars': 10,      # 超时10分钟（中性行情给足确认时间）
                 'pos_mult': 0.4,         # 仓位40%（neutral表现最差，降低风险敞口）
             }
 
@@ -631,6 +652,7 @@ class QQQLiveTrader:
         script_dir = str(_app_dir())
         self.csv_path = os.path.join(script_dir, 'today.csv')
         self.csv_initialized = False
+        self._archived_trade_dates = set()  # 已归档的美东交易日，防止收盘后重复移动 today.csv
         self._last_position_verify = 0  # 上次持仓验证时间戳
 
         # 共享状态文件（供trader_web.py读取）
@@ -660,14 +682,16 @@ class QQQLiveTrader:
 
     def _add_event(self, msg, tag='info'):
         """添加实时事件（写入state.json供仪表盘显示）"""
-        ts = datetime.now().strftime('%H:%M:%S')
+        ts = now_et().strftime('%H:%M:%S')
         self.events.append({'time': ts, 'msg': msg, 'tag': tag})
         if len(self.events) > 100:
             self.events = self.events[-100:]
 
     def _write_csv(self, candle):
-        """写入K线数据到today.csv（供cron监控读取）"""
+        """写入盘中K线到today.csv（仅美东09:30-16:00，供cron监控读取）"""
         try:
+            if not is_regular_session(candle['time']):
+                return
             if not self.csv_initialized:
                 # 新的一天，写表头
                 with open(self.csv_path, 'w', newline='', encoding='utf-8') as f:
@@ -680,6 +704,76 @@ class QQQLiveTrader:
                         f"{candle['close']},{candle['volume']},{candle.get('turnover', 0)}\n")
         except Exception as e:
             print(f"  ⚠️ CSV写入失败: {e}")
+
+    def _archive_today_csv(self, trade_date=None):
+        """美东交易日结束后，把 today.csv 移动归档到 data/QQQ_1min_YYYY-MM-DD.csv。"""
+        trade_date = trade_date or self.current_date or now_et().strftime('%Y-%m-%d')
+        if trade_date in self._archived_trade_dates:
+            return
+        if not os.path.exists(self.csv_path):
+            return
+
+        try:
+            import csv
+            data_dir = os.path.join(str(_app_dir()), 'data')
+            os.makedirs(data_dir, exist_ok=True)
+            out_path = os.path.join(data_dir, f'QQQ_1min_{trade_date}.csv')
+
+            rows_by_ts = {}
+            # 已有归档文件先读入，避免覆盖历史数据
+            if os.path.exists(out_path):
+                with open(out_path, newline='', encoding='utf-8') as f:
+                    for row in csv.DictReader(f):
+                        ts = row.get('Datetime') or row.get('timestamp')
+                        if ts and ts.startswith(trade_date):
+                            hhmmss = ts[11:19]
+                            if hhmmss < '09:30:00' or hhmmss > '16:00:00':
+                                continue
+                            rows_by_ts[ts] = {
+                                'Datetime': ts,
+                                'Open': row.get('Open') or row.get('open'),
+                                'High': row.get('High') or row.get('high'),
+                                'Low': row.get('Low') or row.get('low'),
+                                'Close': row.get('Close') or row.get('close'),
+                                'Volume': row.get('Volume') or row.get('volume'),
+                            }
+
+            # today.csv 转换为回测标准列名
+            with open(self.csv_path, newline='', encoding='utf-8') as f:
+                for row in csv.DictReader(f):
+                    ts = row.get('timestamp') or row.get('Datetime')
+                    if not ts or not ts.startswith(trade_date):
+                        continue
+                    hhmmss = ts[11:19]
+                    if hhmmss < '09:30:00' or hhmmss > '16:00:00':
+                        continue
+                    rows_by_ts[ts] = {
+                        'Datetime': ts,
+                        'Open': row.get('open') or row.get('Open'),
+                        'High': row.get('high') or row.get('High'),
+                        'Low': row.get('low') or row.get('Low'),
+                        'Close': row.get('close') or row.get('Close'),
+                        'Volume': row.get('volume') or row.get('Volume'),
+                    }
+
+            if not rows_by_ts:
+                print(f"  ⚠️ today.csv 无 {trade_date} 数据，跳过归档")
+                return
+
+            tmp_path = out_path + '.tmp'
+            with open(tmp_path, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.DictWriter(f, fieldnames=['Datetime', 'Open', 'High', 'Low', 'Close', 'Volume'])
+                writer.writeheader()
+                for ts in sorted(rows_by_ts):
+                    writer.writerow(rows_by_ts[ts])
+            os.replace(tmp_path, out_path)
+            os.remove(self.csv_path)
+            self.csv_initialized = False
+            self._archived_trade_dates.add(trade_date)
+            print(f"  💾 已归档K线: {out_path} ({len(rows_by_ts)}行)，today.csv 已移动")
+            self._add_event(f"💾 已归档K线 {trade_date}: {len(rows_by_ts)}行", "engine")
+        except Exception as e:
+            print(f"  ⚠️ today.csv 归档失败: {e}")
 
     def _save_state(self):
         """保存状态到state.json（供trader_web.py读取）"""
@@ -697,7 +791,7 @@ class QQQLiveTrader:
                 'session_high': self.session_high,
                 'session_low': self.session_low if self.session_low < 999999 else 0,
                 'candle_count': len(self.one_min_candles),
-                'updated': datetime.now().strftime('%H:%M:%S'),
+                'updated': now_et().strftime('%H:%M:%S'),
                 'events': self.events[-30:],  # 最近30条事件
             }
             if self.position:
@@ -772,7 +866,7 @@ class QQQLiveTrader:
         """启动时预加载今日全部K线，并回放信号检测"""
         try:
             from longbridge.openapi import AdjustType
-            count = 500  # 足够覆盖全天（09:30-15:50 ≈ 375根）
+            count = 500  # 足够覆盖全天（09:30-14:00 ≈ 270根）
             print(f"📥 加载今日K线（最多{count}根）...", end=" ")
             candles = self.quote_ctx.candlesticks(
                 self.cfg['symbol'], Period.Min_1, count,
@@ -783,7 +877,7 @@ class QQQLiveTrader:
                 return
 
             # 过滤出今天的K线（用美东时间判断交易日，c.timestamp是UTC需转ET）
-            today_str = datetime.now(TZ_ET).strftime('%Y-%m-%d')
+            today_str = now_et().strftime('%Y-%m-%d')
             today_candles = []
             for c in candles:
                 # 将UTC时间戳转为美东时间再比较日期
@@ -804,7 +898,7 @@ class QQQLiveTrader:
             # 填充数据
             for c in today_candles:
                 bar = {
-                    'time': c.timestamp,
+                    'time': to_et(c.timestamp),
                     'open': float(c.open),
                     'high': float(c.high),
                     'low': float(c.low),
@@ -825,17 +919,16 @@ class QQQLiveTrader:
                 self._write_csv(bar)
 
             self.current_price = float(today_candles[-1].close)
-            self.current_date = datetime.now(TZ_ET).strftime('%Y-%m-%d')
+            self.current_date = now_et().strftime('%Y-%m-%d')
 
             sma = np.mean(self.close_history[-20:]) if len(self.close_history) >= 20 else 0
             vol_avg = np.mean(self.volume_history[-20:]) if len(self.volume_history) >= 20 else 0
             print(f"  📊 价格${self.current_price:.2f} | SMA20:{sma:.2f} | 均量:{vol_avg:,.0f}")
 
-            # ===== 检查长桥现有持仓，避免重复下单 =====
+            # ===== 检查长桥现有持仓，仅用于提示/防重复；禁止恢复为内部持仓 =====
             print(f"  🔍 检查长桥持仓...")
             try:
                 stock_positions = self.trade_ctx.stock_positions()
-                has_position = False
                 if stock_positions and hasattr(stock_positions, 'channels'):
                     for channel in stock_positions.channels:
                         if hasattr(channel, 'positions'):
@@ -843,38 +936,14 @@ class QQQLiveTrader:
                                 if hasattr(pos, 'symbol') and 'QQQ' in str(pos.symbol) and 'US' in str(pos.symbol):
                                     qty = int(getattr(pos, 'quantity', 0) or 0)
                                     if qty > 0:
-                                        has_position = True
-                                        print(f"  ⚠️ 发现长桥持仓: {pos.symbol} x {qty}张")
-                                        # 恢复内部持仓状态
-                                        self.position = {
-                                            'order_id': 'restored',
-                                            'dir': 'call' if 'C' in str(pos.symbol) else 'put',
-                                            'entry_price': float(getattr(pos, 'cost_price', 0) or 0),
-                                            'opt_symbol': str(pos.symbol),
-                                            'entry_opt_price': float(getattr(pos, 'cost_price', 0) or 0),
-                                            'sl_pct': self.cfg['sl'],
-                                            'tp_pct': self.cfg['tp'],
-                                            'contracts': qty,
-                                            'quantity': qty * self.cfg['contract_multiplier'],
-                                            'entry_time': datetime.now(),
-                                            'entry_bar': len(self.one_min_candles),
-                                            'reason': '重启恢复持仓',
-                                            'max_pnl_pct': 0,
-                                            'half_closed': False,
-                                            'half_closed_max_pct': 0.0,
-                                            'order_status': 'restored',
-                                        }
-                                        print(f"  ✅ 已恢复内部持仓状态")
-                                        break
-                        if has_position:
-                            break
+                                        print(f"  ⚠️ 发现长桥持仓: {pos.symbol} x {qty}张（视为手动/外部持仓，不接管不平仓）")
             except Exception as e:
                 print(f"  ⚠️ 检查持仓失败: {e}")
 
             # ===== 回放信号检测（仅在无持仓时）=====
             if len(self.one_min_candles) >= self.cfg['lookback'] + 1:
                 last_bar = {
-                    'time': today_candles[-1].timestamp,
+                    'time': to_et(today_candles[-1].timestamp),
                     'open': float(today_candles[-1].open),
                     'high': float(today_candles[-1].high),
                     'low': float(today_candles[-1].low),
@@ -883,10 +952,7 @@ class QQQLiveTrader:
                 }
                 # 用最后一根K线的时间算美东分钟数
                 ts = today_candles[-1].timestamp
-                if hasattr(ts, 'astimezone'):
-                    et = ts.astimezone(TZ_ET)
-                else:
-                    et = datetime.now().astimezone(TZ_ET)
+                et = to_et(ts)
                 cur_min = et.hour * 60 + et.minute
                 print(f"  🔍 回放信号检测（美东{et.strftime('%H:%M')}）...")
                 
@@ -908,7 +974,7 @@ class QQQLiveTrader:
     def start(self):
         """启动交易系统"""
         self.running = True
-        print(f"🚀 QQQ 0DTE v6.3 动态过滤策略启动")
+        print(f"🚀 QQQ 0DTE v6.4 动态过滤策略启动")
         print(f"📊 市场状态自适应: 趋势(顺势)/中性(标准)/震荡(快进快出)")
         print(f"💰 资金: 实时查询 | 下单: {self.cfg['order_pct']}%资金/笔")
         print(f"📈 标的: {self.cfg['symbol']}")
@@ -940,18 +1006,19 @@ class QQQLiveTrader:
         # 主循环 - 每20秒检测一次
         last_order_sync = 0
 
-        # ⚠️ 启动时先保存昨天未写入的记录（进程被kill -9不会调stop()）
-        try:
-            self._save_pending_records()
-        except Exception as e:
-            print(f"⚠️ 保存历史记录失败: {e}")
-
-        # 启动立即同步一次长桥订单（覆盖为今天的）
+        # 启动立即同步一次长桥订单（覆盖为最新broker数据）
+        # 必须先同步，再补写records；否则会用旧 longbridge_orders.json 生成不完整记录。
         try:
             self._sync_longbridge_orders()
             print(f"📤 启动同步长桥订单完成")
         except Exception as e:
             print(f"⚠️ 启动同步订单失败: {e}")
+
+        # ⚠️ 启动时用最新broker数据保存未写入/不完整的记录（进程被kill -9不会调stop()）
+        try:
+            self._save_pending_records()
+        except Exception as e:
+            print(f"⚠️ 保存历史记录失败: {e}")
         try:
             while self.running:
                 # 配置热重载（检测 settings.json 变化）
@@ -991,10 +1058,11 @@ class QQQLiveTrader:
         if not self.running:
             return
 
-        now = datetime.now()
+        now = now_et()
+        candle_time = to_et(getattr(cs, 'timestamp', None) or getattr(candle, 'timestamp', None) or now)
 
         # 日初重置（检测新交易日，用美东时间）
-        today_str = now.astimezone(TZ_ET).strftime('%Y-%m-%d')
+        today_str = now.strftime('%Y-%m-%d')
         if self.current_date != today_str:
             if self.current_date is not None:
                 print(f"\n📅 新交易日: {today_str} | 重置日内状态")
@@ -1019,7 +1087,7 @@ class QQQLiveTrader:
 
         # 解析1分钟K线
         bar = {
-            'time': now,
+            'time': candle_time,
             'open': float(cs.open),
             'high': float(cs.high),
             'low': float(cs.low),
@@ -1072,7 +1140,7 @@ class QQQLiveTrader:
         d = "🟢" if one_min['dir'] > 0 else "🔴"
         sma = np.mean(self.close_history[-20:]) if len(self.close_history) >= 20 else 0
         sma_str = f" SMA20:{sma:.2f}" if sma > 0 else ""
-        print(f"  {d} 1min {now.strftime('%H:%M')} "
+        print(f"  {d} 1min {one_min['time'].strftime('%H:%M')} "
               f"O:{one_min['open']:.2f} H:{one_min['high']:.2f} "
               f"L:{one_min['low']:.2f} C:{one_min['close']:.2f} "
               f"Vol:{one_min['volume']:,}{sma_str}")
@@ -1080,7 +1148,7 @@ class QQQLiveTrader:
         # ===== 每根1分钟K线都检测信号 =====
         if len(self.one_min_candles) >= self.cfg['lookback'] + 1:
             # 时间转换：长桥返回HKT(UTC+8)，需转美东(UTC-4夏令时)
-            et_now = now.astimezone(TZ_ET)
+            et_now = one_min['time']
             cur_min_et = et_now.hour * 60 + et_now.minute
 
             # 直接用1分钟K线检测
@@ -1096,18 +1164,17 @@ class QQQLiveTrader:
             return
         if self.position:
             return
-        # 双重检查：查长桥实际持仓
+        # 仅提示长桥手动/外部持仓，不阻止机器人开新仓；机器人只受 self.position 防重入约束。
         try:
-            if self._check_longbridge_position() > 0:
-                return
-        except:
-            return
+            self._check_longbridge_position()
+        except Exception as e:
+            print(f"  ⚠️ 检查长桥持仓失败（不阻止开仓）: {e}")
         # v6.3: 取消每日交易次数限制
 
-        now = datetime.now()
+        now = now_et()
 
         # 时间转换：HKT → ET
-        et_now = now.astimezone(TZ_ET)
+        et_now = now
         cur_min_et = et_now.hour * 60 + et_now.minute
 
         # 检查时间窗口
@@ -1140,6 +1207,7 @@ class QQQLiveTrader:
             'volume': prev_bar['volume'],
             'dir': 1 if current_price >= prev_bar['close'] else -1,
             'body_pct': abs(current_price - prev_bar['close']) / prev_bar['close'] * 100,
+            'is_realtime': True,
         }
 
         # 更新当日高低点
@@ -1197,13 +1265,15 @@ class QQQLiveTrader:
             return
         if self.position:
             return
-        # 双重检查：查长桥实际持仓
+        # 仅提示长桥手动/外部持仓，不阻止机器人开新仓；机器人只受 self.position 防重入约束。
         try:
-            if self._check_longbridge_position() > 0:
-                return
-        except:
+            self._check_longbridge_position()
+        except Exception as e:
+            print(f"  ⚠️ 检查长桥持仓失败（不阻止开仓）: {e}")
+        if self.daily_signals >= self.cfg.get('max_trades', 8):
+            print(f"  ⛔ 今日交易次数已达上限({self.daily_signals}/{self.cfg.get('max_trades', 8)})，跳过开仓")
+            self._update_filters_current(bar)
             return
-        # v6.3: 取消每日交易次数限制
         if self.daily_pnl <= -self.actual_capital * self.cfg['daily_limit'] / 100:
             self._update_filters_current(bar)
             return
@@ -1228,8 +1298,96 @@ class QQQLiveTrader:
             return
 
         entry_price = bar['close']
+        vh = self.volume_history
+        vol_avg = np.mean(vh[-20:]) if len(vh) >= 20 else 0
+        cur_vol = bar['volume']
+        cur_body = abs(bar['close'] - bar['open']) / bar['open'] if bar['open'] else 0
 
-        # ===== v6.3 动态突破检测 =====
+        # ===== v6.4 高胜率回测突破入场（优先级高于动态过滤）=====
+        # 来自 backtest_v6.py 的高胜率口径：LB5 简单突破 + SMA20/量能/动量/实体。
+        # 只在趋势市启用，避免震荡盘反复假突破追单。
+        bt_lb = 5
+        if bar.get('is_realtime'):
+            pass  # 回测突破只用已完成1分钟K线，禁止20秒实时价抢跑。
+        elif regime == 'trending' and len(cs) >= bt_lb + 1:
+            bt_upper = max(c['high'] for c in cs[-bt_lb-1:-1])
+            bt_lower = min(c['low'] for c in cs[-bt_lb-1:-1])
+            bt_avg_vol = np.mean(self.volume_history[-bt_lb-1:-1]) if len(self.volume_history) >= bt_lb + 1 else 0
+            bt_sig_dir = None
+            bt_ref = None
+            if entry_price > bt_upper:
+                bt_sig_dir = 'call'
+                bt_ref = bt_upper
+            elif entry_price < bt_lower:
+                bt_sig_dir = 'put'
+                bt_ref = bt_lower
+
+            if bt_sig_dir:
+                recent_3 = cs[-3:] if len(cs) >= 3 else cs
+                same_dir_count = sum(
+                    1 for b in recent_3
+                    if ((b['close'] >= b['open']) if bt_sig_dir == 'call' else (b['close'] <= b['open']))
+                )
+                if same_dir_count < 2:
+                    print(f"  ⛔ 回测突破拒绝: 最近3根同向K线不足({same_dir_count}/2)")
+                    self._update_filters_current(bar)
+                    return
+                bt_gap = abs(cs[-1]['close'] - cs[-2]['close']) / cs[-2]['close'] if len(cs) >= 2 and cs[-2]['close'] > 0 else 0
+                bt_mom_ok = (bar['close'] >= bar['open']) if bt_sig_dir == 'call' else (bar['close'] <= bar['open'])
+                bt_vol_ok = cur_vol >= bt_avg_vol * self.cfg.get('vol_mult', 0.8) if bt_avg_vol > 0 else True
+                bt_body_ok = cur_body >= self.cfg.get('min_body', 0)
+                bt_sma20 = np.mean(self.close_history[-20:]) if len(self.close_history) >= 20 else None
+                bt_sma_ok = True
+                if bt_sma20 is not None:
+                    if bt_sig_dir == 'call' and entry_price < bt_sma20:
+                        bt_sma_ok = False
+                    if bt_sig_dir == 'put' and entry_price > bt_sma20:
+                        bt_sma_ok = False
+
+                if bt_gap <= self.cfg['max_gap'] and bt_mom_ok and bt_vol_ok and bt_body_ok and bt_sma_ok:
+                    # 回测的关键优势：高位趋势突破不直接拒绝做多。
+                    # 但做空仍保留低位追空保护，避免早盘V反时追put。
+                    bt_price_pos = 0.5
+                    if self.session_high > self.session_low:
+                        bt_price_pos = (entry_price - self.session_low) / (self.session_high - self.session_low)
+                    call_pos_limit = 0.98 if regime == 'trending' else 0.85
+                    if bt_sig_dir == 'call' and bt_price_pos > call_pos_limit:
+                        print(f"  ⛔ 回测突破做多拒绝: 价格${entry_price:.2f}在今日高位({bt_price_pos:.0%})，超过阈值{call_pos_limit:.0%}")
+                        self._update_filters_current(bar)
+                        return
+                    if bt_sig_dir == 'put' and bt_price_pos < 0.15:
+                        print(f"  ⛔ 回测突破做空拒绝: 价格${entry_price:.2f}在今日低位({bt_price_pos:.0%})，禁止追低")
+                        self._update_filters_current(bar)
+                        return
+                    if self.cooldown_remaining > 0 and self.last_loss_dir is not None:
+                        self.cooldown_remaining -= 1
+                        if bt_sig_dir == self.last_loss_dir:
+                            print(f"  ⏳ 冷却中({self.last_loss_dir}方向)，跳过回测突破信号，剩余{self.cooldown_remaining}次")
+                            self._update_filters_current(bar)
+                            return
+                        else:
+                            print(f"  ⏳ 冷却中但方向相反({bt_sig_dir}≠{self.last_loss_dir})，允许交易，冷却剩余{self.cooldown_remaining}次")
+                    direction = '做多' if bt_sig_dir == 'call' else '做空'
+                    sig = {
+                        'dir': bt_sig_dir,
+                        'reason': f'v6.4回测突破{bt_ref:.2f}{direction}(LB5)',
+                        'price': entry_price,
+                        'sl': entry_price * (1 - self.cfg['sl'] if bt_sig_dir == 'call' else 1 + self.cfg['sl']),
+                        'tp': entry_price * (1 + self.cfg['tp'] if bt_sig_dir == 'call' else 1 - self.cfg['tp']),
+                        'filters': [f'BT_LB5', 'SMA20✓', '量能✓', '动量✓', '实体✓'],
+                        'regime': 'backtest_breakout',
+                        'timeout_bars': regime_params.get('timeout_bars', 4),
+                        'pos_mult': regime_params.get('pos_mult', 0.4),
+                        'tp_partial_pct': regime_params.get('tp_partial_pct', 0.8),
+                        'sl_pct': regime_params.get('sl_pct', self.cfg['sl'] * 100),
+                    }
+                    self.daily_signals += 1
+                    print(f"  🎯 {direction}[backtest_breakout]突破@${entry_price:.2f} | LB5 ref={bt_ref:.2f}")
+                    self._add_event(f"🎯 {direction}回测突破@${entry_price:.2f} | LB5", "signal")
+                    self._execute_trade(sig)
+                    return
+
+        # ===== v6.4 动态突破检测 =====
         # 只用一个lookback（动态），不再双路径
         upper = max(c['high'] for c in cs[-lb-1:-1])
         lower = min(c['low'] for c in cs[-lb-1:-1])
@@ -1254,15 +1412,11 @@ class QQQLiveTrader:
             return
 
         # ===== 量能确认（动态阈值）=====
-        vh = self.volume_history
-        vol_avg = np.mean(vh[-20:]) if len(vh) >= 20 else 0
-        cur_vol = bar['volume']
         vol_ok = cur_vol >= vol_avg * regime_params['vol_mult'] if vol_avg > 0 else True
         if not vol_ok:
             return
 
         # ===== 实体确认（动态阈值）====
-        cur_body = abs(bar['close'] - bar['open']) / bar['open'] if bar['open'] else 0
         body_ok = cur_body >= regime_params['min_body']
         if not body_ok:
             return
@@ -1270,8 +1424,11 @@ class QQQLiveTrader:
         # ===== 价格位置过滤：禁止追高做多/追低做空 =====
         if self.session_high > self.session_low:
             price_pos = (entry_price - self.session_low) / (self.session_high - self.session_low)
-            if sig_dir == 'call' and price_pos > 0.85:
-                print(f"  ⛔ 做多拒绝: 价格${entry_price:.2f}在今日高位({price_pos:.0%})，禁止追高")
+            # 趋势市放宽做多高位限制：单边上涨日不能因为处在日内高位就完全错过 call。
+            # 非趋势市保持原 85% 禁追高；趋势市仅在极端贴近日高时拒绝。
+            call_pos_limit = 0.98 if regime == 'trending' else 0.85
+            if sig_dir == 'call' and price_pos > call_pos_limit:
+                print(f"  ⛔ 做多拒绝: 价格${entry_price:.2f}在今日高位({price_pos:.0%})，超过阈值{call_pos_limit:.0%}")
                 return
             if sig_dir == 'put' and price_pos < 0.15:
                 print(f"  ⛔ 做空拒绝: 价格${entry_price:.2f}在今日低位({price_pos:.0%})，禁止追低")
@@ -1307,7 +1464,8 @@ class QQQLiveTrader:
             return
 
         # ===== 核心过滤状态（供Web显示）=====
-        core_ok, core_filters = self.engine.check_filters(sig_dir, entry_price, bar, vol_avg)
+        regime_vol_avg = vol_avg * regime_params['vol_mult'] / self.cfg.get('vol_mult', 0.8) if self.cfg.get('vol_mult', 0.8) else vol_avg
+        core_ok, core_filters = self.engine.check_filters(sig_dir, entry_price, bar, regime_vol_avg)
 
         direction = '做多' if sig_dir == 'call' else '做空'
         mode_tag = f'{regime}({lb}根)'
@@ -1391,13 +1549,14 @@ class QQQLiveTrader:
             return
         if self.position:
             return
-        # 双重检查：查长桥实际持仓
+        # 仅提示长桥手动/外部持仓，不阻止机器人开新仓；机器人只受 self.position 防重入约束。
         try:
-            if self._check_longbridge_position() > 0:
-                return
-        except:
+            self._check_longbridge_position()
+        except Exception as e:
+            print(f"  ⚠️ 检查长桥持仓失败（不阻止开仓）: {e}")
+        if self.daily_signals >= self.cfg.get('max_trades', 8):
+            print(f"  ⛔ 今日交易次数已达上限({self.daily_signals}/{self.cfg.get('max_trades', 8)})，跳过反转开仓")
             return
-        # v6.3: 取消每日交易次数限制
         if self.daily_pnl <= -self.actual_capital * self.cfg['daily_limit'] / 100:
             return
         if self.reversal_fired:  # 每天只抓一次反转
@@ -1409,6 +1568,22 @@ class QQQLiveTrader:
 
         prev = cs[-2] if len(cs) >= 2 else cs[-1]  # 前一根K线（用于确认反弹，不是当前K线）
         entry = bar['close']
+
+        # 趋势/均线/动量上下文：用于避免在强趋势里盲目摸顶摸底。
+        regime_params = self.engine.get_regime_params()
+        regime = regime_params.get('regime')
+        ch = self.close_history
+        sma20 = np.mean(ch[-20:]) if len(ch) >= 20 else None
+        sma20_prev = np.mean(ch[-21:-1]) if len(ch) >= 21 else None
+        sma20_rising = sma20 is not None and sma20_prev is not None and sma20 > sma20_prev
+        vwap = getattr(self.engine, 'vwap', 0.0)
+        macd_hist = getattr(self.engine, 'macd_hist', 0.0)
+        strong_uptrend = (
+            regime == 'trending'
+            and vwap > 0 and entry > vwap
+            and sma20_rising
+            and macd_hist > 0
+        )
 
         # ===== 超跌反弹（做多） =====
         if self.session_high > 0:
@@ -1443,9 +1618,19 @@ class QQQLiveTrader:
         if self.session_low < 999999:
             rise_from_low = (entry - self.session_low) / self.session_low
             if rise_from_low >= self.cfg['reversal_drop']:
+                # v6.4: 早盘先跌后拉时，不急着做“超涨回调”put，避免错杀V型反弹。
+                if cur_min_et < 10 * 60:
+                    return
                 # 确认回调：前一根K线收阴 + 实体足够大（用cs[-2]不是bar）
                 drop_body = abs(prev['close'] - prev['open']) / prev['open'] if prev['open'] else 0
                 if prev['close'] <= prev['open'] and drop_body >= self.cfg['reversal_bounce']:
+                    # 强上涨趋势中禁用超涨回调 put，避免单边上涨日逆势摸顶。
+                    if strong_uptrend:
+                        print(
+                            f"  ⛔ 超涨回调做空拒绝: 强上涨趋势 "
+                            f"(regime={regime}, price>${vwap:.2f}VWAP, SMA20↑, MACD={macd_hist:+.3f})"
+                        )
+                        return
                     sig = {
                         'dir': 'put',
                         'reason': f'超涨回调|从{self.session_low:.2f}涨{rise_from_low*100:.1f}%',
@@ -1478,7 +1663,7 @@ class QQQLiveTrader:
                 self._lb_pos_cache_time = now
                 return 0
             
-            today_str = datetime.now(TZ_ET).strftime('%y%m%d')  # 今日到期日
+            today_str = now_et().strftime('%y%m%d')  # 今日到期日
             total_contracts = 0
             for channel in stock_positions.channels:
                 if not hasattr(channel, 'positions'):
@@ -1511,15 +1696,14 @@ class QQQLiveTrader:
 
     def _execute_trade_inner(self, sig):
         """执行期权交易（内部实现）"""
-        # ===== 开仓前检查：已有持仓禁止重复开仓 =====
-        try:
-            existing = self._check_longbridge_position()
-            if existing > 0:
-                print(f"  ⛔ 已有持仓 {existing}张，禁止重复开仓")
-                return
-        except Exception as e:
-            print(f"  ⚠️ 检查持仓失败: {e}，跳过本次开仓")
+        # ===== 开仓前检查：只禁止机器人内部重复开仓；长桥手动/外部持仓不阻止 =====
+        if self.position:
+            print(f"  ⛔ 机器人已有内部持仓，禁止重复开仓")
             return
+        try:
+            self._check_longbridge_position()
+        except Exception as e:
+            print(f"  ⚠️ 检查长桥持仓失败（不阻止开仓）: {e}")
 
         price = Decimal(str(sig['price']))  # 正股入场价
 
@@ -1549,19 +1733,41 @@ class QQQLiveTrader:
         # ===== 生成期权合约代码 =====
         opt_symbol = get_option_symbol(float(price), sig['dir'], self.cfg['option_offset'])
 
-        # ===== 获取期权当前价格 =====
-        opt_price = None
+        # ===== 获取期权当前价格/盘口，并计算买入限价 =====
+        opt_price = None       # 用于仓位估算的参考价
+        limit_price = None     # 实际提交的买入限价
         try:
             opt_quotes = self.quote_ctx.quote([opt_symbol])
-            if opt_quotes and hasattr(opt_quotes[0], 'last_done') and opt_quotes[0].last_done > 0:
-                opt_price = float(opt_quotes[0].last_done)
-                print(f"  📊 期权价格: ${opt_price:.2f}")
+            if opt_quotes:
+                q = opt_quotes[0]
+                last = float(getattr(q, 'last_done', 0) or 0)
+                bid = float(getattr(q, 'bid', 0) or getattr(q, 'bid_price', 0) or 0)
+                ask = float(getattr(q, 'ask', 0) or getattr(q, 'ask_price', 0) or 0)
+
+                if bid > 0 and ask > 0:
+                    mid = (bid + ask) / 2
+                    # 买入限价：优先不追高；最多给 mid 上浮3%，但不超过 ask。
+                    limit_price = min(ask, mid * 1.03)
+                    opt_price = limit_price
+                    print(f"  📊 期权盘口: bid=${bid:.2f} ask=${ask:.2f} mid=${mid:.2f} → 限价=${limit_price:.2f}")
+                elif ask > 0:
+                    # 只有卖一时，按 ask 下单，但仍是限价，避免市价扫单失控。
+                    limit_price = ask
+                    opt_price = ask
+                    print(f"  📊 期权卖一: ask=${ask:.2f} → 限价=${limit_price:.2f}")
+                elif last > 0:
+                    # 没有盘口时，用最新成交价上浮2%作为保护限价。
+                    limit_price = last * 1.02
+                    opt_price = last
+                    print(f"  📊 期权最新成交: last=${last:.2f} → 保护限价=${limit_price:.2f}")
         except Exception as e:
             print(f"  ⚠️ 获取期权价格失败: {e}")
 
-        if opt_price is None or opt_price <= 0:
-            print(f"  ⛔ 无法获取期权价格，放弃下单")
+        if opt_price is None or opt_price <= 0 or limit_price is None or limit_price <= 0:
+            print(f"  ⛔ 无法获取有效期权报价，放弃下单")
             return
+
+        limit_price = round(limit_price + 1e-9, 2)
 
         # ===== 按资金百分比计算张数（动态仓位倍数）=====
         pos_mult = sig.get('pos_mult', 1.0)  # 震荡市0.5，趋势市1.0
@@ -1575,17 +1781,18 @@ class QQQLiveTrader:
         try:
             resp = self.trade_ctx.submit_order(
                 symbol=opt_symbol,
-                order_type=OrderType.MO,
+                order_type=OrderType.LO,
                 side=side,
                 submitted_quantity=Decimal(str(contracts)),  # 下单张数
+                submitted_price=Decimal(str(limit_price)),   # 买入保护限价
                 time_in_force=TimeInForceType.Day,
                 outside_rth=OutsideRTH.AnyTime,
-                remark=f"v6_opt_{sig['dir']}",
+                remark=f"v6_opt_{sig['dir']}_limit",
             )
 
             order_id = resp.order_id
             print(f"  📋 订单已提交: {order_id}")
-            print(f"  📊 期权: {opt_symbol} | 张数: {contracts} | 方向: {sig['dir']}")
+            print(f"  📊 期权: {opt_symbol} | 张数: {contracts} | 方向: {sig['dir']} | 限价: ${limit_price:.2f}")
             
             # ===== 记录所有提交的订单（用于追踪）=====
             self._log_order(order_id, opt_symbol, sig['dir'], contracts, 'submitted')
@@ -1703,7 +1910,7 @@ class QQQLiveTrader:
                 'tp_pct': self.cfg['tp'],           # 止盈百分比（旧逻辑保留）
                 'contracts': contracts,             # 张数
                 'quantity': qty,                    # 总股数
-                'entry_time': datetime.now(),
+                'entry_time': now_et(),
                 'entry_bar': len(self.one_min_candles),
                 'reason': sig['reason'],
                 'max_pnl_pct': 0,
@@ -1769,10 +1976,10 @@ class QQQLiveTrader:
         try:
             log_dir = os.path.join(_app_dir(), 'logs')
             os.makedirs(log_dir, exist_ok=True)
-            today = datetime.now().strftime('%Y-%m-%d')
+            today = now_et().strftime('%Y-%m-%d')
             log_file = os.path.join(log_dir, f'orders_{today}.log')
             
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            timestamp = now_et().strftime('%Y-%m-%d %H:%M:%S')
             log_entry = f"{timestamp} | {order_id} | {opt_symbol} | {direction} | {contracts}张 | {status}"
             if executed_qty > 0:
                 log_entry += f" | 成交:{executed_qty}张 @{executed_price}"
@@ -1870,7 +2077,7 @@ class QQQLiveTrader:
                             'tp_pct': self.cfg['tp'],
                             'contracts': qty,
                             'quantity': qty * self.cfg['contract_multiplier'],
-                            'entry_time': datetime.now(),
+                            'entry_time': now_et(),
                             'entry_bar': len(self.one_min_candles),
                             'reason': '长桥持仓同步',
                             'max_pnl_pct': pnl_pct,
@@ -1887,22 +2094,20 @@ class QQQLiveTrader:
     def _check_position(self):
         """检查持仓状态（每20秒调用）"""
         # ===== 0DTE 强制收盘平仓（16:00 ET）=====
-        now_et = datetime.now(TZ_ET)
-        if now_et.hour >= 16 and now_et.minute >= 0:
+        et_now = now_et()
+        if et_now.hour >= 16 and et_now.minute >= 0:
+            archive_date = self.current_date or et_now.strftime('%Y-%m-%d')
             if self.position:
                 self._close_position("⏰ 16:00 ET 强制收盘平仓")
+            self._archive_today_csv(archive_date)
             return
 
-        # 如果没有内部持仓，尝试从长桥同步
+        # 如果没有内部持仓，不再自动接管长桥持仓。
+        # 长桥持仓可能是用户手动买入；机器人只能管理自己下单形成的内部持仓，避免误卖手动仓位。
         if not self.position:
-            self._sync_position_from_longbridge()
-            if not self.position:
-                # 即使没有持仓，也要检查长桥是否有持仓（防止手动平仓后系统不知道）
-                # 使用缓存避免API限频
-                lb_count = self._check_longbridge_position()
-                if lb_count == 0:
-                    self.position = None
-                return
+            # 仍可检查长桥持仓用于日志/防重复，但绝不写入 self.position。
+            self._check_longbridge_position()
+            return
 
         pos = self.position
         entry_stock = pos['entry_price']  # 正股入场价
@@ -1937,9 +2142,9 @@ class QQQLiveTrader:
                 from scipy.stats import norm
                 import numpy as np
                 # 用实际剩余交易时间（美东9:30-16:00 = 6.5小时）
-                now_et = datetime.now(TZ_ET)
-                close_et = now_et.replace(hour=16, minute=0, second=0, microsecond=0)
-                remaining_seconds = max((close_et - now_et).total_seconds(), 60)
+                et_now = now_et()
+                close_et = et_now.replace(hour=16, minute=0, second=0, microsecond=0)
+                remaining_seconds = max((close_et - et_now).total_seconds(), 60)
                 T = remaining_seconds / (6.5 * 3600 * 252)  # 年化剩余时间
                 r = 0.05
                 sigma = 0.25  # 隐含波动率估算
@@ -2002,9 +2207,12 @@ class QQQLiveTrader:
             elif bars_held >= s1_bars and pnl_pct < s1_min:
                 ex = f"阶段超时({s1_bars}min盈利{pnl_pct:.1f}%<{s1_min:.0f}%)"
 
-        # --- 3. 动态止盈：盈利≥150%平仓一半 ---
+        # --- 3. 动态止盈：达到阈值先落袋；多张平一半，1张直接全平 ---
         if not ex and not pos['half_closed'] and pnl_pct >= tp_partial:
-            self._close_partial(f"盈利{tp_partial:.0f}%平仓一半")
+            if pos.get('contracts', 0) <= 1:
+                self._close_position(f"盈利{tp_partial:.0f}%触发止盈(1张直接全平)")
+            else:
+                self._close_partial(f"盈利{tp_partial:.0f}%平仓一半")
             return
 
         # --- 4. 半仓后：正股跟踪止损（替代期权峰值回撤，更稳定）---
@@ -2108,6 +2316,28 @@ class QQQLiveTrader:
         except Exception as e:
             print(f"  ⚠️ 持仓同步验证失败: {e}")
 
+
+    def _get_sell_limit_price(self, opt_symbol):
+        """获取期权卖出保护限价。优先按 bid 卖；无 bid 时用 last 下浮2%；完全无报价才返回 None。"""
+        try:
+            opt_quotes = self.quote_ctx.quote([opt_symbol])
+            if opt_quotes:
+                q = opt_quotes[0]
+                last = float(getattr(q, 'last_done', 0) or 0)
+                bid = float(getattr(q, 'bid', 0) or getattr(q, 'bid_price', 0) or 0)
+                ask = float(getattr(q, 'ask', 0) or getattr(q, 'ask_price', 0) or 0)
+                if bid > 0:
+                    limit_price = bid
+                    print(f"  📊 平仓盘口: bid=${bid:.2f} ask=${ask:.2f} last=${last:.2f} → 卖出限价=${limit_price:.2f}")
+                    return round(limit_price + 1e-9, 2)
+                if last > 0:
+                    limit_price = last * 0.98
+                    print(f"  📊 平仓无bid: last=${last:.2f} → 保护限价=${limit_price:.2f}")
+                    return round(limit_price + 1e-9, 2)
+        except Exception as e:
+            print(f"  ⚠️ 获取平仓限价失败: {e}")
+        return None
+
     def _close_partial(self, reason):
         """平仓一半仓位（动态止盈用）"""
         pos = self.position
@@ -2121,15 +2351,30 @@ class QQQLiveTrader:
         side = OrderSide.Sell  # 卖出平仓
 
         try:
-            resp = self.trade_ctx.submit_order(
-                symbol=pos['opt_symbol'],
-                order_type=OrderType.MO,
-                side=side,
-                submitted_quantity=Decimal(str(half)),
-                time_in_force=TimeInForceType.Day,
-                outside_rth=OutsideRTH.AnyTime,
-                remark=f"v6_partial_close",
-            )
+            limit_price = self._get_sell_limit_price(pos['opt_symbol'])
+            if limit_price:
+                resp = self.trade_ctx.submit_order(
+                    symbol=pos['opt_symbol'],
+                    order_type=OrderType.LO,
+                    side=side,
+                    submitted_quantity=Decimal(str(half)),
+                    submitted_price=Decimal(str(limit_price)),
+                    time_in_force=TimeInForceType.Day,
+                    outside_rth=OutsideRTH.AnyTime,
+                    remark=f"v6_partial_close_limit",
+                )
+                print(f"  📋 半仓限价平仓已提交: {half}张 @ ${limit_price:.2f}")
+            else:
+                resp = self.trade_ctx.submit_order(
+                    symbol=pos['opt_symbol'],
+                    order_type=OrderType.MO,
+                    side=side,
+                    submitted_quantity=Decimal(str(half)),
+                    time_in_force=TimeInForceType.Day,
+                    outside_rth=OutsideRTH.AnyTime,
+                    remark=f"v6_partial_close_market_fallback",
+                )
+                print(f"  ⚠️ 无有效盘口，半仓使用市价兜底")
 
             # 获取平仓时的期权价格
             try:
@@ -2205,15 +2450,30 @@ class QQQLiveTrader:
         side = OrderSide.Sell  # 卖出平仓（不管Call还是Put，都是Sell平仓）
 
         try:
-            resp = self.trade_ctx.submit_order(
-                symbol=pos['opt_symbol'],  # 使用期权代码平仓
-                order_type=OrderType.MO,
-                side=side,
-                submitted_quantity=Decimal(str(pos['contracts'])),  # 平几张
-                time_in_force=TimeInForceType.Day,
-                outside_rth=OutsideRTH.AnyTime,
-                remark=f"v6_opt_close",
-            )
+            limit_price = self._get_sell_limit_price(pos['opt_symbol'])
+            if limit_price:
+                resp = self.trade_ctx.submit_order(
+                    symbol=pos['opt_symbol'],  # 使用期权代码平仓
+                    order_type=OrderType.LO,
+                    side=side,
+                    submitted_quantity=Decimal(str(pos['contracts'])),  # 平几张
+                    submitted_price=Decimal(str(limit_price)),
+                    time_in_force=TimeInForceType.Day,
+                    outside_rth=OutsideRTH.AnyTime,
+                    remark=f"v6_opt_close_limit",
+                )
+                print(f"  📋 限价平仓已提交: {pos['contracts']}张 @ ${limit_price:.2f}")
+            else:
+                resp = self.trade_ctx.submit_order(
+                    symbol=pos['opt_symbol'],  # 使用期权代码平仓
+                    order_type=OrderType.MO,
+                    side=side,
+                    submitted_quantity=Decimal(str(pos['contracts'])),  # 平几张
+                    time_in_force=TimeInForceType.Day,
+                    outside_rth=OutsideRTH.AnyTime,
+                    remark=f"v6_opt_close_market_fallback",
+                )
+                print(f"  ⚠️ 无有效盘口，使用市价平仓兜底")
 
             order_id = resp.order_id
             print(f"  📋 平仓订单已提交: {order_id}")
@@ -2328,7 +2588,7 @@ class QQQLiveTrader:
             # 标记盈亏
             pos['win'] = pnl_pct > 0
             pos['exit_opt_price'] = exit_opt
-            pos['exit_time'] = datetime.now()
+            pos['exit_time'] = now_et()
             pos['pnl_pct'] = pnl_pct
             pos['pnl_usd'] = pnl_usd
             pos['exit_reason'] = reason
@@ -2367,8 +2627,10 @@ class QQQLiveTrader:
             if pnl_pct < 0:
                 self.consecutive_losses += 1
                 self.last_loss_dir = pos['dir']  # 记录亏损方向，冷却期间允许反向
+                self.cooldown_remaining = max(self.cooldown_remaining, 1)
+                print(f"  ⏳ 止损后冷却至少1次有效信号（{self.last_loss_dir}方向）")
                 if self.consecutive_losses >= 2:
-                    self.cooldown_remaining = self.cfg['loss_cooldown']
+                    self.cooldown_remaining = max(self.cooldown_remaining, self.cfg['loss_cooldown'])
                     print(f"  ⏳ 连续亏损{self.consecutive_losses}次，冷却{self.cooldown_remaining}次检测（{self.last_loss_dir}方向）")
             else:
                 self.consecutive_losses = 0
@@ -2398,7 +2660,7 @@ class QQQLiveTrader:
                 log_path = os.path.join(_app_dir(), 'logs', 'trade_log.txt')
                 os.makedirs(os.path.dirname(log_path), exist_ok=True)
                 with open(log_path, 'a', encoding='utf-8') as f:
-                    f.write(f'[{datetime.now():%H:%M}] {msg}\n')
+                    f.write(f'[{now_et():%H:%M}] {msg}\n')
                 return
 
             # 获取 token
@@ -2438,7 +2700,7 @@ class QQQLiveTrader:
             log_path = os.path.join(_app_dir(), 'logs', 'trade_log.txt')
             os.makedirs(os.path.dirname(log_path), exist_ok=True)
             with open(log_path, 'a', encoding='utf-8') as f:
-                f.write(f'[{datetime.now():%H:%M}] {msg}\n')
+                f.write(f'[{now_et():%H:%M}] {msg}\n')
 
     def _sync_gist(self):
         """实时同步交易记录到Gist（供小程序读取）"""
@@ -2459,7 +2721,7 @@ class QQQLiveTrader:
         print("\n" + "=" * 60)
         print("📊 今日交易总结")
         print("=" * 60)
-        print(f"  策略版本: v6.3动态市场状态(trending/neutral/choppy) | 09:35-15:50美东")
+        print(f"  策略版本: v6.4动态市场状态 + 高胜率回测突破入场 | 09:50-14:00美东")
         print(f"  交易次数: {total} (做多: {sum(1 for t in self.trades_today if t.get('dir')=='call')}, "
               f"做空: {sum(1 for t in self.trades_today if t.get('dir')=='put')})")
         print(f"  胜率: {wins}/{total} ({wins/total*100:.0f}%)" if total > 0 else "  胜率: N/A")
@@ -2503,11 +2765,18 @@ class QQQLiveTrader:
                     'total': len(orders),
                     'buy_count': sum(1 for o in orders if o['side'] == '买入'),
                     'sell_count': sum(1 for o in orders if o['side'] == '卖出'),
-                    'updated': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'updated': now_et().strftime('%Y-%m-%d %H:%M:%S'),
                 }, f, ensure_ascii=False, indent=2, default=_json_default)
             os.replace(tmp_path, filepath)  # 原子替换
             
             print(f"  📤 长桥订单已同步: {len(orders)}笔 (买入:{sum(1 for o in orders if o['side']=='买入')}, 卖出:{sum(1 for o in orders if o['side']=='卖出')})")
+            
+            # 同步到最新broker订单后，若records缺失或不完整，立即用broker数据重建。
+            # 这里不调用 _save_daily_records，避免再次触发订单同步递归。
+            try:
+                self._save_pending_records()
+            except Exception as e:
+                print(f"  ⚠️ 同步后补写records失败: {e}")
             
         except Exception as e:
             import traceback
@@ -2518,7 +2787,7 @@ class QQQLiveTrader:
         """计算broker数据中可配对的交易数（只有买有卖的才算）"""
         from collections import defaultdict
         orders = lb_data.get('orders', [])
-        filled = [o for o in orders if o.get('status') == 'Filled']
+        filled = [o for o in orders if o.get('status') == 'Filled' and str(o.get('symbol', '')).startswith('QQQ')]
         symbol_data = defaultdict(lambda: {'buys': 0, 'sells': 0})
         for o in filled:
             sym = o['symbol']
@@ -2545,11 +2814,11 @@ class QQQLiveTrader:
             return
 
         orders = lb_data.get('orders', [])
-        filled = [o for o in orders if o.get('status') == 'Filled']
+        filled = [o for o in orders if o.get('status') == 'Filled' and str(o.get('symbol', '')).startswith('QQQ')]
         if not filled:
             return
 
-        # 从期权代码推断交易日期（到期日=交易日，0DTE）
+        # 从QQQ 0DTE期权代码推断交易日期（到期日=美东交易日）
         from collections import Counter
         dates = []
         for o in filled:
@@ -2567,7 +2836,7 @@ class QQQLiveTrader:
             return
 
         most_common_date = Counter(dates).most_common(1)[0][0]
-        today_et = datetime.now(TZ_ET).strftime('%Y-%m-%d')
+        today_et = now_et().strftime('%Y-%m-%d')
 
         # 如果broker数据的日期是今天或更新，说明是当前交易日，不用保存
         if most_common_date > today_et:
@@ -2577,15 +2846,12 @@ class QQQLiveTrader:
             # 但如果records文件不存在，可能是被kill后重启，需要保存
             pass
 
-        # 0DTE期权到期日=美东交易日，records文件用北京时间（+1天）
-        # 例如: 到期日2026-04-29(ET) → records/2026-04-30.json(北京)
-        from datetime import timedelta
-        et_date = datetime.strptime(most_common_date, '%Y-%m-%d')
-        beijing_date = (et_date + timedelta(days=1)).strftime('%Y-%m-%d')
+        # records文件统一使用美东交易日，避免同一笔0DTE交易同时落到 2026-05-26 / 2026-05-27 两套口径。
+        record_date = most_common_date
 
         # 检查是否已经有该日期的records文件
         records_dir = os.path.join(script_dir, 'records')
-        record_file = os.path.join(records_dir, f'{beijing_date}.json')
+        record_file = os.path.join(records_dir, f'{record_date}.json')
 
         # 先用broker数据计算期望的交易数
         expected_trades = self._count_broker_trades(lb_data)
@@ -2597,15 +2863,15 @@ class QQQLiveTrader:
                 # 如果已有文件且交易数>=broker对账数，跳过（已完整保存）
                 existing_count = len(existing.get('trades', []))
                 if existing_count >= expected_trades:
-                    print(f"📋 {beijing_date}记录已存在({existing_count}笔,期望{expected_trades}笔)，跳过")
+                    print(f"📋 {record_date}记录已存在({existing_count}笔,期望{expected_trades}笔)，跳过")
                     return
                 else:
-                    print(f"⚠️ {beijing_date}记录不完整({existing_count}/{expected_trades}笔)，将用broker数据覆盖")
+                    print(f"⚠️ {record_date}记录不完整({existing_count}/{expected_trades}笔)，将用broker数据覆盖")
             except:
                 pass
-        print(f"🔄 发现未保存的{most_common_date}(ET)/{beijing_date}(BJ)交易记录，正在对账...")
+        print(f"🔄 发现未保存/不完整的{most_common_date}(ET)交易记录，正在对账...")
         # 用对账逻辑重建并保存
-        self._reconcile_and_save(lb_data, beijing_date)
+        self._reconcile_and_save(lb_data, record_date)
 
     def _reconcile_and_save(self, lb_data, trade_date):
         """从broker数据对账并保存到指定日期的records文件"""
@@ -2614,7 +2880,7 @@ class QQQLiveTrader:
         TZ_ET = ZoneInfo("America/New_York")
 
         orders = lb_data.get('orders', [])
-        filled = [o for o in orders if o.get('status') == 'Filled']
+        filled = [o for o in orders if o.get('status') == 'Filled' and str(o.get('symbol', '')).startswith('QQQ')]
 
         symbol_data = defaultdict(lambda: {'buys': [], 'sells': []})
         for o in filled:
@@ -2743,8 +3009,8 @@ class QQQLiveTrader:
                 symbol_data[sym]['sells'].append({'qty': qty, 'price': price})
 
         # 获取美东时间的今天日期
-        today_et = datetime.now(TZ_ET).strftime('%Y-%m-%d')
-        beijing_now = datetime.now()
+        today_et = now_et().strftime('%Y-%m-%d')
+        beijing_now = now_et()
 
         reconciled = []
         for sym in sorted(symbol_data.keys()):
@@ -2862,7 +3128,7 @@ class QQQLiveTrader:
                     time_str = str(entry_time)[:5]
                 pnl = t.get('pnl_pct', t.get('max_pnl_pct', 0))
                 all_trades.append({
-                    'date': datetime.now(TZ_ET).strftime('%Y-%m-%d'),
+                    'date': now_et().strftime('%Y-%m-%d'),
                     'time': time_str,
                     'dir': t.get('dir', ''),
                     'entry_price': t.get('entry_price', 0),
@@ -2885,7 +3151,7 @@ class QQQLiveTrader:
 
         try:
             # 用北京时间作为日期（与历史records文件命名一致）
-            today = datetime.now().strftime('%Y-%m-%d')
+            today = now_et().strftime('%Y-%m-%d')
             script_dir = str(_app_dir())
             records_dir = os.path.join(script_dir, 'records')
             os.makedirs(records_dir, exist_ok=True)

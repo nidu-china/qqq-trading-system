@@ -13,16 +13,16 @@
     "min_body": 0.0003,
     "max_gap": 0.002,
     "pullback_confirm": false,
-    "reversal_drop": 0.002,
+    "reversal_drop": 0.008,
     "reversal_bounce": 0.001
   },
   "risk": {
     "capital": 100000,
-    "order_pct": 5,
+    "order_pct": 10,
     "sl": 0.25,
     "tp": 0.3,
     "daily_limit": 25,
-    "max_trades": 10,
+    "max_trades": 8,
     "contract_multiplier": 100,
     "option_offset": 2.0,
     "tp_partial_pct": 1.0,
@@ -37,8 +37,8 @@
     "timeout_stage3_bars": 15
   },
   "trading": {
-    "start_time": "09:35",
-    "end_time": "15:30",
+    "start_time": "09:40",
+    "end_time": "14:00",
     "check_interval": 20,
     "post_open_cooldown": 15,
     "loss_cooldown": 3

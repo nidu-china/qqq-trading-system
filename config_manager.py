@@ -40,7 +40,7 @@ DEFAULT_CONFIG = {
         "max_gap": 0.002,           # 最大跳空 0.20%
         "pullback_confirm": False,   # 是否需要回踩确认
         # 衰竭反转
-        "reversal_drop": 0.002,     # 高点跌幅阈值
+        "reversal_drop": 0.008,     # 高点跌幅阈值
         "reversal_bounce": 0.001,   # 反弹实体阈值
     },
 
@@ -51,7 +51,7 @@ DEFAULT_CONFIG = {
         "sl": 0.25,                 # 止损 25%
         "tp": 0.30,                 # 止盈 30%（旧逻辑兼容）
         "daily_limit": 25,          # 日亏损熔断百分比
-        "max_trades": 999,          # 日最大交易次数
+        "max_trades": 8,            # 日最大交易次数
         "contract_multiplier": 100, # 每张期权对应股数
         "option_offset": 2.0,       # 期权行权价偏移($2)
         # 动态止盈
@@ -71,8 +71,8 @@ DEFAULT_CONFIG = {
 
     # ---- 交易窗口 ----
     "trading": {
-        "start_time": "09:35",      # 允许入场开始（美东）
-        "end_time": "15:50",        # 允许入场结束（美东）
+        "start_time": "09:40",      # 允许入场开始（美东）
+        "end_time": "14:00",        # 允许入场结束（美东，长桥14:00后可能拒单）
         "check_interval": 20,       # 检测间隔（秒）
         "post_open_cooldown": 15,   # 开盘冷却（分钟）
         "loss_cooldown": 3,         # 连续亏损后冷却次数
