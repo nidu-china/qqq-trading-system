@@ -1,0 +1,51 @@
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    environment:
+      MYSQL_DATABASE: qqq
+      MYSQL_USER: qqq
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change-me}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root-change-me}
+      TZ: UTC
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uqqq -p$${MYSQL_PASSWORD} --silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+  trader:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      TZ: UTC
+      DATABASE_URL: mysql+asyncmy://qqq:${MYSQL_PASSWORD:-change-me}@mysql:3306/qqq?charset=utf8mb4
+      DATA_DIR: /data/market
+      REPORT_DIR: /data/reports
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=2)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - market-data:/data/market
+      - reports:/data/reports
+      - ./secrets/longbridge:/home/trader/.longbridge/openapi/tokens:ro
+
+volumes:
+  mysql-data:
+  market-data:
+  reports:

@@ -1,0 +1,54 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "qqq-trading-system"
+version = "0.1.0"
+description = "Risk-controlled automated QQQ 0DTE options trading system"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "alembic>=1.16,<2",
+  "asyncmy>=0.2.10,<1",
+  "cryptography>=44,<50",
+  "fastapi>=0.116,<1",
+  "jinja2>=3.1,<4",
+  "longbridge>=4.3.3,<5",
+  "prometheus-client>=0.22,<1",
+  "pyarrow>=20,<22",
+  "pydantic>=2.11,<3",
+  "pydantic-settings>=2.10,<3",
+  "sqlalchemy[asyncio]>=2.0.41,<3",
+  "typer>=0.16,<1",
+  "tzdata>=2025.2; sys_platform == 'win32'",
+  "uvicorn[standard]>=0.35,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "httpx>=0.28,<1",
+  "pytest>=8.4,<9",
+  "pytest-asyncio>=1.0,<2",
+  "pytest-cov>=6.2,<7",
+  "ruff>=0.12,<1",
+]
+
+[project.scripts]
+qqq-trader = "qqq_trader.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/qqq_trader"]
+
+[tool.pytest.ini_options]
+addopts = "-q --strict-markers"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+ignore = ["B008", "UP017"]
