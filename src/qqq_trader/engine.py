@@ -64,6 +64,8 @@ class TradingEngine:
         self.pending_config_version: int | None = None
         self._pending_settings: tuple[Settings, int] | None = None
         self._lock = asyncio.Lock()
+        self.day_r_loss = Decimal(0)
+        self.position_r_value: Decimal | None = None
 
     async def apply_settings(self, settings: Settings, version: int) -> bool:
         """Atomically apply settings, deferring while an order or position is active."""
@@ -277,6 +279,7 @@ class TradingEngine:
                 self.trading_date = local_now.date()
                 self.trades_today = 0
                 self.realized_pnl = Decimal(0)
+                self.day_r_loss = Decimal(0)
                 self.cooldown_until = None
                 self.last_signal_bar = None
                 account = await self._local_account(None)
@@ -297,7 +300,7 @@ class TradingEngine:
                 return
 
             account = account or await self._local_account(None)
-            if self.risk.daily_loss_breached(account, self.opening_equity):
+            if self.risk.daily_loss_breached(self.day_r_loss):
                 await self._halt("daily loss limit reached")
                 return
             spot_quote = await self.market.latest_quote(self.settings.underlying_symbol)
@@ -348,7 +351,12 @@ class TradingEngine:
                 await self.journal.signal(signal, False, problem)
                 return
             assert option_quote.ask is not None
-            quantity = self.risk.position_size(account, option_quote.ask)
+            equity = account.equity
+            if signal.r_value and signal.r_value > 0:
+                stop_dist = signal.r_value * Decimal(100)
+            else:
+                stop_dist = option_quote.ask * Decimal("0.25") * Decimal(100)
+            quantity = self.risk.position_size(equity, option_quote.ask, stop_dist)
             if quantity < 1:
                 await self.journal.signal(signal, False, "risk_budget_too_small")
                 return
@@ -386,6 +394,7 @@ class TradingEngine:
             self.position_mae = Decimal(0)
             self.position_mfe = Decimal(0)
             self.entry_reference = option_quote.ask
+            self.position_r_value = signal.r_value if signal.r_value else option_quote.ask * Decimal("0.25")
             self.trades_today += 1
             self.state = SystemState.OPEN
             await self.journal.event(
@@ -407,8 +416,12 @@ class TradingEngine:
             self.position_mae = min(self.position_mae, mark_pnl)
             self.position_mfe = max(self.position_mfe, mark_pnl)
             account = await self._local_account(quote.bid)
-            daily_breach = self.risk.daily_loss_breached(account, self.opening_equity)
-            decision = self.risk.exit_decision(self.position, quote.bid, now, daily_breach)
+            daily_breach = self.risk.daily_loss_breached(self.day_r_loss)
+            decision = self.risk.exit_decision(
+                self.position, quote.bid, now,
+                daily_loss_breached=daily_breach,
+                r_value=self.position_r_value,
+            )
             if decision is None:
                 return
 
@@ -446,6 +459,10 @@ class TradingEngine:
                 100
             ) * filled.filled_quantity - self.settings.fee_per_contract * filled.filled_quantity
             self.realized_pnl += pnl
+            if self.position_r_value and self.position_r_value > 0:
+                one_r_dollar = self.position_r_value * Decimal(100) * filled.filled_quantity
+                if one_r_dollar > 0:
+                    self.day_r_loss += max(Decimal(0), -pnl / one_r_dollar)
             summary = TradeSummary(
                 symbol=self.position.symbol,
                 direction=self.position.direction.value,
@@ -487,6 +504,7 @@ class TradingEngine:
                 self.position_mae = Decimal(0)
                 self.position_mfe = Decimal(0)
                 self.entry_reference = Decimal(0)
+                self.position_r_value = None
                 self.cooldown_until = now + timedelta(minutes=self.settings.cooldown_minutes)
                 self.state = SystemState.HALTED if daily_breach else SystemState.READY
                 if self._pending_settings is not None:

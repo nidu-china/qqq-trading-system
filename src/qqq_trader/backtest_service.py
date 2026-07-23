@@ -299,13 +299,11 @@ class BacktestService:
             [(t.entry_at.isoformat(), t.exit_at.isoformat()) for t in result.trades],
         )
         sorted_bars = sorted(bars, key=lambda x: x.start)
-        from .strategy import ema_series, bollinger_bands as calc_bb, vwap as calc_vwap
+        from .strategy import ema_series, vwap as calc_vwap
         from zoneinfo import ZoneInfo
         et = ZoneInfo("America/New_York")
-        bb_period = int(settings.bollinger_period)
-        bb_std = settings.bollinger_stddev
         ema_fast = int(getattr(settings, "ema_fast_period", 9))
-        ema_slow = int(getattr(settings, "ema_slow_period", 21))
+        ema_slow = int(getattr(settings, "ema_slow_period", 20))
         all_closes: list[Decimal] = []
         full_series: list[dict[str, Any]] = []
         day_bars: list[Any] = []
@@ -322,16 +320,11 @@ class BacktestService:
                 "price": float(b.close),
                 "volume": b.volume,
             }
-            if len(all_closes) >= bb_period:
-                mid, upper, lower = calc_bb(all_closes, bb_period, bb_std)
-                point["bb_upper"] = float(upper)
-                point["bb_middle"] = float(mid)
-                point["bb_lower"] = float(lower)
             if len(all_closes) >= ema_slow:
                 ema9_vals = ema_series(all_closes, ema_fast)
-                ema21_vals = ema_series(all_closes, ema_slow)
+                ema20_vals = ema_series(all_closes, ema_slow)
                 point["ema9"] = float(ema9_vals[-1])
-                point["ema21"] = float(ema21_vals[-1])
+                point["ema21"] = float(ema20_vals[-1])
             if day_bars:
                 point["vwap"] = float(calc_vwap(day_bars))
             full_series.append(point)

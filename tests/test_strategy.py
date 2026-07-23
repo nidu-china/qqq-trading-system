@@ -3,30 +3,49 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
+from qqq_trader.config import Settings
 from qqq_trader.domain import Bar, Direction
 from qqq_trader.strategy import (
     BarAggregator,
-    OrbStrategy,
-    EmaTrendStrategy,
-    BollingerRsiStrategy,
-    TimeBasedStrategyRouter,
-    bollinger_bands,
+    MarketStateClassifier,
+    StrategyEngine,
+    adx,
+    atr,
+    atr_series,
     ema,
-    macd,
-    rsi,
-    vwap,
+    ema_series,
+    macd_histogram,
+    macd_histogram_series,
+    rvol,
     strategy_from_settings,
+    vwap,
+    vwap_slope,
 )
 
 
-def test_indicators(bullish_bars):
-    closes = [bar.close for bar in bullish_bars]
-    assert ema([Decimal(value) for value in range(1, 11)], 3) > Decimal(8)
-    macd_line, signal_line = macd(closes)
-    middle, upper, lower = bollinger_bands(closes)
-    assert macd_line > signal_line
-    assert lower < middle < upper
-    assert Decimal(0) < rsi(closes) < Decimal(100)
+def test_ema_calculation():
+    values = [Decimal(str(i)) for i in range(1, 11)]
+    result = ema(values, 3)
+    assert result > Decimal(8)
+
+
+def test_ema_series_length():
+    values = [Decimal(str(i)) for i in range(1, 21)]
+    series = ema_series(values, 5)
+    assert len(series) == 16  # 20 - 5 + 1
+
+
+def test_macd_histogram():
+    # Use non-linear data to ensure non-zero histogram
+    values = [Decimal("100") + Decimal(str(i * 0.5 + (i % 3) * 0.2)) for i in range(40)]
+    line, signal, hist = macd_histogram(values, 12, 26, 9)
+    assert line > 0  # Uptrend data should have positive MACD line
+
+
+def test_macd_histogram_series():
+    values = [Decimal("100") + Decimal(str(i * 0.5)) for i in range(40)]
+    series = macd_histogram_series(values, 12, 26, 9)
+    assert len(series) > 0
 
 
 def test_vwap_calculation():
@@ -41,124 +60,67 @@ def test_vwap_calculation():
     assert result == Decimal("100")
 
 
-def test_orb_strategy_bullish_breakout():
-    """ORB strategy generates CALL when price breaks above ORH with volume."""
-    start = datetime(2026, 7, 15, 13, 30, tzinfo=timezone.utc)  # 9:30 ET
-    orb_bars = [
-        Bar("QQQ.US", start + timedelta(minutes=i), start + timedelta(minutes=i + 1),
-            Decimal("100"), Decimal("100.5"), Decimal("99.5"), Decimal("100.2"),
-            1000, Decimal("100000"))
-        for i in range(15)
-    ]
-    post_orb_bars = [
-        Bar("QQQ.US", start + timedelta(minutes=15 + i), start + timedelta(minutes=16 + i),
-            Decimal("100"), Decimal("100.5"), Decimal("99.5"), Decimal("100.2"),
-            1000, Decimal("100000"))
-        for i in range(9)
-    ]
-    breakout_bar = Bar("QQQ.US", start + timedelta(minutes=24), start + timedelta(minutes=25),
-                       Decimal("100.5"), Decimal("101.5"), Decimal("100.3"), Decimal("101.2"),
-                       3000, Decimal("300000"))
-    all_bars = orb_bars + post_orb_bars + [breakout_bar]
-    strat = OrbStrategy(min_volume_ratio=Decimal("1.5"))
-    signal = strat.evaluate(all_bars)
-    assert signal is not None
-    assert signal.direction is Direction.CALL
-
-
-def test_orb_strategy_no_signal_without_volume():
-    """ORB strategy does not trigger without sufficient volume."""
+def test_vwap_slope():
     start = datetime(2026, 7, 15, 13, 30, tzinfo=timezone.utc)
-    orb_bars = [
-        Bar("QQQ.US", start + timedelta(minutes=i), start + timedelta(minutes=i + 1),
-            Decimal("100"), Decimal("100.5"), Decimal("99.5"), Decimal("100.2"),
+    bars = [
+        Bar("QQQ.US", start + timedelta(minutes=i * 5), start + timedelta(minutes=i * 5 + 5),
+            Decimal(str(100 + i)), Decimal(str(101 + i)), Decimal(str(99 + i)),
+            Decimal(str(100 + i)),
             1000, Decimal("100000"))
-        for i in range(15)
+        for i in range(6)
     ]
-    post_orb_bars = [
-        Bar("QQQ.US", start + timedelta(minutes=15 + i), start + timedelta(minutes=16 + i),
-            Decimal("100"), Decimal("100.5"), Decimal("99.5"), Decimal("100.2"),
+    slope = vwap_slope(bars, lookback=3)
+    assert slope > 0
+
+
+def test_atr_calculation():
+    start = datetime(2026, 7, 15, 13, 30, tzinfo=timezone.utc)
+    bars = [
+        Bar("QQQ.US", start + timedelta(minutes=i * 5), start + timedelta(minutes=i * 5 + 5),
+            Decimal("100"), Decimal(str(100 + (i % 3))), Decimal(str(99 - (i % 2))),
+            Decimal("100"),
             1000, Decimal("100000"))
-        for i in range(9)
+        for i in range(20)
     ]
-    breakout_bar = Bar("QQQ.US", start + timedelta(minutes=24), start + timedelta(minutes=25),
-                       Decimal("100.5"), Decimal("101.5"), Decimal("100.3"), Decimal("101.2"),
-                       800, Decimal("80000"))
-    all_bars = orb_bars + post_orb_bars + [breakout_bar]
-    strat = OrbStrategy(min_volume_ratio=Decimal("1.5"))
-    assert strat.evaluate(all_bars) is None
+    result = atr(bars, 14)
+    assert result > 0
 
 
-def test_ema_trend_strategy_bullish_pullback():
-    """EMA trend strategy: buy on pullback to EMA9 in uptrend."""
-    start = datetime(2026, 7, 15, 14, 0, tzinfo=timezone.utc)  # 10:00 ET
-    trend_bars = []
-    for i in range(30):
-        base = Decimal("100") + Decimal(str(i)) * Decimal("0.1")
-        trend_bars.append(Bar(
-            "QQQ.US", start + timedelta(minutes=i), start + timedelta(minutes=i + 1),
-            base - Decimal("0.05"), base + Decimal("0.1"), base - Decimal("0.1"),
-            base, 1000, Decimal("100000"),
-        ))
-    pullback = Bar("QQQ.US", start + timedelta(minutes=30), start + timedelta(minutes=31),
-                   Decimal("103.1"), Decimal("103.2"), Decimal("102.5"), Decimal("103.0"),
-                   1200, Decimal("120000"))
-    trend_bars.append(pullback)
-    strat = EmaTrendStrategy()
-    signal = strat.evaluate(trend_bars)
-    # May or may not produce signal depending on exact EMA values
-    if signal is not None:
-        assert signal.direction is Direction.CALL
+def test_atr_series_length():
+    start = datetime(2026, 7, 15, 13, 30, tzinfo=timezone.utc)
+    bars = [
+        Bar("QQQ.US", start + timedelta(minutes=i * 5), start + timedelta(minutes=i * 5 + 5),
+            Decimal("100"), Decimal(str(100 + (i % 3))), Decimal(str(99 - (i % 2))),
+            Decimal("100"),
+            1000, Decimal("100000"))
+        for i in range(20)
+    ]
+    series = atr_series(bars, 14)
+    assert len(series) >= 1
 
 
-def test_bollinger_rsi_strategy_oversold():
-    """BB+RSI: buy at lower band with RSI < 30."""
-    start = datetime(2026, 7, 15, 15, 30, tzinfo=timezone.utc)  # 11:30 ET
-    base_bars = []
-    for i in range(25):
-        price = Decimal("100") + Decimal(str((i % 5) - 2)) * Decimal("0.1")
-        base_bars.append(Bar(
-            "QQQ.US", start + timedelta(minutes=i), start + timedelta(minutes=i + 1),
-            price, price + Decimal("0.05"), price - Decimal("0.05"), price,
-            1000, Decimal("100000"),
-        ))
-    strat = BollingerRsiStrategy()
-    signal = strat.evaluate(base_bars)
-    # Bollinger RSI requires very specific conditions, may not trigger with synthetic data
-    assert signal is None or signal.direction in (Direction.CALL, Direction.PUT)
+def test_adx_calculation():
+    start = datetime(2026, 7, 15, 13, 30, tzinfo=timezone.utc)
+    bars = [
+        Bar("QQQ.US", start + timedelta(minutes=i * 5), start + timedelta(minutes=i * 5 + 5),
+            Decimal(str(100 + i * 0.5)),
+            Decimal(str(101 + i * 0.5)),
+            Decimal(str(99 + i * 0.5)),
+            Decimal(str(100.5 + i * 0.5)),
+            1000, Decimal("100000"))
+        for i in range(30)
+    ]
+    result = adx(bars, 14)
+    assert result >= 0
 
 
-def test_time_based_router_delegates_correctly():
-    """Router picks the right sub-strategy based on bar time."""
-    from qqq_trader.config import Settings
-    settings = Settings(trading_mode="replay")
-    router = strategy_from_settings(settings)
-    assert isinstance(router, TimeBasedStrategyRouter)
-    assert isinstance(router.orb, OrbStrategy)
-    assert isinstance(router.ema_trend, EmaTrendStrategy)
-    assert isinstance(router.bb_rsi, BollingerRsiStrategy)
+def test_rvol_calculation():
+    assert rvol(2000, [1000, 1000, 1000]) == Decimal("2.0")
+    assert rvol(0, [1000, 1000]) == Decimal("1.0")
+    assert rvol(1000, []) == Decimal("1.0")
 
 
-def test_strategy_ignores_incomplete_last_bar(bullish_bars):
-    last = bullish_bars[-1]
-    bullish_bars[-1] = Bar(
-        symbol=last.symbol,
-        start=last.start,
-        end=last.end,
-        open=last.open,
-        high=last.high,
-        low=last.low,
-        close=last.close,
-        volume=last.volume,
-        complete=False,
-    )
-    from qqq_trader.config import Settings
-    settings = Settings(trading_mode="replay")
-    router = strategy_from_settings(settings)
-    assert router.evaluate(bullish_bars) is None
-
-
-def test_aggregate_requires_all_five_minutes():
+def test_bar_aggregator_five_minutes():
     start = datetime(2026, 7, 15, 13, 30, tzinfo=timezone.utc)
     bars = [
         Bar(
@@ -179,3 +141,88 @@ def test_aggregate_requires_all_five_minutes():
     assert result[0].volume == 50
     assert result[0].start == start
     assert result[0].end == start + timedelta(minutes=5)
+
+
+def test_bar_aggregator_requires_all_five():
+    start = datetime(2026, 7, 15, 13, 30, tzinfo=timezone.utc)
+    bars = [
+        Bar(
+            "QQQ.US",
+            start + timedelta(minutes=index),
+            start + timedelta(minutes=index + 1),
+            Decimal("100"),
+            Decimal("101"),
+            Decimal("99"),
+            Decimal("100.5"),
+            10,
+            Decimal("1000"),
+        )
+        for index in range(4)
+    ]
+    result = BarAggregator.to_five_minutes(bars)
+    assert len(result) == 0
+
+
+def test_strategy_from_settings_returns_engine():
+    settings = Settings(trading_mode="replay")
+    engine = strategy_from_settings(settings)
+    assert isinstance(engine, StrategyEngine)
+
+
+def test_strategy_ignores_incomplete_last_bar(bullish_bars):
+    last = bullish_bars[-1]
+    bullish_bars[-1] = Bar(
+        symbol=last.symbol,
+        start=last.start,
+        end=last.end,
+        open=last.open,
+        high=last.high,
+        low=last.low,
+        close=last.close,
+        volume=last.volume,
+        complete=False,
+    )
+    settings = Settings(trading_mode="replay")
+    engine = strategy_from_settings(settings)
+    assert engine.evaluate(bullish_bars) is None
+
+
+def test_strategy_no_signal_before_entry_start():
+    """Strategy returns None before 9:45 ET."""
+    start = datetime(2026, 7, 15, 13, 30, tzinfo=timezone.utc)  # 9:30 ET
+    bars = [
+        Bar("QQQ.US", start + timedelta(minutes=i), start + timedelta(minutes=i + 1),
+            Decimal("100"), Decimal("101"), Decimal("99"), Decimal("100"),
+            1000, Decimal("100000"))
+        for i in range(14)  # ends at 9:44, no 5-min completion at 9:45
+    ]
+    settings = Settings(trading_mode="replay")
+    engine = strategy_from_settings(settings)
+    assert engine.evaluate(bars) is None
+
+
+def test_market_state_classifier_detects_range():
+    """Classifier returns RANGE when conditions are met."""
+    from qqq_trader.strategy import MarketContext, MarketState
+    settings = Settings(trading_mode="replay")
+    classifier = MarketStateClassifier(settings)
+    ctx = MarketContext(
+        orh=Decimal("101"),
+        orl=Decimal("99"),
+        vwap_value=Decimal("100"),
+        vwap_slope_val=Decimal("0.01"),
+        ema9=Decimal("100.01"),
+        ema20=Decimal("100.00"),
+        adx_val=Decimal("15"),
+        macd_hist=Decimal("0.01"),
+        macd_hist_prev=Decimal("0.01"),
+    )
+    start = datetime(2026, 7, 15, 14, 0, tzinfo=timezone.utc)
+    bars = [
+        Bar("QQQ.US", start + timedelta(minutes=i * 5), start + timedelta(minutes=i * 5 + 5),
+            Decimal("100"), Decimal("100.3"), Decimal("99.7"), Decimal("100"),
+            1000)
+        for i in range(6)
+    ]
+    state = classifier.classify(ctx, bars)
+    assert state == MarketState.RANGE

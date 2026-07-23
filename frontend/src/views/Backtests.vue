@@ -26,7 +26,7 @@ const params = reactive<Record<string, any>>({
   risk_per_trade: 0.005, daily_loss_limit: 0.02,
   max_contracts: 10, max_premium_fraction: 0.05,
   volatility_filter_enabled: true,
-  entry_start: '09:35:00', entry_end: '14:00:00',
+  entry_start: '09:45:00', entry_end: '14:00:00',
 })
 
 async function loadConfig() {

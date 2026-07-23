@@ -1,3 +1,4 @@
+"""Event-driven backtester: replays 1-min bars, uses 5-min strategy, R-based risk."""
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -9,14 +10,23 @@ from pathlib import Path
 import pyarrow.parquet as pq
 
 from .config import Settings
-from .domain import AccountSnapshot, Bar, Direction, OptionContract, Position, Quote
+from .domain import (
+    AccountSnapshot,
+    Bar,
+    Direction,
+    ExitDecision,
+    ExitReason,
+    OptionContract,
+    Position,
+    Quote,
+    Signal,
+)
 from .risk import ContractSelector, RiskEngine
-from .strategy import TimeBasedStrategyRouter
+from .strategy import StrategyEngine
 from .volatility import VolatilityFilter, VolatilityRegime
 
 
 def _round_strike(value: Decimal) -> Decimal:
-    """Round to the nearest whole dollar (QQQ standard strike interval)."""
     return value.quantize(Decimal(1))
 
 
@@ -61,7 +71,7 @@ class BacktestResult:
 
     def record_signal(
         self,
-        signal,
+        signal: Signal,
         status: str,
         reason: str,
         *,
@@ -86,14 +96,12 @@ class BacktestResult:
 
 
 class EventDrivenBacktester:
-    """Replay completed bars and executable option quotes without look-ahead."""
-
-    settings_timezone = __import__("zoneinfo").ZoneInfo("America/New_York")
+    """Replay completed 1-min bars, aggregate to 5-min for strategy, R-based exits."""
 
     def __init__(
         self,
         settings: Settings,
-        strategy: TimeBasedStrategyRouter,
+        strategy: StrategyEngine,
         selector: ContractSelector,
         risk: RiskEngine,
     ) -> None:
@@ -102,15 +110,17 @@ class EventDrivenBacktester:
         self.selector = selector
         self.risk = risk
         self.volatility_filter = VolatilityFilter(settings)
+        self._position_entry_spot: Decimal | None = None
+
+    @property
+    def settings_timezone(self):
+        from .config import NY_TZ
+        return NY_TZ
 
     def _synthetic_frame(
         self, spot: Decimal, bar_end: datetime, trading_day: date
     ) -> OptionFrame:
-        """Generate a synthetic OptionFrame using Greeks-based pricing.
-        
-        Model: Delta=0.45, Gamma=0.05, Theta=-3/day, Vega=0.10
-        For 0DTE options, theta decays entirely within the trading session (6.5h).
-        """
+        """Generate a synthetic OptionFrame using Greeks-based pricing."""
         offset = self.settings.strike_offset
         call_strike = _round_strike(spot + offset)
         put_strike = _round_strike(spot - offset)
@@ -169,10 +179,7 @@ class EventDrivenBacktester:
         direction: Direction,
         hours_left: Decimal,
     ) -> Decimal:
-        """Calculate synthetic option price using fixed Greeks.
-        
-        Delta=0.45, Gamma=0.05, Theta=-$3/day, Vega=0.10 (unused without IV).
-        """
+        """Synthetic option price: Delta=0.45, Gamma=0.05, Theta=-$3/day."""
         delta = Decimal("0.45")
         gamma = Decimal("0.05")
         theta_daily = Decimal("3")
@@ -186,7 +193,6 @@ class EventDrivenBacktester:
             distance = strike - spot
 
         time_value = theta_daily * hours_left / trading_hours
-
         abs_distance = abs(distance)
         if abs_distance > Decimal(0):
             moneyness_decay = max(Decimal("0.05"), Decimal(1) - abs_distance / Decimal(8))
@@ -203,31 +209,32 @@ class EventDrivenBacktester:
     def _synthetic_position_quote(
         self, position: Position, spot: Decimal, bar_end: datetime
     ) -> Quote:
-        """Compute a simulated option quote for an existing position using Greeks."""
-        market_close = bar_end.astimezone(self.settings_timezone).replace(
-            hour=16, minute=0, second=0, microsecond=0
-        )
-        hours_left = max(
-            Decimal(str((market_close - bar_end.astimezone(self.settings_timezone)).total_seconds()))
-            / Decimal(3600),
-            Decimal("0.1"),
-        )
+        """Generate synthetic position quote using first-order Greeks.
+
+        price_change = delta * spot_change - theta * time_elapsed
+        """
+        delta = Decimal("0.45")
+        theta_daily = Decimal("3")
+        trading_hours = Decimal("6.5")
         half_spread = Decimal("0.03")
 
-        parts = position.symbol.split(".")[0]
-        if "C" in parts[-10:]:
-            idx = parts.rindex("C")
-            strike = Decimal(parts[idx + 1:]) / Decimal(1000)
-            direction = Direction.CALL
-        elif "P" in parts[-10:]:
-            idx = parts.rindex("P")
-            strike = Decimal(parts[idx + 1:]) / Decimal(1000)
-            direction = Direction.PUT
-        else:
-            strike = spot
-            direction = Direction.CALL
+        hours_elapsed = Decimal(str(
+            (bar_end - position.opened_at).total_seconds()
+        )) / Decimal(3600)
+        theta_cost = theta_daily * hours_elapsed / trading_hours
 
-        mid = self._greeks_price(spot, strike, direction, hours_left)
+        entry_spot = self._position_entry_spot
+        if entry_spot is None:
+            entry_spot = spot
+
+        parts = position.symbol.split(".")[0]
+        if "P" in parts[-10:]:
+            spot_pnl = delta * (entry_spot - spot)
+        else:
+            spot_pnl = delta * (spot - entry_spot)
+
+        mid = position.entry_price + spot_pnl - theta_cost
+        mid = max(mid, Decimal("0.05"))
         return Quote(
             symbol=position.symbol,
             timestamp=bar_end,
@@ -252,11 +259,12 @@ class EventDrivenBacktester:
         position: Position | None = None
         entry_time: datetime | None = None
         realized = Decimal(0)
-        day_realized = Decimal(0)
+        day_r_loss = Decimal(0)
         trades_today = 0
         current_day = None
         day_opening_equity = starting_equity
         cooldown_until: datetime | None = None
+        position_r_value: Decimal | None = None
 
         for bar in sorted((item for item in bars if item.complete), key=lambda item: item.end):
             if cancel_check is not None and cancel_check():
@@ -265,7 +273,7 @@ class EventDrivenBacktester:
             if trading_day != current_day:
                 current_day = trading_day
                 trades_today = 0
-                day_realized = Decimal(0)
+                day_r_loss = Decimal(0)
                 day_opening_equity = starting_equity + realized
             available.append(bar)
             frame = option_frames.get(bar.end)
@@ -274,34 +282,34 @@ class EventDrivenBacktester:
                 bucket_end = bar.end.replace(minute=minute, second=0, microsecond=0)
                 frame = option_frames.get(bucket_end)
 
+            # --- Position management ---
             if position is not None:
                 if frame is not None and position.symbol in frame.quotes:
                     quote = frame.quotes[position.symbol]
                 else:
                     result.option_data_complete = False
-                    quote = self._synthetic_position_quote(
-                        position, bar.close, bar.end
-                    )
+                    quote = self._synthetic_position_quote(position, bar.close, bar.end)
                 if quote.bid is None:
                     result.option_data_complete = False
                     continue
-                account = AccountSnapshot(
-                    timestamp=bar.end,
-                    equity=starting_equity + realized,
-                    cash_usd=starting_equity + realized,
-                    day_realized_pnl=day_realized,
-                )
+
+                daily_breached = self.risk.daily_loss_breached(day_r_loss)
                 decision = self.risk.exit_decision(
                     position,
                     quote.bid,
                     bar.end,
-                    self.risk.daily_loss_breached(account, day_opening_equity),
+                    daily_loss_breached=daily_breached,
+                    r_value=position_r_value,
                 )
                 if decision:
                     pnl = (quote.bid - position.entry_price) * Decimal(100) * decision.quantity
                     pnl -= self.settings.fee_per_contract * decision.quantity
                     realized += pnl
-                    day_realized += pnl
+                    # Track R-loss
+                    if position_r_value and position_r_value > 0:
+                        one_r_dollar = position_r_value * Decimal(100) * decision.quantity
+                        if one_r_dollar > 0:
+                            day_r_loss += max(Decimal(0), -pnl / one_r_dollar)
                     result.trades.append(
                         BacktestTrade(
                             symbol=position.symbol,
@@ -332,12 +340,15 @@ class EventDrivenBacktester:
                     position.quantity -= decision.quantity
                     if position.quantity == 0:
                         position = None
+                        position_r_value = None
+                        self._position_entry_spot = None
                         cooldown_until = bar.end + timedelta(minutes=self.settings.cooldown_minutes)
                     else:
                         position.first_target_taken = True
                         position.stop_price = decision.new_stop
                 continue
 
+            # --- Entry logic ---
             local_time = bar.end.astimezone(self.settings_timezone).time().replace(tzinfo=None)
             if not self.settings.entry_start <= local_time <= self.settings.entry_end:
                 continue
@@ -345,10 +356,22 @@ class EventDrivenBacktester:
                 continue
             if cooldown_until and bar.end < cooldown_until:
                 continue
+            if self.risk.daily_loss_breached(day_r_loss):
+                continue
+
             signal = self.strategy.evaluate(available, spot=frame.spot if frame else None)
             if signal is None:
                 continue
             result.signals += 1
+
+            # Validate stop distance
+            stop_problem = self.risk.validate_stop(signal)
+            if stop_problem:
+                result.reject(stop_problem)
+                result.record_signal(signal, "rejected", stop_problem)
+                continue
+
+            # Volatility filter
             if self.settings.volatility_filter_enabled:
                 snapshot = self.volatility_filter.evaluate(
                     volatility_bars or [],
@@ -365,6 +388,8 @@ class EventDrivenBacktester:
                     result.reject(reason)
                     result.record_signal(signal, "rejected", reason)
                     continue
+
+            # Option frame
             if frame is None:
                 frame = self._synthetic_frame(bar.close, bar.end, trading_day)
                 result.option_data_complete = False
@@ -385,23 +410,20 @@ class EventDrivenBacktester:
                 result.record_signal(signal, "rejected", problem, symbol=contract.symbol)
                 continue
             assert quote.ask is not None
-            account = AccountSnapshot(
-                timestamp=bar.end,
-                equity=starting_equity + realized,
-                cash_usd=starting_equity + realized,
-                day_realized_pnl=day_realized,
-            )
-            if self.risk.daily_loss_breached(account, day_opening_equity):
-                result.reject("daily_loss_limit")
-                result.record_signal(signal, "rejected", "daily_loss_limit", symbol=contract.symbol)
-                continue
-            quantity = self.risk.position_size(account, quote.ask)
+
+            # R-based position sizing
+            equity = starting_equity + realized
+            delta_approx = Decimal("0.45")
+            if signal.r_value and signal.r_value > 0:
+                stop_dist_per_contract = signal.r_value * delta_approx * Decimal(100)
+            else:
+                stop_dist_per_contract = quote.ask * Decimal("0.25") * Decimal(100)
+            quantity = self.risk.position_size(equity, quote.ask, stop_dist_per_contract)
             if quantity < 1:
                 result.reject("risk_budget_too_small")
-                result.record_signal(
-                    signal, "rejected", "risk_budget_too_small", symbol=contract.symbol
-                )
+                result.record_signal(signal, "rejected", "risk_budget_too_small", symbol=contract.symbol)
                 continue
+
             result.record_signal(
                 signal,
                 "accepted",
@@ -410,22 +432,31 @@ class EventDrivenBacktester:
                 price=quote.ask,
                 quantity=quantity,
             )
+            # Compute option stop price from underlying stop distance
+            option_stop: Decimal | None = None
+            if signal.stop_price is not None and signal.r_value:
+                option_stop = quote.ask - signal.r_value * delta_approx
+
             position = Position(
                 symbol=contract.symbol,
                 direction=signal.direction,
                 quantity=quantity,
                 entry_price=quote.ask,
                 opened_at=bar.end,
+                stop_price=option_stop,
+                strategy_name=signal.strategy,
             )
+            position_r_value = (signal.r_value * delta_approx) if signal.r_value else quote.ask * Decimal("0.25")
+            self._position_entry_spot = bar.close
             entry_time = bar.end
             trades_today += 1
 
+        # Close any remaining position at end of data
         if position is not None:
             last_bar = bars[-1] if bars else None
-            last_frame = option_frames.get(last_bar.end) if last_bar else None
-            if last_frame and position.symbol in last_frame.quotes:
-                closing_quote = last_frame.quotes[position.symbol]
-                close_price = closing_quote.bid if closing_quote.bid is not None else Decimal(0)
+            if last_bar:
+                quote = self._synthetic_position_quote(position, last_bar.close, last_bar.end)
+                close_price = quote.bid if quote.bid is not None else Decimal(0)
             else:
                 close_price = Decimal(0)
             pnl = (close_price - position.entry_price) * Decimal(100) * position.quantity
@@ -447,12 +478,6 @@ class EventDrivenBacktester:
 
         result.ending_equity = starting_equity + realized
         return result
-
-    @property
-    def settings_timezone(self):
-        from .config import NY_TZ
-
-        return NY_TZ
 
 
 def load_option_frames(path: Path) -> dict[datetime, OptionFrame]:

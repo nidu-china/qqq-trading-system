@@ -8,6 +8,7 @@ from qqq_trader.configuration import editable_values, with_editable_values
 
 def test_editable_values_exclude_credentials_and_infrastructure():
     settings = Settings(
+        _env_file=None,
         account_id="secret-account",
         longbridge_app_key="secret-key",
         longbridge_app_secret="secret-value",
@@ -20,7 +21,11 @@ def test_editable_values_exclude_credentials_and_infrastructure():
     assert "longbridge_app_key" not in values
     assert "longbridge_app_secret" not in values
     assert "longbridge_access_token" not in values
-    assert values["risk_per_trade"] == "0.005"
+    assert values["risk_per_trade"] == "0.0025"
+
+    # Verify the field list matches actual settings
+    assert "adx_period" in values
+    assert "atr_period" in values
 
 
 def test_online_configuration_runs_cross_field_validation():
@@ -48,12 +53,13 @@ def test_legacy_paper_signal_only_value_is_ignored():
 def test_strategy_config_defaults():
     settings = Settings(_env_file=None)
     assert settings.ema_fast_period == 9
-    assert settings.ema_slow_period == 21
-    assert settings.bollinger_period == 20
-    assert settings.orb_min_volume_ratio == Decimal("1.5")
-    assert settings.bb_width_max == Decimal("0.02")
+    assert settings.ema_slow_period == 20
+    assert settings.adx_period == 14
+    assert settings.atr_period == 14
+    assert settings.macd_fast == 12
+    assert settings.macd_slow == 26
 
 
-def test_bollinger_settings_validated():
-    with pytest.raises(ValueError, match="Bollinger"):
-        Settings(_env_file=None, bollinger_period=1)
+def test_indicator_period_validated():
+    with pytest.raises(ValueError, match="indicator periods"):
+        Settings(_env_file=None, ema_fast_period=1)

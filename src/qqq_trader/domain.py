@@ -39,9 +39,20 @@ class ExitReason(StrEnum):
     STOP_LOSS = "stop_loss"
     TAKE_PROFIT_1 = "take_profit_1"
     TAKE_PROFIT_2 = "take_profit_2"
+    TRAILING_STOP = "trailing_stop"
+    STALE_POSITION = "stale_position"
+    MIDDAY_REDUCE = "midday_reduce"
+    VWAP_CROSS = "vwap_cross"
     DAILY_LOSS = "daily_loss"
     FORCED_CLOSE = "forced_close"
     SHUTDOWN = "shutdown"
+
+
+class MarketState(StrEnum):
+    OBSERVATION = "observation"
+    TREND = "trend"
+    REVERSAL = "reversal"
+    RANGE = "range"
 
 
 def _aware(value: datetime) -> None:
@@ -122,12 +133,17 @@ class Signal:
     direction: Direction
     bar_end: datetime
     spot: Decimal
-    ema_fast: Decimal
-    ema_slow: Decimal
-    vwap: Decimal
-    breakout_level: Decimal
+    strategy: str = ""
+    stop_price: Decimal | None = None
+    atr: Decimal | None = None
+    r_value: Decimal | None = None
+    breakout_level: Decimal | None = None
+    vwap: Decimal | None = None
     indicators: dict[str, str] = field(default_factory=dict)
     id: UUID = field(default_factory=uuid4)
+    # Legacy compatibility fields
+    ema_fast: Decimal = ZERO
+    ema_slow: Decimal = ZERO
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,6 +175,7 @@ class Position:
     first_target_taken: bool = False
     stop_price: Decimal | None = None
     broker_order_id: str | None = None
+    strategy_name: str | None = None
 
     def __post_init__(self) -> None:
         _aware(self.opened_at)
