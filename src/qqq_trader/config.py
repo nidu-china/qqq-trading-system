@@ -32,6 +32,7 @@ class Settings(BaseSettings):
 
     app_name: str = "qqq-0dte-trader"
     trading_mode: TradingMode = TradingMode.PAPER
+    paper_starting_equity: Decimal = Decimal("100000")
     account_id: str = ""
     live_trading_ack: SecretStr = SecretStr("")
     underlying_symbol: str = "QQQ.US"
@@ -46,24 +47,25 @@ class Settings(BaseSettings):
     longbridge_access_token: SecretStr = SecretStr("")
     longbridge_request_timeout_seconds: Decimal = Decimal("60")
 
-    entry_start: time = time(9, 45)
-    entry_end: time = time(12, 0)
-    forced_close: time = time(12, 15)
+    entry_start: time = time(9, 35)
+    entry_end: time = time(14, 0)
+    forced_close: time = time(14, 0)
     report_at: time = time(16, 15)
     cooldown_minutes: int = 5
     max_trades_per_day: int = 5
 
-    macd_fast: int = 5
-    macd_slow: int = 10
-    macd_signal: int = 3
-    macd_backtest_combinations: str = "8,17,9;6,13,5;5,10,3"
+    # Strategy parameters
+    orb_min_volume_ratio: Decimal = Decimal("1.5")
+    ema_fast_period: int = 9
+    ema_slow_period: int = 21
     bollinger_period: int = 20
     bollinger_stddev: Decimal = Decimal("2")
     volume_average_period: int = 20
-    min_volume_ratio: Decimal = Decimal("1.2")
+    min_volume_ratio: Decimal = Decimal("1.0")
     rsi_period: int = 14
     rsi_call_max: Decimal = Decimal("70")
     rsi_put_min: Decimal = Decimal("30")
+    bb_width_max: Decimal = Decimal("0.02")
     strike_offset: Decimal = Decimal("2")
 
     volatility_filter_enabled: bool = True
@@ -117,14 +119,10 @@ class Settings(BaseSettings):
             raise ValueError("risk fractions must be between 0 and 1")
         if self.take_profit_1_pct <= 0 or self.take_profit_2_pct <= self.take_profit_1_pct:
             raise ValueError("take-profit thresholds are invalid")
-        if not self.entry_start < self.entry_end < self.forced_close:
+        if not self.entry_start < self.entry_end <= self.forced_close:
             raise ValueError("trading times must be ordered")
-        if not 0 < self.macd_fast < self.macd_slow:
-            raise ValueError("MACD periods must satisfy 0 < fast < slow")
-        self.macd_parameter_sets()
         if (
             min(
-                self.macd_signal,
                 self.bollinger_period,
                 self.volume_average_period,
                 self.rsi_period,
@@ -162,28 +160,6 @@ class Settings(BaseSettings):
         ):
             raise ValueError("volatility shock thresholds must exceed rise thresholds")
         return self
-
-    def macd_parameter_sets(self) -> list[tuple[int, int, int]]:
-        """Parse and validate semicolon-separated fast,slow,signal combinations."""
-        combinations: list[tuple[int, int, int]] = []
-        for raw_combination in self.macd_backtest_combinations.split(";"):
-            parts = [part.strip() for part in raw_combination.split(",")]
-            if len(parts) != 3:
-                raise ValueError("MACD_BACKTEST_COMBINATIONS must use fast,slow,signal groups")
-            try:
-                fast, slow, signal = (int(part) for part in parts)
-            except ValueError as exc:
-                raise ValueError("MACD backtest periods must be integers") from exc
-            if not 0 < fast < slow or signal < 1:
-                raise ValueError(
-                    "each MACD backtest group must satisfy 0 < fast < slow and signal > 0"
-                )
-            combination = (fast, slow, signal)
-            if combination not in combinations:
-                combinations.append(combination)
-        if not combinations:
-            raise ValueError("at least one MACD backtest combination is required")
-        return combinations
 
     def assert_live_authorized(self) -> None:
         if self.trading_mode is not TradingMode.LIVE:

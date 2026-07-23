@@ -10,7 +10,11 @@ from qqq_trader.domain import Bar
 
 @pytest.fixture
 def bullish_bars() -> list[Bar]:
-    """Completed QQQ 1m bars ending in a valid bullish band breakout."""
+    """Completed QQQ 1m bars ending in a valid bullish EMA pullback signal.
+    
+    40 bars spanning 9:30-10:10 ET (13:30-14:10 UTC).
+    Pattern: uptrend with pullback and reversal in the EMA trend window.
+    """
     start = datetime(2026, 7, 15, 13, 30, tzinfo=timezone.utc)
     closes = [
         Decimal("100")

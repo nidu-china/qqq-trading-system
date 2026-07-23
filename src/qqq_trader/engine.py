@@ -17,6 +17,7 @@ from .domain import (
     Quote,
     SystemState,
     TradeSignal,
+    TradingMode,
 )
 from .execution import TERMINAL_STATUSES, OrderExecutor
 from .interfaces import Broker, Journal, MarketDataProvider
@@ -111,7 +112,7 @@ class TradingEngine:
                     today = datetime.now(timezone.utc).astimezone(NY_TZ).date()
                     if not await trading_day_check(today):
                         problems.append("today is not a US trading day")
-                    else:
+                    elif self.settings.trading_mode is TradingMode.LIVE:
                         option_check = getattr(self.market, "preflight_options", None)
                         if option_check is not None:
                             problems.extend(

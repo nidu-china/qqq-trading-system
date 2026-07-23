@@ -47,4 +47,4 @@ def test_cli_exposes_all_operational_commands():
 
     backtest_help = CliRunner().invoke(app, ["backtest", "--help"])
     assert backtest_help.exit_code == 0
-    assert "--compare-macd" in backtest_help.stdout
+    assert "--bars" in backtest_help.stdout

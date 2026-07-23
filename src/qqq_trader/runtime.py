@@ -36,7 +36,10 @@ async def build_runtime(settings: Settings | None = None) -> Runtime:
     broker = (
         LongbridgeBroker(session, settings)
         if settings.trading_mode is TradingMode.LIVE
-        else PaperBroker(fee_per_contract=settings.fee_per_contract)
+        else PaperBroker(
+            starting_equity=settings.paper_starting_equity,
+            fee_per_contract=settings.fee_per_contract,
+        )
     )
     engine = TradingEngine(settings, market, broker, journal)
     if active_config is not None:

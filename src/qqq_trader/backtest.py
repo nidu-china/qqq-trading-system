@@ -11,7 +11,7 @@ import pyarrow.parquet as pq
 from .config import Settings
 from .domain import AccountSnapshot, Bar, Direction, OptionContract, Position, Quote
 from .risk import ContractSelector, RiskEngine
-from .strategy import MacdBollingerStrategy
+from .strategy import TimeBasedStrategyRouter
 from .volatility import VolatilityFilter, VolatilityRegime
 
 
@@ -93,7 +93,7 @@ class EventDrivenBacktester:
     def __init__(
         self,
         settings: Settings,
-        strategy: MacdBollingerStrategy,
+        strategy: TimeBasedStrategyRouter,
         selector: ContractSelector,
         risk: RiskEngine,
     ) -> None:
@@ -106,7 +106,11 @@ class EventDrivenBacktester:
     def _synthetic_frame(
         self, spot: Decimal, bar_end: datetime, trading_day: date
     ) -> OptionFrame:
-        """Generate a synthetic OptionFrame when no real option data is available."""
+        """Generate a synthetic OptionFrame using Greeks-based pricing.
+        
+        Model: Delta=0.45, Gamma=0.05, Theta=-3/day, Vega=0.10
+        For 0DTE options, theta decays entirely within the trading session (6.5h).
+        """
         offset = self.settings.strike_offset
         call_strike = _round_strike(spot + offset)
         put_strike = _round_strike(spot - offset)
@@ -119,9 +123,7 @@ class EventDrivenBacktester:
             / Decimal(3600),
             Decimal("0.1"),
         )
-        time_factor = (hours_left / Decimal(7)).sqrt()
-        base_premium = Decimal("1.00") * time_factor
-        half_spread = Decimal("0.02")
+        half_spread = Decimal("0.03")
 
         contracts = []
         quotes: dict[str, Quote] = {}
@@ -134,11 +136,7 @@ class EventDrivenBacktester:
                 f"{'C' if direction is Direction.CALL else 'P'}"
                 f"{int(strike * 1000):08d}.US"
             )
-            if direction is Direction.CALL:
-                intrinsic = max(spot - strike, Decimal(0))
-            else:
-                intrinsic = max(strike - spot, Decimal(0))
-            mid = intrinsic + base_premium
+            mid = self._greeks_price(spot, strike, direction, hours_left)
             contracts.append(
                 OptionContract(
                     symbol=symbol,
@@ -164,10 +162,48 @@ class EventDrivenBacktester:
             quotes=quotes,
         )
 
+    def _greeks_price(
+        self,
+        spot: Decimal,
+        strike: Decimal,
+        direction: Direction,
+        hours_left: Decimal,
+    ) -> Decimal:
+        """Calculate synthetic option price using fixed Greeks.
+        
+        Delta=0.45, Gamma=0.05, Theta=-$3/day, Vega=0.10 (unused without IV).
+        """
+        delta = Decimal("0.45")
+        gamma = Decimal("0.05")
+        theta_daily = Decimal("3")
+        trading_hours = Decimal("6.5")
+
+        if direction is Direction.CALL:
+            intrinsic = max(spot - strike, Decimal(0))
+            distance = spot - strike
+        else:
+            intrinsic = max(strike - spot, Decimal(0))
+            distance = strike - spot
+
+        time_value = theta_daily * hours_left / trading_hours
+
+        abs_distance = abs(distance)
+        if abs_distance > Decimal(0):
+            moneyness_decay = max(Decimal("0.05"), Decimal(1) - abs_distance / Decimal(8))
+            time_value *= moneyness_decay
+
+        extrinsic_delta = Decimal(0)
+        if distance > Decimal(0):
+            extrinsic_delta = (delta - Decimal("0.5")) * distance + Decimal("0.5") * gamma * distance * distance
+            extrinsic_delta = max(Decimal(0), extrinsic_delta)
+
+        mid = intrinsic + time_value + extrinsic_delta
+        return max(mid, Decimal("0.05"))
+
     def _synthetic_position_quote(
         self, position: Position, spot: Decimal, bar_end: datetime
     ) -> Quote:
-        """Compute a simulated option quote for an existing position."""
+        """Compute a simulated option quote for an existing position using Greeks."""
         market_close = bar_end.astimezone(self.settings_timezone).replace(
             hour=16, minute=0, second=0, microsecond=0
         )
@@ -176,24 +212,22 @@ class EventDrivenBacktester:
             / Decimal(3600),
             Decimal("0.1"),
         )
-        time_factor = (hours_left / Decimal(7)).sqrt()
-        base_premium = Decimal("1.00") * time_factor
-        half_spread = Decimal("0.02")
+        half_spread = Decimal("0.03")
 
-        strike = position.entry_price
         parts = position.symbol.split(".")[0]
         if "C" in parts[-10:]:
             idx = parts.rindex("C")
             strike = Decimal(parts[idx + 1:]) / Decimal(1000)
-            intrinsic = max(spot - strike, Decimal(0))
+            direction = Direction.CALL
         elif "P" in parts[-10:]:
             idx = parts.rindex("P")
             strike = Decimal(parts[idx + 1:]) / Decimal(1000)
-            intrinsic = max(strike - spot, Decimal(0))
+            direction = Direction.PUT
         else:
-            intrinsic = Decimal(0)
+            strike = spot
+            direction = Direction.CALL
 
-        mid = intrinsic + base_premium
+        mid = self._greeks_price(spot, strike, direction, hours_left)
         return Quote(
             symbol=position.symbol,
             timestamp=bar_end,

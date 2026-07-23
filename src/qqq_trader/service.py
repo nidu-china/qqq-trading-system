@@ -63,15 +63,26 @@ class TradingService:
         local = now.astimezone(NY_TZ)
         if local.weekday() >= 5:
             return
+        local_time = local.time()
+        if local_time < time(9, 0) or local_time > time(16, 5):
+            return
         if self.last_minute != local.replace(second=0, microsecond=0):
             self.last_minute = local.replace(second=0, microsecond=0)
             recent = await self.engine.market.recent_bars(  # type: ignore[attr-defined]
                 self.engine.settings.underlying_symbol, 500, "1m"
             )
-            self.bars_1m = [bar for bar in recent if bar.end <= now]
+            market_open = now.astimezone(NY_TZ).replace(hour=9, minute=0, second=0, microsecond=0)
+            self.bars_1m = [bar for bar in recent if bar.end <= now and bar.start >= market_open]
             self.market_store.write_bars(self.bars_1m, "1m")
             bars_5m = BarAggregator.to_five_minutes(self.bars_1m)
             self.market_store.write_bars(bars_5m, "5m")
+            if local.minute % 5 == 0 or self.last_bar_end is None:
+                self._log.info(
+                    "bars updated | %s 1m=%d 5m=%d | last=%s",
+                    self.engine.settings.underlying_symbol,
+                    len(self.bars_1m), len(bars_5m),
+                    self.bars_1m[-1].end.astimezone(NY_TZ).strftime("%H:%M") if self.bars_1m else "N/A",
+                )
             await self._refresh_volatility(now)
             completed_1m = [bar for bar in self.bars_1m if bar.complete]
             if completed_1m and completed_1m[-1].end != self.last_bar_end:
@@ -114,6 +125,10 @@ class TradingService:
         now = datetime.now(timezone.utc)
         end = now.astimezone(NY_TZ).date()
         start = end - timedelta(days=max(45, self.engine.settings.volatility_lookback_days * 2))
+        self._log.info(
+            "warming volatility history | %s | %s to %s",
+            self.engine.settings.volatility_symbol, start, end,
+        )
         try:
             intraday, daily = await asyncio.gather(
                 self.volatility_provider.historical_bars(
@@ -127,6 +142,10 @@ class TradingService:
             self.volatility_daily_bars = daily
             self.market_store.write_bars(self.volatility_bars_5m, "5m")
             self.market_store.write_bars(self.volatility_daily_bars, "day")
+            self._log.info(
+                "volatility warmed | %s | 5m=%d daily=%d",
+                self.engine.settings.volatility_symbol, len(intraday), len(daily),
+            )
             await self.engine.journal.event(
                 "volatility_warmed",
                 f"loaded {len(intraday)} intraday and {len(daily)} daily bars",
@@ -148,6 +167,7 @@ class TradingService:
             symbols.append(self.engine.settings.volatility_symbol)
         try:
             await subscriber(symbols, "1m")
+            self._log.info("subscribed to real-time 1m candlesticks | %s", symbols)
             await self.engine.journal.event(
                 "candlesticks_subscribed",
                 "subscribed to real-time one-minute candlesticks",

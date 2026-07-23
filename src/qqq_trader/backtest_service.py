@@ -3,15 +3,16 @@ from __future__ import annotations
 import asyncio
 import threading
 from dataclasses import asdict
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any
 from uuid import uuid4
 
 from .backtest import EventDrivenBacktester, load_option_frames
 from .config import Settings
-from .configuration import with_editable_values
+from .configuration import editable_values, with_editable_values
 from .persistence import MySQLJournal, ParquetMarketStore
+from .reporting import generate_price_chart
 from .risk import ContractSelector, RiskEngine
 from .strategy import strategy_from_settings
 
@@ -142,6 +143,12 @@ class BacktestService:
         await self._persist(job)
         return job
 
+    async def delete(self, job_id: str) -> None:
+        self.jobs.pop(job_id, None)
+        deleter = getattr(self.journal, "delete_backtest_run", None)
+        if deleter is not None:
+            await deleter(job_id)
+
     async def _worker(self) -> None:
         while True:
             job_id = await self.queue.get()
@@ -162,6 +169,10 @@ class BacktestService:
                     if row is None:
                         raise ValueError(f"configuration v{version} does not exist")
                     run_request["_config_values"] = row.values
+                custom_params = run_request.pop("params", None)
+                if custom_params:
+                    base = run_request.get("_config_values", {})
+                    run_request["_config_values"] = {**base, **custom_params}
                 cancel_event = threading.Event()
                 self._cancel_events[job_id] = cancel_event
                 try:
@@ -191,12 +202,15 @@ class BacktestService:
                 self.queue.task_done()
 
     def _run(self, request: dict[str, Any], cancel_event: threading.Event) -> dict[str, Any]:
+        import logging
+        log = logging.getLogger(__name__)
         start = date.fromisoformat(request["start_date"])
         end = date.fromisoformat(request["end_date"])
         values: dict[str, Any] = request.get("_config_values", {})
         settings = with_editable_values(
             self.settings.model_copy(update={"trading_mode": "replay"}), values
         )
+        log.info("backtest starting | %s to %s", start, end)
         bars = []
         frames = {}
         volatility = []
@@ -233,6 +247,22 @@ class BacktestService:
             if (vol_root / "day.parquet").exists():
                 volatility_daily.extend(ParquetMarketStore.read_bars(vol_root / "day.parquet"))
             current = date.fromordinal(current.toordinal() + 1)
+
+        vol_lookback = timedelta(days=int(settings.volatility_lookback_days * 3))
+        vol_start = start - vol_lookback
+        vol_cursor = vol_start
+        while vol_cursor < start:
+            vol_day_root = (
+                settings.data_dir
+                / "bars"
+                / f"symbol={settings.volatility_symbol}"
+                / f"date={vol_cursor.isoformat()}"
+            )
+            if (vol_day_root / "5m.parquet").exists():
+                volatility.extend(ParquetMarketStore.read_bars(vol_day_root / "5m.parquet"))
+            if (vol_day_root / "day.parquet").exists():
+                volatility_daily.extend(ParquetMarketStore.read_bars(vol_day_root / "day.parquet"))
+            vol_cursor = date.fromordinal(vol_cursor.toordinal() + 1)
         if not bars:
             raise ValueError("no QQQ 5-minute bars exist in the selected date range")
         if cancel_event.is_set():
@@ -257,11 +287,55 @@ class BacktestService:
         peak = equity
         max_drawdown = Decimal(0)
         equity_curve = []
+        gross_profit = sum((t.pnl for t in result.trades if t.pnl > 0), Decimal(0))
+        gross_loss = abs(sum((t.pnl for t in result.trades if t.pnl < 0), Decimal(0)))
         for trade in result.trades:
             equity += trade.pnl
             peak = max(peak, equity)
             max_drawdown = min(max_drawdown, equity - peak)
             equity_curve.append({"time": trade.exit_at.isoformat(), "equity": str(equity)})
+        chart_svg = generate_price_chart(
+            bars,
+            [(t.entry_at.isoformat(), t.exit_at.isoformat()) for t in result.trades],
+        )
+        sorted_bars = sorted(bars, key=lambda x: x.start)
+        from .strategy import ema_series, bollinger_bands as calc_bb, vwap as calc_vwap
+        from zoneinfo import ZoneInfo
+        et = ZoneInfo("America/New_York")
+        bb_period = int(settings.bollinger_period)
+        bb_std = settings.bollinger_stddev
+        ema_fast = int(getattr(settings, "ema_fast_period", 9))
+        ema_slow = int(getattr(settings, "ema_slow_period", 21))
+        all_closes: list[Decimal] = []
+        full_series: list[dict[str, Any]] = []
+        day_bars: list[Any] = []
+        current_day = None
+        for b in sorted_bars:
+            bar_date = b.start.astimezone(et).date()
+            if bar_date != current_day:
+                current_day = bar_date
+                day_bars = []
+            day_bars.append(b)
+            all_closes.append(b.close)
+            point: dict[str, Any] = {
+                "time": b.end.isoformat(),
+                "price": float(b.close),
+                "volume": b.volume,
+            }
+            if len(all_closes) >= bb_period:
+                mid, upper, lower = calc_bb(all_closes, bb_period, bb_std)
+                point["bb_upper"] = float(upper)
+                point["bb_middle"] = float(mid)
+                point["bb_lower"] = float(lower)
+            if len(all_closes) >= ema_slow:
+                ema9_vals = ema_series(all_closes, ema_fast)
+                ema21_vals = ema_series(all_closes, ema_slow)
+                point["ema9"] = float(ema9_vals[-1])
+                point["ema21"] = float(ema21_vals[-1])
+            if day_bars:
+                point["vwap"] = float(calc_vwap(day_bars))
+            full_series.append(point)
+        price_series = full_series
         return {
             "starting_equity": str(result.starting_equity),
             "ending_equity": str(result.ending_equity),
@@ -270,6 +344,7 @@ class BacktestService:
             "signals": result.signals,
             "trade_count": len(result.trades),
             "win_rate": str(Decimal(wins) / Decimal(len(result.trades))) if result.trades else "0",
+            "profit_factor": str(gross_profit / gross_loss) if gross_loss else None,
             "max_drawdown": str(max_drawdown),
             "equity_curve": equity_curve,
             "rejected": result.rejected,
@@ -278,6 +353,9 @@ class BacktestService:
             "volatility_regimes": result.volatility_regimes,
             "signal_records": result.signal_records,
             "trades": [self._trade_payload(trade) for trade in result.trades],
+            "chart_svg": chart_svg,
+            "price_series": price_series,
+            "settings_used": editable_values(settings),
         }
 
     @staticmethod

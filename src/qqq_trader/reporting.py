@@ -29,6 +29,58 @@ class TradeSummary:
     mfe: Decimal = Decimal(0)
 
 
+def generate_price_chart(
+    bars: list[Bar],
+    trades: list[tuple[str, str]] | None = None,
+    width: int = 1000,
+    height: int = 280,
+) -> str:
+    """Generate an SVG price chart with optional buy/sell markers.
+
+    Args:
+        bars: list of Bar objects (must have .close and .end attributes)
+        trades: list of (entry_at_iso, exit_at_iso) timestamp pairs
+        width/height: SVG dimensions
+    """
+    padding = 30
+    if not bars:
+        return f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}"></svg>'
+    prices = [float(bar.close) for bar in bars]
+    low, high = min(prices), max(prices)
+    span = high - low or 1
+    points = []
+    for index, price in enumerate(prices):
+        x = padding + index * (width - padding * 2) / max(1, len(prices) - 1)
+        y = height - padding - (price - low) * (height - padding * 2) / span
+        points.append(f"{x:.2f},{y:.2f}")
+    markers = []
+    for entry_at, exit_at in trades or []:
+        for kind, timestamp, color in (
+            ("buy", entry_at, "#159957"),
+            ("sell", exit_at, "#d33f49"),
+        ):
+            when = datetime.fromisoformat(timestamp)
+            nearest_index = min(
+                range(len(bars)),
+                key=lambda i: abs((bars[i].end - when).total_seconds()),
+            )
+            x = padding + nearest_index * (width - padding * 2) / max(1, len(prices) - 1)
+            price = prices[nearest_index]
+            y = height - padding - (price - low) * (height - padding * 2) / span
+            markers.append(
+                f'<circle cx="{x:.2f}" cy="{y:.2f}" r="5" fill="{color}">'
+                f"<title>{kind}</title></circle>"
+            )
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}">'
+        '<rect width="100%" height="100%" fill="#f7f9fc"/>'
+        f'<polyline fill="none" stroke="#3457d5" stroke-width="2" points="{" ".join(points)}"/>'
+        f"{''.join(markers)}"
+        f'<text x="30" y="20" font-size="13">High {high:.2f}</text>'
+        f'<text x="30" y="270" font-size="13">Low {low:.2f}</text></svg>'
+    )
+
+
 @dataclass(slots=True)
 class DailyReportData:
     trading_date: date
@@ -229,45 +281,7 @@ table{{border-collapse:collapse;width:100%}}th,td{{border:1px solid #d8deea;padd
 
     @staticmethod
     def _chart(bars: list[Bar], trades: list[TradeSummary]) -> str:
-        width, height, padding = 1000, 280, 30
-        if not bars:
-            return (
-                f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}"></svg>'
-            )
-        prices = [float(bar.close) for bar in bars]
-        low, high = min(prices), max(prices)
-        span = high - low or 1
-        points = []
-        for index, price in enumerate(prices):
-            x = padding + index * (width - padding * 2) / max(1, len(prices) - 1)
-            y = height - padding - (price - low) * (height - padding * 2) / span
-            points.append(f"{x:.2f},{y:.2f}")
-        markers = []
-        for trade in trades:
-            for kind, timestamp, color in (
-                ("entry", trade.entry_at, "#159957"),
-                ("exit", trade.exit_at, "#d33f49"),
-            ):
-                when = datetime.fromisoformat(timestamp)
-                nearest_index = min(
-                    range(len(bars)),
-                    key=lambda index: abs((bars[index].end - when).total_seconds()),
-                )
-                x = padding + nearest_index * (width - padding * 2) / max(1, len(prices) - 1)
-                price = prices[nearest_index]
-                y = height - padding - (price - low) * (height - padding * 2) / span
-                markers.append(
-                    f'<circle cx="{x:.2f}" cy="{y:.2f}" r="5" fill="{color}">'
-                    f"<title>{kind}</title></circle>"
-                )
-        return (
-            f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}">'
-            '<rect width="100%" height="100%" fill="#f7f9fc"/>'
-            f'<polyline fill="none" stroke="#3457d5" stroke-width="2" points="{" ".join(points)}"/>'
-            f"{''.join(markers)}"
-            f'<text x="30" y="20" font-size="13">High {high:.2f}</text>'
-            f'<text x="30" y="270" font-size="13">Low {low:.2f}</text></svg>'
-        )
+        return generate_price_chart(bars, [(t.entry_at, t.exit_at) for t in trades])
 
     @staticmethod
     def _atomic_text(path: Path, content: str) -> None:

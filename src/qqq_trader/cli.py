@@ -116,12 +116,18 @@ def backfill(
         try:
             typer.echo(f"requesting {symbol} 1m bars: {start_date} to {end_date}")
             bars = await market.historical_bars(symbol, start_date, end_date, "1m")
+            market_open = time(9, 30)
+            market_close = time(16, 0)
+            bars = [
+                b for b in bars
+                if market_open <= b.start.astimezone(NY_TZ).time() < market_close
+            ]
             store = ParquetMarketStore(settings.data_dir)
             store.write_bars(bars, "1m")
             from .strategy import BarAggregator
 
             store.write_bars(BarAggregator.to_five_minutes(bars), "5m")
-            typer.echo(f"saved {len(bars)} {symbol} one-minute bars")
+            typer.echo(f"saved {len(bars)} {symbol} one-minute bars (market hours only)")
             if include_volatility and symbol != settings.volatility_symbol:
                 typer.echo(f"requesting {settings.volatility_symbol} 5m and daily bars")
                 volatility_5m = await market.historical_bars(
@@ -149,11 +155,6 @@ def backtest(
     volatility_bars: Path | None = typer.Option(None, exists=True),
     volatility_daily_bars: Path | None = typer.Option(None, exists=True),
     starting_equity: str = typer.Option("100000"),
-    compare_macd: bool = typer.Option(
-        False,
-        "--compare-macd",
-        help="Compare MACD_BACKTEST_COMBINATIONS with identical market data.",
-    ),
 ) -> None:
     """Replay saved bars and optional captured candidate-option Bid/Ask frames."""
     settings = Settings(trading_mode="replay")
@@ -167,40 +168,20 @@ def backtest(
         if volatility_daily_bars
         else []
     )
-    combinations = (
-        settings.macd_parameter_sets()
-        if compare_macd
-        else [(settings.macd_fast, settings.macd_slow, settings.macd_signal)]
+    tester = EventDrivenBacktester(
+        settings,
+        strategy_from_settings(settings),
+        ContractSelector(settings.strike_offset),
+        RiskEngine(settings),
     )
-    runs = []
-    for fast, slow, signal in combinations:
-        run_settings = Settings.model_validate(
-            {
-                **settings.model_dump(),
-                "macd_fast": fast,
-                "macd_slow": slow,
-                "macd_signal": signal,
-            }
-        )
-        tester = EventDrivenBacktester(
-            run_settings,
-            strategy_from_settings(run_settings),
-            ContractSelector(run_settings.strike_offset),
-            RiskEngine(run_settings),
-        )
-        result = tester.run(
-            saved_bars,
-            frames,
-            Decimal(starting_equity),
-            saved_volatility,
-            saved_volatility_daily,
-        )
-        runs.append(
-            {
-                "macd": {"fast": fast, "slow": slow, "signal": signal},
-                **_backtest_metrics(result),
-            }
-        )
+    result = tester.run(
+        saved_bars,
+        frames,
+        Decimal(starting_equity),
+        saved_volatility,
+        saved_volatility_daily,
+    )
+    payload = {**_backtest_metrics(result)}
 
     warnings = [
         message
@@ -216,29 +197,7 @@ def backtest(
         )
         if condition
     ]
-    if compare_macd:
-        eligible = [
-            run
-            for run in runs
-            if run["trades"] > 0
-            and run["option_data_complete"]
-            and (not settings.volatility_filter_enabled or run["volatility_data_complete"])
-        ]
-        ranking = sorted(
-            eligible,
-            key=lambda run: (Decimal(run["net_pnl"]), Decimal(run["max_drawdown"])),
-            reverse=True,
-        )
-        payload = {
-            "mode": "macd_comparison",
-            "ranked_by": "net_pnl_then_max_drawdown",
-            "best": ranking[0]["macd"] if ranking else None,
-            "ranking": ranking,
-            "excluded_incomplete_runs": [run for run in runs if run not in eligible],
-            "warning": warnings,
-        }
-    else:
-        payload = {**runs[0], "warning": warnings}
+    payload["warning"] = warnings
     typer.echo(
         json.dumps(
             payload,
@@ -286,12 +245,12 @@ def report(
         ]
         rejected = [
             {
-                "bar_end": row.bar_end.isoformat(),
+                "bar_end": row.decision_at.isoformat(),
                 "reason": row.reason,
                 "indicators": row.indicators or {},
             }
             for row in rows["signals"]
-            if not row.accepted
+            if row.status == "rejected"
         ]
         events = [
             {"at": row.created_at.isoformat(), "kind": row.kind, "message": row.message}

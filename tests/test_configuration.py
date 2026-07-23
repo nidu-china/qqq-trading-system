@@ -24,8 +24,8 @@ def test_editable_values_exclude_credentials_and_infrastructure():
 
 
 def test_online_configuration_runs_cross_field_validation():
-    with pytest.raises(ValueError, match="MACD"):
-        with_editable_values(Settings(), {"macd_fast": 30, "macd_slow": 20})
+    with pytest.raises(ValueError, match="not editable"):
+        with_editable_values(Settings(), {"nonexistent_field": 30})
 
     updated = with_editable_values(Settings(), {"risk_per_trade": "0.01"})
     assert updated.risk_per_trade == Decimal("0.01")
@@ -45,12 +45,15 @@ def test_legacy_paper_signal_only_value_is_ignored():
     assert "paper_signal_only" not in editable_values(updated)
 
 
-def test_macd_defaults_and_backtest_combinations():
+def test_strategy_config_defaults():
     settings = Settings(_env_file=None)
-    assert (settings.macd_fast, settings.macd_slow, settings.macd_signal) == (5, 10, 3)
-    assert settings.macd_parameter_sets() == [(8, 17, 9), (6, 13, 5), (5, 10, 3)]
+    assert settings.ema_fast_period == 9
+    assert settings.ema_slow_period == 21
+    assert settings.bollinger_period == 20
+    assert settings.orb_min_volume_ratio == Decimal("1.5")
+    assert settings.bb_width_max == Decimal("0.02")
 
 
-def test_macd_backtest_combinations_are_validated():
-    with pytest.raises(ValueError, match="MACD"):
-        Settings(_env_file=None, macd_backtest_combinations="5,3,2")
+def test_bollinger_settings_validated():
+    with pytest.raises(ValueError, match="Bollinger"):
+        Settings(_env_file=None, bollinger_period=1)

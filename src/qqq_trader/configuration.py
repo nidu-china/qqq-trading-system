@@ -10,10 +10,9 @@ EDITABLE_FIELDS = (
     "forced_close",
     "cooldown_minutes",
     "max_trades_per_day",
-    "macd_fast",
-    "macd_slow",
-    "macd_signal",
-    "macd_backtest_combinations",
+    "orb_min_volume_ratio",
+    "ema_fast_period",
+    "ema_slow_period",
     "bollinger_period",
     "bollinger_stddev",
     "volume_average_period",
@@ -21,6 +20,7 @@ EDITABLE_FIELDS = (
     "rsi_period",
     "rsi_call_max",
     "rsi_put_min",
+    "bb_width_max",
     "strike_offset",
     "volatility_filter_enabled",
     "volatility_symbol",
@@ -52,7 +52,16 @@ EDITABLE_FIELDS = (
     "entry_reprices",
     "max_entry_slippage_pct",
 )
-LEGACY_IGNORED_FIELDS = {"paper_signal_only"}
+LEGACY_IGNORED_FIELDS = {
+    "paper_signal_only",
+    "strategy_type",
+    "macd_fast",
+    "macd_slow",
+    "macd_signal",
+    "macd_backtest_combinations",
+    "score_threshold",
+    "consecutive_bars",
+}
 
 
 def editable_values(settings: Settings) -> dict[str, Any]:

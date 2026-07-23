@@ -36,6 +36,7 @@ class BacktestCreate(BaseModel):
     end_date: date
     starting_equity: Decimal = Field(default=Decimal("100000"), gt=0)
     config_version: int | None = Field(default=None, ge=1)
+    params: dict[str, Any] | None = Field(default=None)
 
 
 def _decimal(value: Any) -> Any:
@@ -394,11 +395,25 @@ def create_app(
             raise HTTPException(404, "backtest not found")
         return backtests.jobs[job_id]
 
-    @app.delete("/api/v1/backtests/{job_id}")
-    async def cancel_backtest(job_id: str) -> dict[str, Any]:
+    @app.get("/api/v1/backtests/{job_id}/chart")
+    async def backtest_chart(job_id: str) -> Response:
         if backtests is None or job_id not in backtests.jobs:
             raise HTTPException(404, "backtest not found")
-        return await backtests.cancel(job_id)
+        job = backtests.jobs[job_id]
+        svg = (job.get("result") or {}).get("chart_svg", "")
+        if not svg:
+            raise HTTPException(404, "chart not available")
+        return Response(content=svg, media_type="image/svg+xml")
+
+    @app.delete("/api/v1/backtests/{job_id}")
+    async def cancel_or_delete_backtest(job_id: str) -> dict[str, Any]:
+        if backtests is None or job_id not in backtests.jobs:
+            raise HTTPException(404, "backtest not found")
+        job = backtests.jobs[job_id]
+        if job["status"] in {"queued", "running"}:
+            return await backtests.cancel(job_id)
+        await backtests.delete(job_id)
+        return {"deleted": True}
 
     @app.get("/api/v1/events")
     async def events() -> StreamingResponse:

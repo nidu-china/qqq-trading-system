@@ -18,22 +18,6 @@ CREATE TABLE IF NOT EXISTS `system_events` (
   KEY `ix_system_events_kind` (`kind`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE IF NOT EXISTS `signals` (
-  `id` CHAR(32) NOT NULL,
-  `bar_end` DATETIME NOT NULL,
-  `direction` VARCHAR(8) NOT NULL,
-  `spot` DECIMAL(18,6) NOT NULL,
-  `ema_fast` DECIMAL(18,6) NOT NULL,
-  `ema_slow` DECIMAL(18,6) NOT NULL,
-  `vwap` DECIMAL(18,6) NOT NULL,
-  `breakout_level` DECIMAL(18,6) NOT NULL,
-  `indicators` JSON NULL,
-  `accepted` BOOL NOT NULL,
-  `reason` VARCHAR(128) NOT NULL,
-  CONSTRAINT `pk_signals` PRIMARY KEY (`id`),
-  KEY `ix_signals_bar_end` (`bar_end`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
 CREATE TABLE IF NOT EXISTS `trade_signals` (
   `intent_id` CHAR(32) NOT NULL,
   `decision_at` DATETIME NOT NULL,
@@ -101,19 +85,6 @@ CREATE TABLE IF NOT EXISTS `executions` (
   KEY `ix_executions_recorded_at` (`recorded_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE IF NOT EXISTS `positions` (
-  `id` INT NOT NULL AUTO_INCREMENT,
-  `symbol` VARCHAR(64) NOT NULL,
-  `direction` VARCHAR(8) NOT NULL,
-  `quantity` INT NOT NULL,
-  `entry_price` DECIMAL(18,6) NOT NULL,
-  `opened_at` DATETIME NOT NULL,
-  `closed_at` DATETIME NULL,
-  `realized_pnl` DECIMAL(18,6) NULL,
-  CONSTRAINT `pk_positions` PRIMARY KEY (`id`),
-  KEY `ix_positions_symbol` (`symbol`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
 CREATE TABLE IF NOT EXISTS `risk_snapshots` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `created_at` DATETIME NOT NULL,
@@ -145,14 +116,6 @@ CREATE TABLE IF NOT EXISTS `trade_summaries` (
   KEY `ix_trade_summaries_symbol` (`symbol`),
   KEY `ix_trade_summaries_entry_at` (`entry_at`),
   KEY `ix_trade_summaries_exit_at` (`exit_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-CREATE TABLE IF NOT EXISTS `report_runs` (
-  `trading_date` DATE NOT NULL,
-  `created_at` DATETIME NOT NULL,
-  `output_path` TEXT NOT NULL,
-  `content_hash` VARCHAR(64) NOT NULL,
-  CONSTRAINT `pk_report_runs` PRIMARY KEY (`trading_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS `config_versions` (

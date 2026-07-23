@@ -7,7 +7,7 @@ from qqq_trader.backtest import EventDrivenBacktester, OptionFrame
 from qqq_trader.config import Settings
 from qqq_trader.domain import Bar, Direction, OptionContract, Quote
 from qqq_trader.risk import ContractSelector, RiskEngine
-from qqq_trader.strategy import MacdBollingerStrategy
+from qqq_trader.strategy import strategy_from_settings
 
 
 def test_full_option_frame_backtest_uses_ask_then_executable_bid(bullish_bars):
@@ -61,7 +61,7 @@ def test_full_option_frame_backtest_uses_ask_then_executable_bid(bullish_bars):
     }
     result = EventDrivenBacktester(
         settings,
-        MacdBollingerStrategy(),
+        strategy_from_settings(settings),
         ContractSelector(),
         RiskEngine(settings),
     ).run([*bullish_bars, exit_bar], frames, Decimal("100000"))

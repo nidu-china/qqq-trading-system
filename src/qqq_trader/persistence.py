@@ -62,21 +62,6 @@ class EventRow(Base):
     details: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
 
 
-class SignalRow(Base):
-    __tablename__ = "signals"
-    id: Mapped[Any] = mapped_column(Uuid, primary_key=True)
-    bar_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
-    direction: Mapped[str] = mapped_column(String(8))
-    spot: Mapped[Decimal] = mapped_column(Numeric(18, 6))
-    ema_fast: Mapped[Decimal] = mapped_column(Numeric(18, 6))
-    ema_slow: Mapped[Decimal] = mapped_column(Numeric(18, 6))
-    vwap: Mapped[Decimal] = mapped_column(Numeric(18, 6))
-    breakout_level: Mapped[Decimal] = mapped_column(Numeric(18, 6))
-    indicators: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True, default=dict)
-    accepted: Mapped[bool] = mapped_column(Boolean)
-    reason: Mapped[str] = mapped_column(String(128), default="")
-
-
 class TradeSignalRow(Base):
     __tablename__ = "trade_signals"
     intent_id: Mapped[Any] = mapped_column(Uuid, primary_key=True)
@@ -229,20 +214,23 @@ class MySQLJournal:
             session.add(EventRow(kind=kind, message=message, details=details or {}))
 
     async def signal(self, signal: Signal, accepted: bool, reason: str = "") -> None:
+        if accepted:
+            return
+        from uuid import uuid4 as _uuid4
+
         async with self.sessions() as session, session.begin():
             await session.merge(
-                SignalRow(
-                    id=signal.id,
-                    bar_end=signal.bar_end,
+                TradeSignalRow(
+                    intent_id=_uuid4(),
+                    decision_at=signal.bar_end,
+                    action="buy",
                     direction=signal.direction.value,
-                    spot=signal.spot,
-                    ema_fast=signal.ema_fast,
-                    ema_slow=signal.ema_slow,
-                    vwap=signal.vwap,
-                    breakout_level=signal.breakout_level,
-                    indicators=signal.indicators,
-                    accepted=accepted,
+                    symbol="",
+                    reference_price=signal.spot,
+                    quantity=0,
+                    status="rejected",
                     reason=reason,
+                    indicators=signal.indicators or {},
                 )
             )
 
@@ -540,9 +528,9 @@ class MySQLJournal:
             signals = list(
                 (
                     await session.scalars(
-                        select(SignalRow)
-                        .where(SignalRow.bar_end >= start, SignalRow.bar_end < end)
-                        .order_by(SignalRow.bar_end)
+                        select(TradeSignalRow)
+                        .where(TradeSignalRow.decision_at >= start, TradeSignalRow.decision_at < end)
+                        .order_by(TradeSignalRow.decision_at)
                     )
                 ).all()
             )
@@ -651,94 +639,51 @@ class MySQLJournal:
         page: int = 1,
         page_size: int = 50,
     ) -> tuple[list[dict[str, Any]], int]:
-        signal_filters = []
-        trade_signal_filters = []
+        filters = []
         if start is not None:
-            signal_filters.append(SignalRow.bar_end >= start)
-            trade_signal_filters.append(TradeSignalRow.decision_at >= start)
+            filters.append(TradeSignalRow.decision_at >= start)
         if end is not None:
-            signal_filters.append(SignalRow.bar_end < end)
-            trade_signal_filters.append(TradeSignalRow.decision_at < end)
+            filters.append(TradeSignalRow.decision_at < end)
         if action:
-            trade_signal_filters.append(TradeSignalRow.action == action)
-        if status in {"accepted", "executed", "failed"}:
-            trade_signal_filters.append(TradeSignalRow.status == status)
-        if status == "rejected":
-            signal_filters.append(SignalRow.accepted.is_(False))
+            filters.append(TradeSignalRow.action == action)
+        if status:
+            filters.append(TradeSignalRow.status == status)
 
-        total = 0
-        items: list[dict[str, Any]] = []
         offset = (page - 1) * page_size
         async with self.sessions() as session:
-            if action in {None, "buy"} and status in {None, "rejected"}:
-                signal_count = await session.scalar(
-                    select(func.count())
-                    .select_from(SignalRow)
-                    .where(SignalRow.accepted.is_(False), *signal_filters)
+            total = int(
+                await session.scalar(
+                    select(func.count()).select_from(TradeSignalRow).where(*filters)
                 )
-                total += int(signal_count or 0)
-            if status != "rejected":
-                trade_signal_count = await session.scalar(
-                    select(func.count())
-                    .select_from(TradeSignalRow)
-                    .where(*trade_signal_filters)
-                )
-                total += int(trade_signal_count or 0)
-
-            if action in {None, "buy"} and status in {None, "rejected"}:
-                rows = list(
-                    (
-                        await session.scalars(
-                            select(SignalRow)
-                            .where(SignalRow.accepted.is_(False), *signal_filters)
-                            .order_by(SignalRow.bar_end.desc())
-                            .limit(page_size + offset)
-                        )
-                    ).all()
-                )
-                items.extend(
-                    {
-                        "id": f"buy:{row.id}",
-                        "action": "buy",
-                        "decision_at": row.bar_end,
-                        "direction": row.direction,
-                        "symbol": None,
-                        "price": row.spot,
-                        "quantity": None,
-                        "status": "accepted" if row.accepted else "rejected",
-                        "reason": row.reason,
-                        "indicators": row.indicators or {},
-                    }
-                    for row in rows
-                )
-            if status != "rejected":
-                rows = list(
-                    (
-                        await session.scalars(
-                            select(TradeSignalRow)
-                            .where(*trade_signal_filters)
-                            .order_by(TradeSignalRow.decision_at.desc())
-                            .limit(page_size + offset)
-                        )
-                    ).all()
-                )
-                items.extend(
-                    {
-                        "id": f"{row.action}:{row.intent_id}",
-                        "action": row.action,
-                        "decision_at": row.decision_at,
-                        "direction": row.direction,
-                        "symbol": row.symbol,
-                        "price": row.reference_price,
-                        "quantity": row.quantity,
-                        "status": row.status,
-                        "reason": row.reason,
-                        "indicators": row.indicators or {},
-                    }
-                    for row in rows
-                )
-        items.sort(key=lambda item: item["decision_at"], reverse=True)
-        return items[offset : offset + page_size], total
+                or 0
+            )
+            rows = list(
+                (
+                    await session.scalars(
+                        select(TradeSignalRow)
+                        .where(*filters)
+                        .order_by(TradeSignalRow.decision_at.desc())
+                        .offset(offset)
+                        .limit(page_size)
+                    )
+                ).all()
+            )
+            items = [
+                {
+                    "id": f"{row.action}:{row.intent_id}",
+                    "action": row.action,
+                    "decision_at": row.decision_at,
+                    "direction": row.direction,
+                    "symbol": row.symbol or None,
+                    "price": row.reference_price,
+                    "quantity": row.quantity if row.quantity > 0 else None,
+                    "status": row.status,
+                    "reason": row.reason,
+                    "indicators": row.indicators or {},
+                }
+                for row in rows
+            ]
+        return items, total
 
     async def active_config(self) -> ConfigVersionRow | None:
         async with self.sessions() as session:
@@ -795,6 +740,12 @@ class MySQLJournal:
                     )
                 ).all()
             )
+
+    async def delete_backtest_run(self, job_id: str) -> None:
+        async with self.sessions() as session, session.begin():
+            row = await session.get(BacktestRunRow, job_id)
+            if row is not None:
+                await session.delete(row)
 
     async def interrupt_backtest_runs(self) -> None:
         async with self.sessions() as session, session.begin():
