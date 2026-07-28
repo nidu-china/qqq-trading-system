@@ -2,24 +2,134 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { api, localTime } from '../api'
-type Field={key:string;label:string;unit?:string;step?:number;min?:number;max?:number;kind?:string}
-const groups:Record<string,Field[]>={
-  '策略信号':[{key:'macd_fast',label:'MACD 快周期',min:1},{key:'macd_slow',label:'MACD 慢周期',min:2},{key:'macd_signal',label:'MACD 信号周期',min:1},{key:'bollinger_period',label:'布林带周期',min:2},{key:'bollinger_stddev',label:'布林带标准差',step:.1},{key:'volume_average_period',label:'成交量均值周期'},{key:'min_volume_ratio',label:'最低量比',step:.1},{key:'rsi_period',label:'RSI 周期'},{key:'rsi_call_max',label:'Call RSI 上限'},{key:'rsi_put_min',label:'Put RSI 下限'},{key:'strike_offset',label:'行权价偏移',unit:'USD',step:.5}],
-  '交易时段':[{key:'entry_start',label:'允许开仓开始',kind:'time'},{key:'entry_end',label:'允许开仓结束',kind:'time'},{key:'forced_close',label:'强制平仓',kind:'time'},{key:'cooldown_minutes',label:'平仓冷却',unit:'分钟'},{key:'max_trades_per_day',label:'每日最多交易'}],
-  '波动率过滤':[{key:'volatility_filter_enabled',label:'启用 VIX 过滤',kind:'bool'},{key:'volatility_symbol',label:'波动率标的',kind:'text'},{key:'volatility_lookback_days',label:'回看交易日',unit:'日'},{key:'volatility_max_staleness_minutes',label:'最大滞后',unit:'分钟'},{key:'volatility_risk_off_percentile',label:'Risk-off 分位',step:.01},{key:'volatility_recovery_percentile',label:'Recovery 分位',step:.01},{key:'volatility_rise_5m',label:'5分钟上升阈值',step:.01},{key:'volatility_rise_15m',label:'15分钟上升阈值',step:.01},{key:'volatility_fall_5m',label:'5分钟回落阈值',step:.01},{key:'volatility_fall_15m',label:'15分钟回落阈值',step:.01},{key:'volatility_shock_5m',label:'5分钟冲击阈值',step:.01},{key:'volatility_shock_15m',label:'15分钟冲击阈值',step:.01}],
-  '流动性':[{key:'max_quote_age_seconds',label:'报价最大年龄',unit:'秒',step:.1},{key:'max_spread_ratio',label:'最大相对价差',step:.01},{key:'max_spread_absolute',label:'最大绝对价差',unit:'USD',step:.01},{key:'min_open_interest',label:'最低未平仓量'},{key:'min_option_volume',label:'最低成交量'}],
-  '风险管理':[{key:'risk_per_trade',label:'单笔风险比例',step:.001},{key:'daily_loss_limit',label:'日亏损上限',step:.005},{key:'stop_loss_pct',label:'止损比例',step:.05},{key:'take_profit_1_pct',label:'第一止盈',step:.05},{key:'take_profit_2_pct',label:'第二止盈',step:.05},{key:'max_premium_fraction',label:'最大权利金比例',step:.01},{key:'max_contracts',label:'最大合约数'},{key:'fee_per_contract',label:'每张手续费',unit:'USD',step:.1},{key:'slippage_per_contract',label:'滑点缓冲',unit:'USD',step:.5}],
-  '订单执行':[{key:'order_timeout_seconds',label:'订单超时',unit:'秒'},{key:'entry_reprices',label:'入场追价次数'},{key:'max_entry_slippage_pct',label:'最大追价比例',step:.01}],
+
+type Field = {
+  key: string
+  label: string
+  unit?: string
+  step?: number
+  min?: number
+  max?: number
+  kind?: 'bool' | 'text'
 }
-const active=ref('策略信号'),version=ref(0),values=reactive<Record<string,any>>({}),original=ref<Record<string,any>>({}),versions=ref<any[]>([]),saving=ref(false),state=ref<any>({})
-const changes=computed(()=>Object.keys(values).filter(k=>String(values[k])!==String(original.value[k])))
-async function load(){const [c,v]=await Promise.all([api.get('/config'),api.get('/config/versions')]);version.value=c.data.version;Object.assign(values,c.data.values);original.value={...c.data.values};state.value=c.data;versions.value=v.data}
-async function save(){if(!changes.value.length)return;await ElMessageBox.confirm(`确认保存 ${changes.value.length} 项修改？新配置用于后续开仓，当前持仓继续使用原参数。`,'实时应用配置',{type:'warning',confirmButtonText:'保存并生效'});saving.value=true;try{const result=(await api.put('/config',{expected_version:version.value,values:{...values}})).data;ElMessage.success(result.pending?`配置 v${result.version} 已保存，将在平仓后生效`:`配置 v${result.version} 已实时生效`);await load()}finally{saving.value=false}}
-async function restore(v:any){Object.assign(values,v.values);ElMessage.info(`已载入 v${v.version}，保存后将创建新版本`) }
+
+const groups: Record<string, Field[]> = {
+  '1 分钟指标': [
+    { key: 'bollinger_period', label: 'BOLL 周期', min: 2 },
+    { key: 'bollinger_stddev', label: 'BOLL 标准差', step: 0.1, min: 0.1 },
+    { key: 'rsi_period', label: 'RSI 周期', min: 2 },
+    { key: 'rsi_overbought', label: 'RSI 超买线', min: 50, max: 100 },
+    { key: 'rsi_oversold', label: 'RSI 超卖线', min: 0, max: 50 },
+    { key: 'ema_fast_period', label: 'EMA 快线', min: 2 },
+    { key: 'ema_slow_period', label: 'EMA 慢线', min: 3 },
+    { key: 'macd_1m_fast', label: 'MACD 快线', min: 1 },
+    { key: 'macd_1m_slow', label: 'MACD 慢线', min: 2 },
+    { key: 'macd_1m_signal', label: 'MACD 信号线', min: 1 },
+    { key: 'adx_period', label: 'ADX 周期', min: 2 },
+    { key: 'atr_period', label: 'ATR 周期', min: 2 },
+  ],
+  'VIX 波动率过滤': [
+    { key: 'volatility_filter_enabled', label: '启用 VIX 过滤', kind: 'bool' },
+    { key: 'volatility_symbol', label: '波动率标的', kind: 'text' },
+    { key: 'volatility_lookback_days', label: '回看交易日', unit: '日', min: 2 },
+    { key: 'volatility_max_staleness_minutes', label: '最大滞后', unit: '分钟', min: 1 },
+    { key: 'volatility_risk_off_percentile', label: 'Risk-off 分位', step: 0.01 },
+    { key: 'volatility_recovery_percentile', label: 'Recovery 分位', step: 0.01 },
+    { key: 'volatility_rise_5m', label: '5 分钟上升阈值', step: 0.01 },
+    { key: 'volatility_rise_15m', label: '15 分钟上升阈值', step: 0.01 },
+    { key: 'volatility_fall_5m', label: '5 分钟回落阈值', step: 0.01 },
+    { key: 'volatility_fall_15m', label: '15 分钟回落阈值', step: 0.01 },
+    { key: 'volatility_shock_5m', label: '5 分钟冲击阈值', step: 0.01 },
+    { key: 'volatility_shock_15m', label: '15 分钟冲击阈值', step: 0.01 },
+  ],
+}
+
+const active = ref('1 分钟指标')
+const version = ref(0)
+const values = reactive<Record<string, any>>({})
+const original = ref<Record<string, any>>({})
+const versions = ref<any[]>([])
+const saving = ref(false)
+const state = ref<any>({})
+const changes = computed(() => Object.keys(values).filter(k => String(values[k]) !== String(original.value[k])))
+
+async function load() {
+  const [config, history] = await Promise.all([api.get('/config'), api.get('/config/versions')])
+  version.value = config.data.version
+  Object.assign(values, config.data.values)
+  original.value = { ...config.data.values }
+  state.value = config.data
+  versions.value = history.data
+}
+
+async function save() {
+  if (!changes.value.length) return
+  await ElMessageBox.confirm(
+    `确认保存 ${changes.value.length} 项修改？新配置用于后续开仓，当前持仓继续使用原参数。`,
+    '实时应用配置',
+    { type: 'warning', confirmButtonText: '保存并生效' },
+  )
+  saving.value = true
+  try {
+    const result = (await api.put('/config', { expected_version: version.value, values: { ...values } })).data
+    ElMessage.success(result.pending ? `配置 v${result.version} 已保存，将在平仓后生效` : `配置 v${result.version} 已实时生效`)
+    await load()
+  } finally {
+    saving.value = false
+  }
+}
+
+function restore(item: any) {
+  Object.assign(values, item.values)
+  ElMessage.info(`已载入 v${item.version}，保存后将创建新版本`)
+}
+
 onMounted(load)
 </script>
+
 <template>
-  <div class="panel"><div class="panel-title"><div><h2>运行参数 v{{ version }}</h2><span v-if="state.pending_version" class="negative">引擎仍运行 v{{ state.engine_version }}，v{{ state.pending_version }} 待平仓</span><span v-else>保存后原子应用于下一次开仓</span></div><div><el-button @click="Object.assign(values,original)">撤销</el-button><el-button type="primary" :disabled="!changes.length" :loading="saving" @click="save">保存 {{ changes.length ? `(${changes.length})` : '' }}</el-button></div></div><el-tabs v-model="active"><el-tab-pane v-for="(fields,name) in groups" :key="name" :label="name" :name="name"><div class="form-grid"><div v-for="field in fields" :key="field.key" class="field"><label>{{ field.label }} <small>{{ field.unit }}</small></label><el-switch v-if="field.kind==='bool'" v-model="values[field.key]"/><el-time-picker v-else-if="field.kind==='time'" v-model="values[field.key]" value-format="HH:mm:ss" format="HH:mm:ss"/><el-input v-else-if="field.kind==='text'" v-model="values[field.key]"/><el-input-number v-else v-model="values[field.key]" :step="field.step||1" :min="field.min" :max="field.max" controls-position="right"/></div></div></el-tab-pane></el-tabs></div>
-  <div class="panel" style="margin-top:18px"><div class="panel-title"><h2>版本历史</h2><span>不可变审计记录</span></div><el-table :data="versions"><el-table-column prop="version" label="版本" width="90"><template #default="s">v{{ s.row.version }}</template></el-table-column><el-table-column label="创建时间"><template #default="s">{{ localTime(s.row.created_at) }}</template></el-table-column><el-table-column label="状态" width="100"><template #default="s"><el-tag :type="s.row.active?'success':'info'">{{ s.row.active?'当前':'历史' }}</el-tag></template></el-table-column><el-table-column width="120"><template #default="s"><el-button link type="primary" @click="restore(s.row)">载入此版本</el-button></template></el-table-column></el-table></div>
+  <div class="panel">
+    <div class="panel-title">
+      <div>
+        <h2>运行参数 v{{ version }}</h2>
+        <span v-if="state.pending_version" class="negative">引擎仍运行 v{{ state.engine_version }}，v{{ state.pending_version }} 待平仓</span>
+        <span v-else>仅技术指标和 VIX 参数可调整；交易与风控规则来自 STRATEGY.md</span>
+      </div>
+      <div>
+        <el-button @click="Object.assign(values, original)">撤销</el-button>
+        <el-button type="primary" :disabled="!changes.length" :loading="saving" @click="save">保存 {{ changes.length ? `(${changes.length})` : '' }}</el-button>
+      </div>
+    </div>
+    <el-tabs v-model="active">
+      <el-tab-pane v-for="(fields, name) in groups" :key="name" :label="name" :name="name">
+        <div class="form-grid">
+          <div v-for="field in fields" :key="field.key" class="field">
+            <label>{{ field.label }} <small>{{ field.unit }}</small></label>
+            <el-switch v-if="field.kind === 'bool'" v-model="values[field.key]" />
+            <el-input v-else-if="field.kind === 'text'" v-model="values[field.key]" />
+            <el-input-number v-else v-model="values[field.key]" :step="field.step || 1" :min="field.min" :max="field.max" controls-position="right" />
+          </div>
+        </div>
+      </el-tab-pane>
+    </el-tabs>
+  </div>
+
+  <div class="panel" style="margin-top: 18px">
+    <div class="panel-title"><h2>版本历史</h2><span>不可变审计记录</span></div>
+    <el-table :data="versions">
+      <el-table-column prop="version" label="版本" width="90"><template #default="scope">v{{ scope.row.version }}</template></el-table-column>
+      <el-table-column label="创建时间"><template #default="scope">{{ localTime(scope.row.created_at) }}</template></el-table-column>
+      <el-table-column label="状态" width="100"><template #default="scope"><el-tag :type="scope.row.active ? 'success' : 'info'">{{ scope.row.active ? '当前' : '历史' }}</el-tag></template></el-table-column>
+      <el-table-column width="120"><template #default="scope"><el-button link type="primary" @click="restore(scope.row)">载入此版本</el-button></template></el-table-column>
+    </el-table>
+  </div>
 </template>
-<style scoped>.form-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px 24px;padding:12px 4px 20px}.field{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:12px;background:#0a1625;border:1px solid #172a40;border-radius:8px}.field label{font-size:12px;color:#a9bdd5}.field small{color:#607b9a}.field .el-input-number,.field .el-input{width:145px}@media(max-width:1250px){.form-grid{grid-template-columns:repeat(2,1fr)}}</style>
+
+<style scoped>
+.form-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px 24px;padding:12px 4px 20px}
+.field{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:12px;background:#0a1625;border:1px solid #172a40;border-radius:8px}
+.field label{font-size:12px;color:#a9bdd5}
+.field small{color:#607b9a}
+.field .el-input-number,.field .el-input{width:145px}
+@media(max-width:1250px){.form-grid{grid-template-columns:repeat(2,1fr)}}
+</style>

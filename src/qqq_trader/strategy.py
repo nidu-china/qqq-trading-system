@@ -1,18 +1,29 @@
-"""Trading strategy: 5-min bar state machine with trend/reversal/range classification.
+"""Technical indicator functions and market data infrastructure.
 
-Uses 5-minute K-lines for signal generation, 1-minute bars for execution precision.
-Indicators: VWAP, EMA9/20, MACD(12,26,9), ADX(14), ATR(14), RVOL.
+Reusable building blocks for strategy implementations:
+- Indicator functions (EMA, MACD, VWAP, ATR, ADX, RSI, Bollinger, RVOL)
+- BarAggregator (1-min → 5-min K-line aggregation)
+- MarketContext (indicator snapshot dataclass)
 """
+
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass, field
-from datetime import datetime, time
+from dataclasses import dataclass
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
-from enum import StrEnum
 from zoneinfo import ZoneInfo
 
-from .domain import Bar, Direction, MarketState, Signal
+from .domain import (
+    Bar,
+    Direction,
+    ExitDecision,
+    ExitReason,
+    MarketState,
+    Position,
+    Signal,
+)
+from .policy import RULES
 
 NY_TZ = ZoneInfo("America/New_York")
 ZERO = Decimal(0)
@@ -88,14 +99,12 @@ def vwap(bars: Sequence[Bar]) -> Decimal:
     total_vol = sum(b.volume for b in bars)
     if total_vol == 0:
         return bars[-1].close if bars else ZERO
-    typical_volume = sum(
-        (b.high + b.low + b.close) / Decimal(3) * Decimal(b.volume) for b in bars
-    )
+    typical_volume = sum((b.high + b.low + b.close) / Decimal(3) * Decimal(b.volume) for b in bars)
     return typical_volume / Decimal(total_vol)
 
 
 def vwap_slope(bars: Sequence[Bar], lookback: int = 3) -> Decimal:
-    """VWAP slope over last `lookback` completed 5-min bars."""
+    """VWAP slope over last `lookback` completed bars."""
     if len(bars) < lookback + 1:
         return ZERO
     vwaps = []
@@ -195,6 +204,43 @@ def rvol(current_volume: int, historical_volumes: Sequence[int]) -> Decimal:
     return Decimal(str(current_volume / avg))
 
 
+def rsi(values: Sequence[Decimal], period: int = 14) -> Decimal:
+    """Wilder RSI; returns neutral 50 while warming up."""
+    if period < 2:
+        raise ValueError("RSI period must be >= 2")
+    if len(values) < period + 1:
+        return Decimal("50")
+    gains: list[Decimal] = []
+    losses: list[Decimal] = []
+    for prev, curr in zip(values, values[1:], strict=False):
+        change = curr - prev
+        gains.append(max(change, ZERO))
+        losses.append(max(-change, ZERO))
+    avg_gain = sum(gains[:period], ZERO) / Decimal(period)
+    avg_loss = sum(losses[:period], ZERO) / Decimal(period)
+    for gain, loss in zip(gains[period:], losses[period:], strict=True):
+        avg_gain = (avg_gain * Decimal(period - 1) + gain) / Decimal(period)
+        avg_loss = (avg_loss * Decimal(period - 1) + loss) / Decimal(period)
+    if avg_loss == ZERO:
+        return Decimal("100") if avg_gain > ZERO else Decimal("50")
+    rs = avg_gain / avg_loss
+    return Decimal("100") - Decimal("100") / (Decimal(1) + rs)
+
+
+def bollinger_bands(
+    values: Sequence[Decimal], period: int = 20, std_dev: Decimal = Decimal("2")
+) -> tuple[Decimal, Decimal, Decimal]:
+    """Return (upper, middle, lower) Bollinger Bands."""
+    if period < 2 or len(values) < period:
+        mid = values[-1] if values else ZERO
+        return mid, mid, mid
+    window = values[-period:]
+    middle = sum(window, ZERO) / Decimal(period)
+    variance = sum((v - middle) ** 2 for v in window) / Decimal(period)
+    deviation = variance.sqrt()
+    return middle + std_dev * deviation, middle, middle - std_dev * deviation
+
+
 # ---------------------------------------------------------------------------
 # Bar Aggregator
 # ---------------------------------------------------------------------------
@@ -238,14 +284,14 @@ class BarAggregator:
 
 @dataclass
 class MarketContext:
-    """Snapshot of all indicators at a given 5-min bar."""
-    orh: Decimal = ZERO
-    orl: Decimal = ZERO
-    or_width: Decimal = ZERO
-    or_width_percentile: Decimal = Decimal("0.5")
+    """Snapshot of indicators at the strategy's active signal timeframe."""
+
+    structure_high: Decimal = ZERO
+    structure_low: Decimal = ZERO
     vwap_value: Decimal = ZERO
     vwap_slope_val: Decimal = ZERO
     ema9: Decimal = ZERO
+    ema9_prev: Decimal = ZERO
     ema20: Decimal = ZERO
     macd_hist: Decimal = ZERO
     macd_hist_prev: Decimal = ZERO
@@ -263,765 +309,711 @@ class MarketContext:
     current_open: Decimal = ZERO
     current_volume: int = 0
     bar_time: time = time(9, 30)
+    bar_end: datetime | None = None
+    rsi_val: Decimal = Decimal("50")
+    rsi_prev: Decimal = Decimal("50")
+    boll_upper: Decimal = ZERO
+    boll_middle: Decimal = ZERO
+    boll_lower: Decimal = ZERO
+    market_state: MarketState = MarketState.UNKNOWN
 
 
-# ---------------------------------------------------------------------------
-# Market State Classifier
-# ---------------------------------------------------------------------------
+@dataclass(slots=True)
+class ReversalWatch:
+    direction: Direction
+    started_at: datetime
+    extreme: Decimal
+    reclaim_level: Decimal
+    saw_rsi_extreme: bool
 
 
 class MarketStateClassifier:
-    """Classifies the current market as TREND, REVERSAL, or RANGE."""
+    """Deterministic market classification using only completed observations."""
 
-    def __init__(self, settings) -> None:
-        self.range_adx_max = getattr(settings, "range_adx_max", Decimal("18"))
-        self._is_range = False
-        self._range_since: datetime | None = None
-
-    def classify(self, ctx: MarketContext, bars_5m: Sequence[Bar]) -> MarketState:
-        if len(bars_5m) < 6:
+    def classify(
+        self,
+        ctx: MarketContext,
+        today_1m: Sequence[Bar],
+    ) -> MarketState:
+        if ctx.bar_time < RULES.entry_start:
             return MarketState.OBSERVATION
-
-        range_score = 0
-        recent = bars_5m[-6:]
-
-        # 1. VWAP crossings in last 6 bars
-        vwap_crosses = 0
-        for i in range(1, len(recent)):
-            prev_above = recent[i - 1].close > ctx.vwap_value
-            curr_above = recent[i].close > ctx.vwap_value
-            if prev_above != curr_above:
-                vwap_crosses += 1
-        if vwap_crosses >= 3:
-            range_score += 1
-
-        # 2. EMA9/EMA20 near flat or crossed
-        ema_diff = abs(ctx.ema9 - ctx.ema20)
-        if ctx.ema20 > 0 and ema_diff / ctx.ema20 < Decimal("0.0003"):
-            range_score += 1
-
-        # 3. VWAP nearly flat
-        if abs(ctx.vwap_slope_val) < Decimal("0.05"):
-            range_score += 1
-
-        # 4. ADX < threshold (only valid when ADX is computable)
-        if ctx.adx_val > 0 and ctx.adx_val < self.range_adx_max:
-            range_score += 1
-
-        # 5. Both ORH and ORL breakouts failed
-        broke_orh = any(b.close > ctx.orh for b in recent)
-        broke_orl = any(b.close < ctx.orl for b in recent)
-        if not broke_orh and not broke_orl:
-            range_score += 1
-
-        # 6. Small bodies with large wicks
-        wick_bars = 0
-        for b in recent:
-            body = abs(b.close - b.open)
-            total_range = b.high - b.low
-            if total_range > 0 and body / total_range < Decimal("0.3"):
-                wick_bars += 1
-        if wick_bars >= 3:
-            range_score += 1
-
-        # 7. MACD around zero (only when computable)
-        if (ctx.macd_hist != ZERO or ctx.macd_hist_prev != ZERO):
-            if abs(ctx.macd_hist) < Decimal("0.05") and abs(ctx.macd_hist_prev) < Decimal("0.05"):
-                range_score += 1
-
-        # 8. Volume declining
-        if len(bars_5m) >= 6:
-            first_half_vol = sum(b.volume for b in bars_5m[-6:-3])
-            second_half_vol = sum(b.volume for b in bars_5m[-3:])
-            if first_half_vol > 0 and second_half_vol < first_half_vol * Decimal("0.8"):
-                range_score += 1
-
-        if range_score >= 2:
-            self._is_range = True
-            if self._range_since is None:
-                self._range_since = bars_5m[-1].end
-            return MarketState.RANGE
-
-        self._is_range = False
-        self._range_since = None
-        return MarketState.TREND
-
-
-# ---------------------------------------------------------------------------
-# Strategy Engine
-# ---------------------------------------------------------------------------
+        if ctx.atr_val <= 0 or len(today_1m) < 20:
+            return MarketState.UNKNOWN
+        recent = list(today_1m[-20:])
+        price_span = max(bar.high for bar in recent) - min(bar.low for bar in recent)
+        progressive_vwaps: list[Decimal] = []
+        start_index = max(1, len(today_1m) - 20)
+        for index in range(start_index, len(today_1m) + 1):
+            progressive_vwaps.append(vwap(today_1m[:index]))
+        crosses = 0
+        recent_for_cross = today_1m[-len(progressive_vwaps) :]
+        for index in range(1, min(len(progressive_vwaps), len(recent_for_cross))):
+            before = recent_for_cross[index - 1].close >= progressive_vwaps[index - 1]
+            after = recent_for_cross[index].close >= progressive_vwaps[index]
+            crosses += before != after
+        score = 0
+        score += price_span <= RULES.range_price_span_atr * ctx.atr_val
+        score += ctx.adx_val > 0 and ctx.adx_val <= RULES.range_adx_max
+        score += (
+            ctx.atr_val > 0
+            and abs(ctx.ema9 - ctx.ema20) <= RULES.range_ema_distance_atr * ctx.atr_val
+        )
+        score += (
+            ctx.atr_val > 0
+            and abs(ctx.vwap_slope_val) <= RULES.range_vwap_change_atr * ctx.atr_val
+        )
+        score += crosses >= 3
+        close_path = sum(
+            abs(current.close - previous.close)
+            for previous, current in zip(recent, recent[1:], strict=False)
+        )
+        directional_efficiency = (
+            abs(recent[-1].close - recent[0].close) / close_path
+            if close_path > 0
+            else ZERO
+        )
+        no_directional_impulse = (
+            directional_efficiency <= Decimal("0.45")
+            and recent[-1].high - recent[-1].low <= Decimal("2") * ctx.atr_val
+        )
+        away_from_previous_low = (
+            ctx.prev_day_low <= 0
+            or ctx.atr_val <= 0
+            or ctx.current_close - ctx.prev_day_low
+            >= RULES.range_prior_low_distance_atr * ctx.atr_val
+        )
+        return (
+            MarketState.RANGE
+            if score >= 4 and no_directional_impulse and away_from_previous_low
+            else MarketState.UNKNOWN
+        )
 
 
 class StrategyEngine:
-    """State machine strategy using 5-min bars for signals.
-
-    Phases:
-    - Observation (9:30-9:45): record ORH/ORL, classify open
-    - Active (9:45-11:25): trend breakout or reversal entry
-    - Management (11:25+): no new entries, position management only
-    """
+    """QQQ state-machine strategy specified by STRATEGY.md."""
 
     def __init__(self, settings) -> None:
         self.settings = settings
-        self._classifier = MarketStateClassifier(settings)
-        self._current_date: object = None
-        self._orh: Decimal = ZERO
-        self._orl: Decimal = ZERO
-        self._or_width: Decimal = ZERO
-        self._lod: Decimal = ZERO
-        self._hod: Decimal = ZERO
-        self._prev_day_high: Decimal = ZERO
-        self._prev_day_low: Decimal = ZERO
-        self._prev_close: Decimal = ZERO
-        self._or_widths_history: list[Decimal] = []
-        # Trend state
-        self._breakout_detected: bool = False
-        self._breakout_direction: Direction | None = None
-        self._breakout_bar_high: Decimal = ZERO
-        self._breakout_bar_low: Decimal = ZERO
-        self._waiting_pullback: bool = False
-        self._pullback_bar: Bar | None = None
-        # Reversal state
-        self._reversal_state: str = "idle"
-        self._reversal_direction: Direction | None = None
-        self._reversal_lod: Decimal = ZERO
-        self._reversal_hod: Decimal = ZERO
-        self._reversal_breakdown_end: datetime | None = None
-        self._reversal_pullback_high: Decimal = ZERO
-        self._reversal_pullback_low: Decimal = ZERO
+        self.classifier = MarketStateClassifier()
+        self.last_signal_bar: datetime | None = None
+        self.last_context: MarketContext | None = None
+        self.last_state = MarketState.UNKNOWN
+        self._trading_date: date | None = None
+        self._bullish_reversal: ReversalWatch | None = None
+        self._bearish_reversal: ReversalWatch | None = None
 
-    def _reset_day(self, bar_date) -> None:
-        self._current_date = bar_date
-        self._orh = ZERO
-        self._orl = Decimal("999999")
-        self._or_width = ZERO
-        self._lod = Decimal("999999")
-        self._hod = ZERO
-        self._breakout_detected = False
-        self._breakout_direction = None
-        self._waiting_pullback = False
-        self._pullback_bar = None
-        self._reversal_state = "idle"
-        self._reversal_direction = None
+    @staticmethod
+    def _rth(bar: Bar) -> bool:
+        local = bar.start.astimezone(NY_TZ)
+        return time(9, 30) <= local.time().replace(tzinfo=None) < time(16, 0)
 
-    def _compute_context(
-        self, bars_5m: Sequence[Bar], today_bars: Sequence[Bar]
-    ) -> MarketContext | None:
-        """Compute MarketContext from today's 5-min bars."""
-        if len(today_bars) < 4:
+    @staticmethod
+    def _safe_ema(values: Sequence[Decimal], period: int) -> Decimal:
+        return ema(values, period) if len(values) >= period else (values[-1] if values else ZERO)
+
+    @staticmethod
+    def _safe_macd(
+        values: Sequence[Decimal], fast: int, slow: int, signal_period: int
+    ) -> tuple[Decimal, Decimal]:
+        if len(values) < slow + signal_period:
+            return ZERO, ZERO
+        series = macd_histogram_series(values, fast, slow, signal_period)
+        return series[-1], series[-2] if len(series) > 1 else ZERO
+
+    @staticmethod
+    def _previous_session(bars: Sequence[Bar], trading_day: date) -> list[Bar]:
+        dates = sorted(
+            {
+                bar.start.astimezone(NY_TZ).date()
+                for bar in bars
+                if StrategyEngine._rth(bar)
+                and bar.start.astimezone(NY_TZ).date() < trading_day
+            }
+        )
+        if not dates:
+            return []
+        previous = dates[-1]
+        return [
+            bar
+            for bar in bars
+            if StrategyEngine._rth(bar) and bar.start.astimezone(NY_TZ).date() == previous
+        ]
+
+    def _context(self, bars: Sequence[Bar]) -> tuple[MarketContext, list[Bar]] | None:
+        visible = sorted((bar for bar in bars if bar.complete), key=lambda item: item.end)
+        if not visible:
             return None
-
-        current = today_bars[-1]
-        closes = [b.close for b in today_bars]
-
-        # EMA - use available periods, don't require full lookback
-        fast_p = min(self.settings.ema_fast_period, len(closes))
-        slow_p = min(self.settings.ema_slow_period, len(closes))
-        ema9_val = ema(closes, fast_p) if fast_p >= 2 else closes[-1]
-        ema20_val = ema(closes, slow_p) if slow_p >= 2 else closes[-1]
-
-        # MACD
-        macd_fast = self.settings.macd_fast
-        macd_slow = self.settings.macd_slow
-        macd_sig = self.settings.macd_signal
-        required_macd = macd_slow + macd_sig - 1
-        hist_val = ZERO
-        hist_prev = ZERO
-        if len(closes) >= required_macd:
-            hist_series = macd_histogram_series(closes, macd_fast, macd_slow, macd_sig)
-            if len(hist_series) >= 2:
-                hist_val = hist_series[-1]
-                hist_prev = hist_series[-2]
-            elif hist_series:
-                hist_val = hist_series[-1]
-
-        # ADX
-        adx_val = ZERO
-        if len(today_bars) >= self.settings.adx_period * 2 + 1:
-            adx_val = adx(list(today_bars), self.settings.adx_period)
-
-        # ATR
-        atr_val = ZERO
-        if len(today_bars) >= self.settings.atr_period + 1:
-            atr_val = atr(list(today_bars), self.settings.atr_period)
-
-        # VWAP
-        vwap_val = vwap(today_bars)
-        slope = vwap_slope(today_bars, lookback=3)
-
-        # OR width percentile
-        or_pct = Decimal("0.5")
-        if self._or_widths_history:
-            below = sum(1 for w in self._or_widths_history if w < self._or_width)
-            or_pct = Decimal(str(below / len(self._or_widths_history)))
-
-        return MarketContext(
-            orh=self._orh,
-            orl=self._orl,
-            or_width=self._or_width,
-            or_width_percentile=or_pct,
-            vwap_value=vwap_val,
-            vwap_slope_val=slope,
-            ema9=ema9_val,
-            ema20=ema20_val,
-            macd_hist=hist_val,
-            macd_hist_prev=hist_prev,
-            adx_val=adx_val,
-            atr_val=atr_val,
-            rvol_val=Decimal("1.0"),
-            prev_day_high=self._prev_day_high,
-            prev_day_low=self._prev_day_low,
-            prev_close=self._prev_close,
-            day_high=self._hod,
-            day_low=self._lod,
+        current = visible[-1]
+        trading_day = current.end.astimezone(NY_TZ).date()
+        if trading_day != self._trading_date:
+            self._trading_date = trading_day
+            self._bullish_reversal = None
+            self._bearish_reversal = None
+            self.last_signal_bar = None
+        rth = [bar for bar in visible if self._rth(bar)]
+        today = [bar for bar in rth if bar.start.astimezone(NY_TZ).date() == trading_day]
+        if not today:
+            return None
+        previous = self._previous_session(rth, trading_day)
+        prior_structure = today[-(RULES.structure_lookback + 1) : -1]
+        structure_high = max((bar.high for bar in prior_structure), default=ZERO)
+        structure_low = min((bar.low for bar in prior_structure), default=ZERO)
+        rolling_1m = rth[-500:]
+        closes = [bar.close for bar in rolling_1m]
+        ema_fast = self._safe_ema(closes, self.settings.ema_fast_period)
+        ema_fast_prev = self._safe_ema(closes[:-1], self.settings.ema_fast_period)
+        ema_slow = self._safe_ema(closes, self.settings.ema_slow_period)
+        macd_now, macd_prev = self._safe_macd(
+            closes,
+            self.settings.macd_1m_fast,
+            self.settings.macd_1m_slow,
+            self.settings.macd_1m_signal,
+        )
+        rsi_now = rsi(closes, self.settings.rsi_period)
+        rsi_before = (
+            rsi(closes[:-1], self.settings.rsi_period)
+            if len(closes) > 1
+            else Decimal("50")
+        )
+        upper, middle, lower = bollinger_bands(
+            closes, self.settings.bollinger_period, self.settings.bollinger_stddev
+        )
+        atr_now = (
+            atr(rolling_1m, self.settings.atr_period)
+            if len(rolling_1m) >= self.settings.atr_period + 1
+            else ZERO
+        )
+        adx_now = adx(rolling_1m, self.settings.adx_period)
+        current_time = current.end.astimezone(NY_TZ).time().replace(tzinfo=None)
+        current_vwap = vwap(today)
+        old_vwap = vwap(today[:-5]) if len(today) > 5 else current_vwap
+        ctx = MarketContext(
+            structure_high=structure_high,
+            structure_low=structure_low,
+            vwap_value=current_vwap,
+            vwap_slope_val=current_vwap - old_vwap,
+            ema9=ema_fast,
+            ema9_prev=ema_fast_prev,
+            ema20=ema_slow,
+            macd_hist=macd_now,
+            macd_hist_prev=macd_prev,
+            adx_val=adx_now,
+            atr_val=atr_now,
+            prev_day_high=max((bar.high for bar in previous), default=ZERO),
+            prev_day_low=min((bar.low for bar in previous), default=ZERO),
+            prev_close=previous[-1].close if previous else ZERO,
+            day_high=max(bar.high for bar in today),
+            day_low=min(bar.low for bar in today),
             current_close=current.close,
             current_high=current.high,
             current_low=current.low,
             current_open=current.open,
             current_volume=current.volume,
-            bar_time=current.end.astimezone(NY_TZ).time(),
+            bar_time=current_time,
+            bar_end=current.end,
+            rsi_val=rsi_now,
+            rsi_prev=rsi_before,
+            boll_upper=upper,
+            boll_middle=middle,
+            boll_lower=lower,
         )
+        return ctx, today
 
     def evaluate(self, bars_1m: Sequence[Bar], spot: Decimal | None = None) -> Signal | None:
-        """Main entry point: evaluate 1-min bars, aggregate to 5-min, produce signal."""
-        if not bars_1m:
+        computed = self._context(bars_1m)
+        if computed is None:
             return None
-
-        current_1m = bars_1m[-1]
-        if not current_1m.complete:
+        ctx, today = computed
+        self.last_context = ctx
+        if ctx.bar_time < RULES.entry_start:
+            ctx.market_state = MarketState.OBSERVATION
+            self.last_state = ctx.market_state
             return None
-
-        bar_date = current_1m.end.astimezone(NY_TZ).date()
-        bar_time_et = current_1m.end.astimezone(NY_TZ).time()
-
-        # Day boundary
-        if bar_date != self._current_date:
-            if self._current_date is not None:
-                prev_day_1m = [
-                    b for b in bars_1m
-                    if b.start.astimezone(NY_TZ).date() == self._current_date
-                    and b.start.astimezone(NY_TZ).time() >= time(9, 30)
-                ]
-                if prev_day_1m:
-                    self._prev_day_high = max(b.high for b in prev_day_1m)
-                    self._prev_day_low = min(b.low for b in prev_day_1m)
-                    self._prev_close = prev_day_1m[-1].close
-            self._reset_day(bar_date)
-
-        # Filter to today's market hours bars
-        today_1m = [
-            b for b in bars_1m
-            if b.start.astimezone(NY_TZ).date() == bar_date
-            and b.start.astimezone(NY_TZ).time() >= time(9, 30)
-        ]
-
-        # Aggregate to 5-min
-        bars_5m = BarAggregator.to_five_minutes(today_1m)
-        if not bars_5m:
+        if ctx.bar_time >= RULES.entry_end or ctx.atr_val <= 0 or len(today) < 3:
+            ctx.market_state = MarketState.UNKNOWN
+            self.last_state = ctx.market_state
             return None
-
-        # Only evaluate on 5-min bar completions
-        last_5m = bars_5m[-1]
-        if last_5m.end != current_1m.end:
-            return None
-
-        # Update ORH/ORL during observation
-        for b in bars_5m:
-            bt = b.start.astimezone(NY_TZ).time()
-            if time(9, 30) <= bt < time(9, 45):
-                self._orh = max(self._orh, b.high)
-                if self._orl == Decimal("999999"):
-                    self._orl = b.low
-                else:
-                    self._orl = min(self._orl, b.low)
-
-        self._or_width = self._orh - self._orl if self._orh > 0 and self._orl < Decimal("999999") else ZERO
-
-        # Update day high/low
-        for b in bars_5m:
-            self._hod = max(self._hod, b.high)
-            if self._lod == Decimal("999999"):
-                self._lod = b.low
-            else:
-                self._lod = min(self._lod, b.low)
-
-        # Phase 1: Observation (9:30-9:45) -- no signals
-        if bar_time_et < time(9, 45):
-            return None
-
-        # Phase 3: No new positions after entry_end
-        entry_end = getattr(self.settings, "entry_end", time(11, 25))
-        if bar_time_et > entry_end:
-            return None
-
-        # Need OR to be established
-        if self._or_width <= 0:
-            return None
-
-        # Compute context
-        today_5m = [
-            b for b in bars_5m
-            if b.start.astimezone(NY_TZ).time() >= time(9, 30)
-        ]
-        ctx = self._compute_context(bars_5m, today_5m)
-        if ctx is None:
-            return None
-
-        # Classify market state
-        state = self._classifier.classify(ctx, today_5m)
-        if state == MarketState.RANGE:
-            return None
-
-        # --- State A: Trend breakout ---
-        signal = self._evaluate_trend(ctx, today_5m, last_5m, spot)
+        signal = self._evaluate_reversal(ctx, today, spot)
+        if signal is None:
+            signal = self._evaluate_retest(ctx, today, spot)
+        if signal is None:
+            signal = self._evaluate_trend(ctx, today, spot)
+        if signal is None:
+            ctx.market_state = self.classifier.classify(ctx, today)
+            if ctx.market_state is MarketState.RANGE:
+                signal = self._evaluate_range(ctx, today, spot)
+        if signal is not None and signal.bar_end == self.last_signal_bar:
+            signal = None
         if signal is not None:
-            return signal
+            self.last_signal_bar = signal.bar_end
+            ctx.market_state = signal.market_state
+        self.last_state = ctx.market_state
+        return signal
 
-        # --- State B: Reversal ---
-        signal = self._evaluate_reversal(ctx, today_5m, last_5m, spot)
-        if signal is not None:
-            return signal
-
-        return None
+    def _signal(
+        self,
+        ctx: MarketContext,
+        direction: Direction,
+        strategy: str,
+        state: MarketState,
+        stop: Decimal,
+        spot: Decimal | None,
+        structure_level: Decimal | None = None,
+        **extra: str,
+    ) -> Signal | None:
+        entry = spot if spot is not None else ctx.current_close
+        distance = abs(entry - stop)
+        if distance <= 0 or distance > RULES.max_stop_atr_ratio * ctx.atr_val:
+            return None
+        indicators = {
+            "strategy": strategy,
+            "market_state": state.value,
+            "structure_high": str(ctx.structure_high),
+            "structure_low": str(ctx.structure_low),
+            "vwap": str(ctx.vwap_value),
+            "ema9": str(ctx.ema9),
+            "ema9_prev": str(ctx.ema9_prev),
+            "ema20": str(ctx.ema20),
+            "macd_hist": str(ctx.macd_hist),
+            "adx": str(ctx.adx_val),
+            "atr": str(ctx.atr_val),
+            "rsi": str(ctx.rsi_val),
+            "boll_upper": str(ctx.boll_upper),
+            "boll_middle": str(ctx.boll_middle),
+            "boll_lower": str(ctx.boll_lower),
+            "underlying_stop": str(stop),
+            **extra,
+        }
+        return Signal(
+            direction=direction,
+            bar_end=ctx.bar_end or datetime.now(tz=NY_TZ),
+            spot=entry,
+            strategy=strategy,
+            market_state=state,
+            stop_price=stop,
+            atr=ctx.atr_val,
+            r_value=distance,
+            breakout_level=structure_level,
+            vwap=ctx.vwap_value,
+            indicators=indicators,
+        )
 
     def _evaluate_trend(
-        self, ctx: MarketContext, today_5m: Sequence[Bar], current: Bar, spot: Decimal | None
+        self,
+        ctx: MarketContext,
+        today: Sequence[Bar],
+        spot: Decimal | None,
     ) -> Signal | None:
-        """State A: Trend breakout with pullback entry."""
-        signal_spot = spot if spot is not None else ctx.current_close
+        if len(today) < 3:
+            return None
+        structure_window = list(
+            today[-(RULES.structure_lookback + 1) : -1]
+        )
+        if len(structure_window) < 2:
+            return None
+        resistance = max(bar.high for bar in structure_window)
+        support = min(bar.low for bar in structure_window)
+        recent = list(today[-3:])
+        up_structure = sum(
+            recent[index].high > recent[index - 1].high
+            or recent[index].low > recent[index - 1].low
+            for index in range(1, len(recent))
+        )
+        down_structure = sum(
+            recent[index].low < recent[index - 1].low
+            or recent[index].high < recent[index - 1].high
+            for index in range(1, len(recent))
+        )
+        previous_volumes = [bar.volume for bar in today[-21:-1]]
+        average_volume = (
+            Decimal(sum(previous_volumes)) / Decimal(len(previous_volumes))
+            if previous_volumes
+            else ZERO
+        )
+        volume_confirm = average_volume > 0 and Decimal(ctx.current_volume) >= (
+            RULES.breakout_volume_ratio * average_volume
+        )
+        call_ema_ok = ctx.ema9 > ctx.ema20 or (
+            RULES.early_ema_tolerance_atr > 0
+            and ctx.ema9 > ctx.ema9_prev
+            and ctx.ema9
+            >= ctx.ema20 - RULES.early_ema_tolerance_atr * ctx.atr_val
+        )
+        put_ema_ok = ctx.ema9 < ctx.ema20 or (
+            RULES.early_ema_tolerance_atr > 0
+            and ctx.ema9 < ctx.ema9_prev
+            and ctx.ema9
+            <= ctx.ema20 + RULES.early_ema_tolerance_atr * ctx.atr_val
+        )
+        call_confirmations = sum(
+            (
+                ctx.macd_hist > 0 and ctx.macd_hist >= ctx.macd_hist_prev,
+                ctx.adx_val >= RULES.trend_adx_min,
+                volume_confirm,
+                ctx.current_close > recent[-2].high,
+            )
+        )
+        put_confirmations = sum(
+            (
+                ctx.macd_hist < 0 and ctx.macd_hist <= ctx.macd_hist_prev,
+                ctx.adx_val >= RULES.trend_adx_min,
+                volume_confirm,
+                ctx.current_close < recent[-2].low,
+            )
+        )
+        vwap_distance_limit = RULES.max_vwap_distance_atr * ctx.atr_val
+        call_prior_ok = (
+            ctx.prev_day_high <= 0
+            or ctx.current_close
+            > ctx.prev_day_high + RULES.structure_break_atr * ctx.atr_val
+            or ctx.prev_day_high - ctx.current_close >= RULES.prior_level_distance_atr * ctx.atr_val
+        )
+        if (
+            ctx.current_close
+            > resistance + RULES.structure_break_atr * ctx.atr_val
+            and ctx.current_close > ctx.vwap_value
+            and ctx.vwap_slope_val > 0
+            and call_ema_ok
+            and up_structure >= RULES.trend_structure_confirmations
+            and ctx.rsi_val >= RULES.trend_call_rsi_min
+            and ctx.rsi_val < self.settings.rsi_overbought
+            and (not RULES.require_directional_macd or ctx.macd_hist > 0)
+            and abs(ctx.macd_hist) >= RULES.min_macd_hist_atr * ctx.atr_val
+            and ctx.current_close - ctx.vwap_value <= vwap_distance_limit
+            and call_confirmations >= 2
+            and call_prior_ok
+        ):
+            stop = max(
+                resistance - RULES.stop_atr_buffer * ctx.atr_val,
+                ctx.current_low - RULES.stop_atr_buffer * ctx.atr_val,
+            )
+            return self._signal(
+                ctx,
+                Direction.CALL,
+                "trend",
+                MarketState.TREND_UP,
+                stop,
+                spot,
+                resistance,
+            )
+        put_prior_ok = (
+            ctx.prev_day_low <= 0
+            or ctx.current_close
+            < ctx.prev_day_low - RULES.structure_break_atr * ctx.atr_val
+            or ctx.current_close - ctx.prev_day_low >= RULES.prior_level_distance_atr * ctx.atr_val
+        )
+        if (
+            ctx.current_close
+            < support - RULES.structure_break_atr * ctx.atr_val
+            and ctx.current_close < ctx.vwap_value
+            and ctx.vwap_slope_val < 0
+            and put_ema_ok
+            and down_structure >= RULES.trend_structure_confirmations
+            and ctx.rsi_val > self.settings.rsi_oversold
+            and ctx.rsi_val <= RULES.trend_put_rsi_max
+            and (not RULES.require_directional_macd or ctx.macd_hist < 0)
+            and abs(ctx.macd_hist) >= RULES.min_macd_hist_atr * ctx.atr_val
+            and ctx.vwap_value - ctx.current_close <= vwap_distance_limit
+            and put_confirmations >= 2
+            and put_prior_ok
+        ):
+            stop = min(
+                support + RULES.stop_atr_buffer * ctx.atr_val,
+                ctx.current_high + RULES.stop_atr_buffer * ctx.atr_val,
+            )
+            return self._signal(
+                ctx,
+                Direction.PUT,
+                "trend",
+                MarketState.TREND_DOWN,
+                stop,
+                spot,
+                support,
+            )
+        return None
 
-        # Check for new breakout
-        if not self._breakout_detected:
-            # Bullish breakout: hard conditions
-            if (
-                ctx.current_close > ctx.orh
-                and ctx.current_close > ctx.vwap_value
-                and ctx.vwap_slope_val > 0
-                and ctx.ema9 > ctx.ema20
-            ):
-                if self._check_soft_conditions(ctx, today_5m, Direction.CALL):
-                    touched_support = (
-                        ctx.current_low <= ctx.orh
-                        or ctx.current_low <= ctx.ema9
-                        or ctx.current_low <= ctx.vwap_value
-                    )
-                    if touched_support and ctx.current_close > ctx.orh:
-                        stop = self._compute_stop(ctx, today_5m, Direction.CALL)
-                        if stop is not None:
-                            stop_dist = signal_spot - stop
-                            if stop_dist > 0 and (ctx.atr_val <= 0 or stop_dist <= ctx.atr_val * self.settings.max_stop_atr_ratio):
-                                r_val = self._compute_r(signal_spot, stop)
-                                return Signal(
-                                    direction=Direction.CALL,
-                                    bar_end=current.end,
-                                    spot=signal_spot,
-                                    strategy="trend",
-                                    stop_price=stop,
-                                    atr=ctx.atr_val,
-                                    r_value=r_val,
-                                    breakout_level=ctx.orh,
-                                    vwap=ctx.vwap_value,
-                                    indicators={
-                                        "strategy": "trend",
-                                        "orh": str(ctx.orh),
-                                        "orl": str(ctx.orl),
-                                        "vwap": str(ctx.vwap_value),
-                                        "ema9": str(ctx.ema9),
-                                        "ema20": str(ctx.ema20),
-                                        "adx": str(ctx.adx_val),
-                                        "atr": str(ctx.atr_val),
-                                        "macd_hist": str(ctx.macd_hist),
-                                    },
-                                )
-                    self._breakout_detected = True
-                    self._breakout_direction = Direction.CALL
-                    self._breakout_bar_high = ctx.current_high
-                    self._breakout_bar_low = ctx.current_low
-                    self._waiting_pullback = True
-                    self._pullback_bar = None
-                    return None
-
-            # Bearish breakout
-            if (
-                ctx.current_close < ctx.orl
-                and ctx.current_close < ctx.vwap_value
-                and ctx.vwap_slope_val < 0
-                and ctx.ema9 < ctx.ema20
-            ):
-                if self._check_soft_conditions(ctx, today_5m, Direction.PUT):
-                    touched_support = (
-                        ctx.current_high >= ctx.orl
-                        or ctx.current_high >= ctx.ema9
-                        or ctx.current_high >= ctx.vwap_value
-                    )
-                    if touched_support and ctx.current_close < ctx.orl:
-                        stop = self._compute_stop(ctx, today_5m, Direction.PUT)
-                        if stop is not None:
-                            stop_dist = stop - signal_spot
-                            if stop_dist > 0 and (ctx.atr_val <= 0 or stop_dist <= ctx.atr_val * self.settings.max_stop_atr_ratio):
-                                r_val = self._compute_r(signal_spot, stop)
-                                return Signal(
-                                    direction=Direction.PUT,
-                                    bar_end=current.end,
-                                    spot=signal_spot,
-                                    strategy="trend",
-                                    stop_price=stop,
-                                    atr=ctx.atr_val,
-                                    r_value=r_val,
-                                    breakout_level=ctx.orl,
-                                    vwap=ctx.vwap_value,
-                                    indicators={
-                                        "strategy": "trend",
-                                        "orh": str(ctx.orh),
-                                        "orl": str(ctx.orl),
-                                        "vwap": str(ctx.vwap_value),
-                                        "ema9": str(ctx.ema9),
-                                        "ema20": str(ctx.ema20),
-                                        "adx": str(ctx.adx_val),
-                                        "atr": str(ctx.atr_val),
-                                        "macd_hist": str(ctx.macd_hist),
-                                    },
-                                )
-                    self._breakout_detected = True
-                    self._breakout_direction = Direction.PUT
-                    self._breakout_bar_high = ctx.current_high
-                    self._breakout_bar_low = ctx.current_low
-                    self._waiting_pullback = True
-                    self._pullback_bar = None
-                    return None
-
-        # Wait for pullback and entry
-        if self._waiting_pullback and self._breakout_direction is not None:
-            chase_limit = ctx.atr_val * self.settings.chase_atr_factor if ctx.atr_val > 0 else Decimal("2")
-
-            if self._breakout_direction == Direction.CALL:
-                # Check if price already too far from breakout
-                if ctx.current_close - ctx.orh > chase_limit:
-                    self._breakout_detected = False
-                    self._waiting_pullback = False
-                    return None
-                # Pullback: price touched ORH, EMA9, or VWAP
-                pullback_to = (
-                    ctx.current_low <= ctx.orh
-                    or ctx.current_low <= ctx.ema9
-                    or ctx.current_low <= ctx.vwap_value
-                )
-                # Still holding above support and bullish close
-                holding = ctx.current_close > ctx.orh and ctx.current_close > ctx.current_open
-                if pullback_to and holding:
-                    stop = self._compute_stop(ctx, today_5m, Direction.CALL)
-                    if stop is None:
-                        return None
-                    stop_dist = signal_spot - stop
-                    if stop_dist <= 0:
-                        return None
-                    if ctx.atr_val > 0 and stop_dist > ctx.atr_val * self.settings.max_stop_atr_ratio:
-                        self._breakout_detected = False
-                        self._waiting_pullback = False
-                        return None
-                    r_val = self._compute_r(signal_spot, stop)
-                    self._breakout_detected = False
-                    self._waiting_pullback = False
-                    return Signal(
-                        direction=Direction.CALL,
-                        bar_end=current.end,
-                        spot=signal_spot,
-                        strategy="trend",
-                        stop_price=stop,
-                        atr=ctx.atr_val,
-                        r_value=r_val,
-                        breakout_level=ctx.orh,
-                        vwap=ctx.vwap_value,
-                        indicators={
-                            "strategy": "trend",
-                            "orh": str(ctx.orh),
-                            "orl": str(ctx.orl),
-                            "vwap": str(ctx.vwap_value),
-                            "ema9": str(ctx.ema9),
-                            "ema20": str(ctx.ema20),
-                            "adx": str(ctx.adx_val),
-                            "atr": str(ctx.atr_val),
-                            "macd_hist": str(ctx.macd_hist),
-                        },
-                    )
-
-            elif self._breakout_direction == Direction.PUT:
-                if ctx.orl - ctx.current_close > chase_limit:
-                    self._breakout_detected = False
-                    self._waiting_pullback = False
-                    return None
-                pullback_to = (
-                    ctx.current_high >= ctx.orl
-                    or ctx.current_high >= ctx.ema9
-                    or ctx.current_high >= ctx.vwap_value
-                )
-                holding = ctx.current_close < ctx.orl and ctx.current_close < ctx.current_open
-                if pullback_to and holding:
-                    stop = self._compute_stop(ctx, today_5m, Direction.PUT)
-                    if stop is None:
-                        return None
-                    stop_dist = stop - signal_spot
-                    if stop_dist <= 0:
-                        return None
-                    if ctx.atr_val > 0 and stop_dist > ctx.atr_val * self.settings.max_stop_atr_ratio:
-                        self._breakout_detected = False
-                        self._waiting_pullback = False
-                        return None
-                    r_val = self._compute_r(signal_spot, stop)
-                    self._breakout_detected = False
-                    self._waiting_pullback = False
-                    return Signal(
-                        direction=Direction.PUT,
-                        bar_end=current.end,
-                        spot=signal_spot,
-                        strategy="trend",
-                        stop_price=stop,
-                        atr=ctx.atr_val,
-                        r_value=r_val,
-                        breakout_level=ctx.orl,
-                        vwap=ctx.vwap_value,
-                        indicators={
-                            "strategy": "trend",
-                            "orh": str(ctx.orh),
-                            "orl": str(ctx.orl),
-                            "vwap": str(ctx.vwap_value),
-                            "ema9": str(ctx.ema9),
-                            "ema20": str(ctx.ema20),
-                            "adx": str(ctx.adx_val),
-                            "atr": str(ctx.atr_val),
-                            "macd_hist": str(ctx.macd_hist),
-                        },
-                    )
+    def _evaluate_retest(
+        self,
+        ctx: MarketContext,
+        today: Sequence[Bar],
+        spot: Decimal | None,
+    ) -> Signal | None:
+        """Enter a confirmed higher-low/lower-high continuation without fixed OR levels."""
+        required = RULES.retest_lookback + 1
+        if len(today) < required or ctx.atr_val <= 0:
+            return None
+        current = today[-1]
+        pullback = list(today[-required:-1])
+        pullback_low = min(bar.low for bar in pullback)
+        pullback_high = max(bar.high for bar in pullback)
+        low_index = min(
+            range(len(pullback)),
+            key=lambda index: pullback[index].low,
+        )
+        high_index = max(
+            range(len(pullback)),
+            key=lambda index: pullback[index].high,
+        )
+        fast_retest = ctx.bar_time <= RULES.fast_retest_end
+        low_stabilized = fast_retest or low_index <= len(pullback) - 3
+        high_stabilized = fast_retest or high_index <= len(pullback) - 3
+        prior_close_high = max(bar.close for bar in pullback)
+        prior_close_low = min(bar.close for bar in pullback)
+        candle_range = current.high - current.low
+        if candle_range <= 0:
+            return None
+        upper_half_close = current.close >= current.low + Decimal("0.5") * candle_range
+        lower_half_close = current.close <= current.low + Decimal("0.5") * candle_range
+        day_span = ctx.day_high - ctx.day_low
+        day_midpoint = (ctx.day_high + ctx.day_low) / Decimal(2)
+        pullback_down = (
+            prior_close_high - pullback[-1].close
+            >= RULES.retest_min_excursion_atr * ctx.atr_val
+        )
+        pullback_up = (
+            pullback[-1].close - prior_close_low
+            >= RULES.retest_min_excursion_atr * ctx.atr_val
+        )
+        call_ema_ok = (
+            ctx.ema9
+            >= ctx.ema20 - RULES.retest_ema_tolerance_atr * ctx.atr_val
+        )
+        put_ema_ok = (
+            ctx.ema9
+            <= ctx.ema20 + RULES.retest_ema_tolerance_atr * ctx.atr_val
+        )
+        reclaim_buffer = RULES.structure_break_atr * ctx.atr_val
+        if (
+            day_span >= Decimal("2") * ctx.atr_val
+            and ctx.current_close > day_midpoint
+            and pullback_down
+            and low_stabilized
+            and ctx.current_low > pullback_low
+            and upper_half_close
+            and ctx.current_close >= pullback[-1].high - reclaim_buffer
+            and ctx.macd_hist > ctx.macd_hist_prev
+            and ctx.macd_hist > 0
+            and ctx.rsi_val >= RULES.retest_call_rsi_min
+            and ctx.rsi_val < self.settings.rsi_overbought
+            and call_ema_ok
+            and ctx.current_close
+            >= ctx.vwap_value - RULES.retest_vwap_tolerance_atr * ctx.atr_val
+        ):
+            stop = pullback_low - RULES.stop_atr_buffer * ctx.atr_val
+            return self._signal(
+                ctx,
+                Direction.CALL,
+                "trend_retest",
+                MarketState.TREND_RETEST_UP,
+                stop,
+                spot,
+                pullback[-1].high,
+                pullback_low=str(pullback_low),
+            )
+        if (
+            day_span >= Decimal("2") * ctx.atr_val
+            and ctx.current_close < day_midpoint
+            and pullback_up
+            and high_stabilized
+            and ctx.current_high < pullback_high
+            and lower_half_close
+            and ctx.current_close <= pullback[-1].low + reclaim_buffer
+            and ctx.macd_hist < ctx.macd_hist_prev
+            and ctx.macd_hist < 0
+            and ctx.rsi_val <= RULES.retest_put_rsi_max
+            and ctx.rsi_val > self.settings.rsi_oversold
+            and put_ema_ok
+            and ctx.current_close
+            <= ctx.vwap_value + RULES.retest_vwap_tolerance_atr * ctx.atr_val
+        ):
+            stop = pullback_high + RULES.stop_atr_buffer * ctx.atr_val
+            return self._signal(
+                ctx,
+                Direction.PUT,
+                "trend_retest",
+                MarketState.TREND_RETEST_DOWN,
+                stop,
+                spot,
+                pullback[-1].low,
+                pullback_high=str(pullback_high),
+            )
         return None
 
     def _evaluate_reversal(
-        self, ctx: MarketContext, today_5m: Sequence[Bar], current: Bar, spot: Decimal | None
+        self, ctx: MarketContext, today: Sequence[Bar], spot: Decimal | None
     ) -> Signal | None:
-        """State B: Opening direction failure + reversal."""
-        signal_spot = spot if spot is not None else ctx.current_close
-
-        # --- Bullish reversal (price broke ORL then reversed up) ---
-        if self._reversal_state == "idle":
-            if ctx.current_close < ctx.orl or ctx.current_low < ctx.orl:
-                self._reversal_state = "breakdown_put"
-                self._reversal_direction = Direction.CALL
-                self._reversal_lod = min(ctx.day_low, ctx.current_low)
-                self._reversal_breakdown_end = current.end
-            elif ctx.current_close > ctx.orh or ctx.current_high > ctx.orh:
-                self._reversal_state = "breakdown_call"
-                self._reversal_direction = Direction.PUT
-                self._reversal_hod = max(ctx.day_high, ctx.current_high)
-                self._reversal_breakdown_end = current.end
+        assert ctx.bar_end is not None
+        if len(today) < RULES.structure_lookback + 2:
             return None
-
-        # Bullish reversal path
-        if self._reversal_state == "breakdown_put":
-            self._reversal_lod = min(self._reversal_lod, ctx.current_low)
-            # Check timeout (3 five-min bars = 15 min)
-            elapsed = len([
-                b for b in today_5m if b.end > (self._reversal_breakdown_end or current.end)
-            ])
-            if elapsed > 3 and ctx.current_close < ctx.orl:
-                self._reversal_state = "idle"
-                return None
-            if ctx.current_close > ctx.orl:
-                self._reversal_state = "reclaimed_put"
-            return None
-
-        if self._reversal_state == "reclaimed_put":
-            if ctx.current_low < self._reversal_lod:
-                self._reversal_state = "idle"
-                return None
-            # Higher low + MACD exhaustion
-            has_higher_low = ctx.current_low > self._reversal_lod
-            macd_exhaustion = (
-                ctx.macd_hist > ctx.macd_hist_prev
-                or (ctx.macd_hist < 0 and ctx.macd_hist > ctx.macd_hist_prev)
+        level_window = list(
+            today[-(RULES.structure_lookback + 2) : -2]
+        )
+        support = min(bar.low for bar in level_window)
+        resistance = max(bar.high for bar in level_window)
+        two_below = all(bar.close < support for bar in today[-2:])
+        two_above = all(bar.close > resistance for bar in today[-2:])
+        if self._bullish_reversal is None and (
+            two_below
+            or ctx.current_low
+            < support - RULES.structure_excursion_atr * ctx.atr_val
+        ):
+            self._bullish_reversal = ReversalWatch(
+                Direction.CALL,
+                ctx.bar_end,
+                ctx.current_low,
+                support,
+                ctx.rsi_val <= self.settings.rsi_oversold,
             )
-            if has_higher_low and macd_exhaustion and ctx.current_close > ctx.vwap_value:
-                self._reversal_state = "vwap_reclaimed_put"
-                self._reversal_pullback_high = ctx.current_high
-            return None
-
-        if self._reversal_state == "vwap_reclaimed_put":
-            if ctx.current_low < self._reversal_lod:
-                self._reversal_state = "idle"
-                return None
-            if ctx.current_close < ctx.vwap_value:
-                self._reversal_state = "reclaimed_put"
-                return None
-            # VWAP pullback held
-            near_vwap = ctx.current_low <= ctx.vwap_value * Decimal("1.003")
-            if near_vwap and ctx.current_close > ctx.vwap_value:
-                # Entry: break above pullback bar high
-                if ctx.current_close > self._reversal_pullback_high:
-                    stop = self._reversal_lod - ctx.atr_val * self.settings.atr_stop_buffer
-                    stop_dist = signal_spot - stop
-                    if stop_dist <= 0 or (ctx.atr_val > 0 and stop_dist > ctx.atr_val * self.settings.max_stop_atr_ratio):
-                        self._reversal_state = "idle"
-                        return None
-                    r_val = self._compute_r(signal_spot, stop)
-                    self._reversal_state = "idle"
-                    return Signal(
-                        direction=Direction.CALL,
-                        bar_end=current.end,
-                        spot=signal_spot,
-                        strategy="reversal",
-                        stop_price=stop,
-                        atr=ctx.atr_val,
-                        r_value=r_val,
-                        breakout_level=ctx.orl,
-                        vwap=ctx.vwap_value,
-                        indicators={
-                            "strategy": "reversal",
-                            "orh": str(ctx.orh),
-                            "orl": str(ctx.orl),
-                            "lod": str(self._reversal_lod),
-                            "vwap": str(ctx.vwap_value),
-                            "macd_hist": str(ctx.macd_hist),
-                            "adx": str(ctx.adx_val),
-                            "atr": str(ctx.atr_val),
-                        },
-                    )
-            self._reversal_pullback_high = max(self._reversal_pullback_high, ctx.current_high)
-            return None
-
-        # Bearish reversal path (mirror)
-        if self._reversal_state == "breakdown_call":
-            self._reversal_hod = max(self._reversal_hod, ctx.current_high)
-            elapsed = len([
-                b for b in today_5m if b.end > (self._reversal_breakdown_end or current.end)
-            ])
-            if elapsed > 3 and ctx.current_close > ctx.orh:
-                self._reversal_state = "idle"
-                return None
-            if ctx.current_close < ctx.orh:
-                self._reversal_state = "reclaimed_call"
-            return None
-
-        if self._reversal_state == "reclaimed_call":
-            if ctx.current_high > self._reversal_hod:
-                self._reversal_state = "idle"
-                return None
-            has_lower_high = ctx.current_high < self._reversal_hod
-            macd_exhaustion = (
-                ctx.macd_hist < ctx.macd_hist_prev
-                or (ctx.macd_hist > 0 and ctx.macd_hist < ctx.macd_hist_prev)
+        if self._bearish_reversal is None and (
+            two_above
+            or ctx.current_high
+            > resistance + RULES.structure_excursion_atr * ctx.atr_val
+        ):
+            self._bearish_reversal = ReversalWatch(
+                Direction.PUT,
+                ctx.bar_end,
+                ctx.current_high,
+                resistance,
+                ctx.rsi_val >= self.settings.rsi_overbought,
             )
-            if has_lower_high and macd_exhaustion and ctx.current_close < ctx.vwap_value:
-                self._reversal_state = "vwap_reclaimed_call"
-                self._reversal_pullback_low = ctx.current_low
-            return None
-
-        if self._reversal_state == "vwap_reclaimed_call":
-            if ctx.current_high > self._reversal_hod:
-                self._reversal_state = "idle"
-                return None
-            if ctx.current_close > ctx.vwap_value:
-                self._reversal_state = "reclaimed_call"
-                return None
-            near_vwap = ctx.current_high >= ctx.vwap_value * Decimal("0.997")
-            if near_vwap and ctx.current_close < ctx.vwap_value:
-                if ctx.current_close < self._reversal_pullback_low:
-                    stop = self._reversal_hod + ctx.atr_val * self.settings.atr_stop_buffer
-                    stop_dist = stop - signal_spot
-                    if stop_dist <= 0 or (ctx.atr_val > 0 and stop_dist > ctx.atr_val * self.settings.max_stop_atr_ratio):
-                        self._reversal_state = "idle"
-                        return None
-                    r_val = self._compute_r(signal_spot, stop)
-                    self._reversal_state = "idle"
-                    return Signal(
-                        direction=Direction.PUT,
-                        bar_end=current.end,
-                        spot=signal_spot,
-                        strategy="reversal",
-                        stop_price=stop,
-                        atr=ctx.atr_val,
-                        r_value=r_val,
-                        breakout_level=ctx.orh,
-                        vwap=ctx.vwap_value,
-                        indicators={
-                            "strategy": "reversal",
-                            "orh": str(ctx.orh),
-                            "orl": str(ctx.orl),
-                            "hod": str(self._reversal_hod),
-                            "vwap": str(ctx.vwap_value),
-                            "macd_hist": str(ctx.macd_hist),
-                            "adx": str(ctx.adx_val),
-                            "atr": str(ctx.atr_val),
-                        },
-                    )
-            self._reversal_pullback_low = min(self._reversal_pullback_low, ctx.current_low)
-            return None
-
+        bull = self._bullish_reversal
+        if bull is not None:
+            prior_extreme = bull.extreme
+            bull.saw_rsi_extreme |= ctx.rsi_val <= self.settings.rsi_oversold
+            if ctx.bar_end - bull.started_at > timedelta(minutes=RULES.reversal_timeout_minutes):
+                self._bullish_reversal = None
+            elif (
+                bull.saw_rsi_extreme
+                and ctx.current_close > bull.reclaim_level
+                and ctx.rsi_prev <= self.settings.rsi_oversold
+                and ctx.rsi_val > self.settings.rsi_oversold
+                and ctx.macd_hist > ctx.macd_hist_prev
+                and ctx.current_low >= prior_extreme
+                and ctx.current_close
+                >= ctx.current_low + Decimal("0.5") * (ctx.current_high - ctx.current_low)
+                and abs(ctx.current_close - ctx.vwap_value)
+                <= RULES.max_vwap_distance_atr * ctx.atr_val
+            ):
+                self._bullish_reversal = None
+                stop = prior_extreme - RULES.stop_atr_buffer * ctx.atr_val
+                size_factor = "1" if ctx.current_close >= ctx.vwap_value else "0.5"
+                return self._signal(
+                    ctx,
+                    Direction.CALL,
+                    "reversal",
+                    MarketState.REVERSAL_UP,
+                    stop,
+                    spot,
+                    bull.reclaim_level,
+                    size_factor=size_factor,
+                )
+            else:
+                bull.extreme = min(bull.extreme, ctx.current_low)
+        bear = self._bearish_reversal
+        if bear is not None:
+            prior_extreme = bear.extreme
+            bear.saw_rsi_extreme |= ctx.rsi_val >= self.settings.rsi_overbought
+            if ctx.bar_end - bear.started_at > timedelta(minutes=RULES.reversal_timeout_minutes):
+                self._bearish_reversal = None
+            elif (
+                bear.saw_rsi_extreme
+                and ctx.current_close < bear.reclaim_level
+                and ctx.rsi_prev >= self.settings.rsi_overbought
+                and ctx.rsi_val < self.settings.rsi_overbought
+                and ctx.macd_hist < ctx.macd_hist_prev
+                and ctx.current_high <= prior_extreme
+                and ctx.current_close
+                <= ctx.current_low + Decimal("0.5") * (ctx.current_high - ctx.current_low)
+                and abs(ctx.current_close - ctx.vwap_value)
+                <= RULES.max_vwap_distance_atr * ctx.atr_val
+            ):
+                self._bearish_reversal = None
+                stop = prior_extreme + RULES.stop_atr_buffer * ctx.atr_val
+                size_factor = "1" if ctx.current_close <= ctx.vwap_value else "0.5"
+                return self._signal(
+                    ctx,
+                    Direction.PUT,
+                    "reversal",
+                    MarketState.REVERSAL_DOWN,
+                    stop,
+                    spot,
+                    bear.reclaim_level,
+                    size_factor=size_factor,
+                )
+            else:
+                bear.extreme = max(bear.extreme, ctx.current_high)
         return None
 
-    def _check_soft_conditions(
-        self, ctx: MarketContext, bars_5m: Sequence[Bar], direction: Direction
-    ) -> bool:
-        """Check soft confirmation. Hard conditions are the real gate; soft is quality."""
-        score = 0
+    def _evaluate_range(
+        self, ctx: MarketContext, today: Sequence[Bar], spot: Decimal | None
+    ) -> Signal | None:
+        touched_lower = ctx.current_low <= ctx.boll_lower
+        rsi_ready = ctx.rsi_val <= self.settings.rsi_oversold or (
+            ctx.rsi_prev <= self.settings.rsi_oversold
+            and ctx.rsi_val > self.settings.rsi_oversold
+        )
+        if (
+            touched_lower
+            and ctx.current_close > ctx.boll_lower
+            and rsi_ready
+            and ctx.macd_hist > ctx.macd_hist_prev
+        ):
+            recent_low = min(bar.low for bar in today[-5:])
+            stop = recent_low - RULES.stop_atr_buffer * ctx.atr_val
+            return self._signal(
+                ctx, Direction.CALL, "range", MarketState.RANGE, stop, spot
+            )
+        return None
 
-        # 1. Directional momentum in recent bars
-        if len(bars_5m) >= 3:
-            recent = bars_5m[-3:]
-            if direction == Direction.CALL:
-                if recent[-1].high > recent[-2].high or recent[-1].close > recent[-2].close:
-                    score += 1
-            else:
-                if recent[-1].low < recent[-2].low or recent[-1].close < recent[-2].close:
-                    score += 1
-
-        # 2. Volume above average on breakout bar
-        if len(bars_5m) >= 6:
-            avg_vol = sum(b.volume for b in bars_5m[-6:-1]) / 5
-            if avg_vol > 0 and bars_5m[-1].volume > avg_vol:
-                score += 1
-
-        # 3. MACD histogram confirmation (only if data available)
-        if ctx.macd_hist != ZERO or ctx.macd_hist_prev != ZERO:
-            if direction == Direction.CALL:
-                if ctx.macd_hist > 0 or ctx.macd_hist > ctx.macd_hist_prev:
-                    score += 1
-            else:
-                if ctx.macd_hist < 0 or ctx.macd_hist < ctx.macd_hist_prev:
-                    score += 1
-
-        # 4. ADX indicates trending (only if data available)
-        if ctx.adx_val > 0:
-            if ctx.adx_val > self.settings.trend_adx_min:
-                score += 1
-
-        # Require at least 1 soft confirmation
-        return score >= 1
-
-    def _compute_stop(
-        self, ctx: MarketContext, bars_5m: Sequence[Bar], direction: Direction
-    ) -> Decimal | None:
-        """Compute stop at recent swing point + ATR buffer."""
-        if len(bars_5m) < 3:
+    def bar_exit_decision(self, position: Position) -> ExitDecision | None:
+        ctx = self.last_context
+        if ctx is None:
             return None
-        atr_buffer = ctx.atr_val * self.settings.atr_stop_buffer
-
-        if direction == Direction.CALL:
-            recent_lows = [b.low for b in bars_5m[-5:]]
-            swing_low = min(recent_lows)
-            return swing_low - atr_buffer
-        else:
-            recent_highs = [b.high for b in bars_5m[-5:]]
-            swing_high = max(recent_highs)
-            return swing_high + atr_buffer
-
-    def _compute_r(self, entry: Decimal, stop: Decimal) -> Decimal:
-        """Compute 1R value (risk per share)."""
-        return abs(entry - stop)
-
-
-# ---------------------------------------------------------------------------
-# Factory
-# ---------------------------------------------------------------------------
+        if position.underlying_stop is not None:
+            stopped = (
+                ctx.current_close <= position.underlying_stop
+                if position.direction is Direction.CALL
+                else ctx.current_close >= position.underlying_stop
+            )
+            if stopped:
+                return ExitDecision(ExitReason.STRUCTURE_STOP, position.quantity)
+        if position.strategy_name == "range":
+            if ctx.current_close >= ctx.boll_upper:
+                return ExitDecision(ExitReason.BOLLINGER_UPPER, position.quantity)
+            if (
+                not position.range_middle_taken
+                and ctx.current_close >= ctx.boll_middle
+            ):
+                quantity = (
+                    position.quantity
+                    if position.quantity == 1
+                    else (position.quantity + 1) // 2
+                )
+                return ExitDecision(ExitReason.BOLLINGER_MIDDLE, quantity, position.entry_price)
+            recent = ctx.current_close < ctx.boll_lower
+            if (
+                recent
+                and ctx.rsi_val < self.settings.rsi_oversold
+                and ctx.macd_hist < ctx.macd_hist_prev
+            ):
+                return ExitDecision(ExitReason.STATE_INVALIDATION, position.quantity)
+        if ctx.bar_time >= RULES.reduce_at:
+            if position.direction is Direction.CALL:
+                invalid = (
+                    ctx.current_close < ctx.vwap_value and ctx.macd_hist < 0
+                ) or ctx.current_close < ctx.ema20 - RULES.range_vwap_change_atr * ctx.atr_val
+            else:
+                invalid = (
+                    ctx.current_close > ctx.vwap_value and ctx.macd_hist > 0
+                ) or ctx.current_close > ctx.ema20 + RULES.range_vwap_change_atr * ctx.atr_val
+            if invalid:
+                return ExitDecision(ExitReason.VWAP_CROSS, position.quantity)
+        return None
 
 
 def strategy_from_settings(settings) -> StrategyEngine:
-    """Create strategy engine from settings."""
+    if getattr(settings, "strategy_profile", "dynamic") == "timed_trend":
+        from .timed_strategy import TimedTrendStrategy
+
+        return TimedTrendStrategy(settings)
     return StrategyEngine(settings)

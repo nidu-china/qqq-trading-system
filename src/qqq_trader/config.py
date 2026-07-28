@@ -32,7 +32,8 @@ class Settings(BaseSettings):
 
     app_name: str = "qqq-0dte-trader"
     trading_mode: TradingMode = TradingMode.PAPER
-    paper_starting_equity: Decimal = Decimal("100000")
+    strategy_profile: str = "dynamic"
+    paper_starting_equity: Decimal = Decimal("10000")
     account_id: str = ""
     live_trading_ack: SecretStr = SecretStr("")
     underlying_symbol: str = "QQQ.US"
@@ -47,30 +48,21 @@ class Settings(BaseSettings):
     longbridge_access_token: SecretStr = SecretStr("")
     longbridge_request_timeout_seconds: Decimal = Decimal("60")
 
-    entry_start: time = time(9, 45)
-    entry_end: time = time(11, 25)
-    forced_close: time = time(14, 0)
     report_at: time = time(16, 15)
-    cooldown_minutes: int = 5
-    max_trades_per_day: int = 2
 
-    # Strategy indicator parameters
-    macd_fast: int = 12
-    macd_slow: int = 26
-    macd_signal: int = 9
+    # The only online-editable strategy values are technical indicators.
+    bollinger_period: int = 20
+    bollinger_stddev: Decimal = Decimal("2")
+    rsi_period: int = 14
+    rsi_overbought: Decimal = Decimal("70")
+    rsi_oversold: Decimal = Decimal("30")
     ema_fast_period: int = 9
     ema_slow_period: int = 20
+    macd_1m_fast: int = 5
+    macd_1m_slow: int = 10
+    macd_1m_signal: int = 3
     adx_period: int = 14
     atr_period: int = 14
-    rvol_lookback_days: int = 20
-    or_width_lookback_days: int = 60
-    or_width_low_pct: Decimal = Decimal("0.20")
-    or_width_high_pct: Decimal = Decimal("0.20")
-    trend_rvol_min: Decimal = Decimal("1.1")
-    trend_adx_min: Decimal = Decimal("20")
-    range_adx_max: Decimal = Decimal("18")
-    chase_atr_factor: Decimal = Decimal("1.5")
-    strike_offset: Decimal = Decimal("2")
 
     volatility_filter_enabled: bool = True
     volatility_symbol: str = ".VIX.US"
@@ -85,29 +77,35 @@ class Settings(BaseSettings):
     volatility_shock_5m: Decimal = Decimal("0.08")
     volatility_shock_15m: Decimal = Decimal("0.12")
 
-    max_quote_age_seconds: Decimal = Decimal("2")
-    max_spread_ratio: Decimal = Decimal("0.10")
-    max_spread_absolute: Decimal = Decimal("0.20")
-    min_open_interest: int = 100
-    min_option_volume: int = 10
+    # 仓位与风控（必须在 .env 显式配置）
+    max_premium_fraction: Decimal
+    max_contracts: int
+    max_trades_per_day: int
+    cooldown_minutes: int
+    daily_loss_limit: Decimal
+    fee_per_contract: Decimal
+    slippage_quote: Decimal
 
-    # Risk parameters (R-based system)
-    risk_per_trade: Decimal = Decimal("0.0025")
-    daily_loss_limit_r: Decimal = Decimal("2")
-    atr_stop_buffer: Decimal = Decimal("0.1")
-    max_stop_atr_ratio: Decimal = Decimal("2.0")
-    tp1_r: Decimal = Decimal("1.0")
-    tp2_r: Decimal = Decimal("2.5")
-    stale_minutes: int = 30
-    reduce_at: time = time(13, 0)
-    max_premium_fraction: Decimal = Decimal("0.05")
-    max_contracts: int = 10
-    fee_per_contract: Decimal = Decimal("1.50")
-    slippage_per_contract: Decimal = Decimal("5.00")
+    # 离场（必须在 .env 显式配置）
+    option_stop_loss_pct: Decimal
+    tp1_profit_pct: Decimal
+    tp2_profit_pct: Decimal
+    trailing_atr_multiplier: Decimal
+    stale_minutes: int
 
-    order_timeout_seconds: int = 6
-    entry_reprices: int = 2
-    max_entry_slippage_pct: Decimal = Decimal("0.02")
+    # 期权流动性（必须在 .env 显式配置）
+    max_spread_ratio: Decimal
+    max_spread_absolute: Decimal
+    min_open_interest: int
+    min_option_volume: int
+    target_delta: Decimal
+
+    # 分时趋势策略（必须在 .env 显式配置）
+    timed_opening_volume_ratio: Decimal
+    timed_opening_range_ratio: Decimal
+    timed_opening_body_ratio: Decimal
+    timed_opening_close_extreme: Decimal
+    timed_slow_ema_period: int
 
     api_host: str = "127.0.0.1"
     api_port: int = 8000
@@ -117,24 +115,31 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_safety(self) -> Settings:
-        if self.risk_per_trade <= 0 or self.risk_per_trade >= Decimal("0.05"):
-            raise ValueError("risk_per_trade must be between 0 and 5%")
-        if self.daily_loss_limit_r <= 0:
-            raise ValueError("daily_loss_limit_r must be positive")
-        if not self.entry_start < self.entry_end <= self.forced_close:
-            raise ValueError("trading times must be ordered")
-        if self.max_contracts < 1 or self.max_trades_per_day < 1:
-            raise ValueError("contract and trade limits must be positive")
+        if self.strategy_profile not in {"dynamic", "timed_trend"}:
+            raise ValueError("strategy_profile must be 'dynamic' or 'timed_trend'")
         if self.longbridge_request_timeout_seconds <= 0:
             raise ValueError("Longbridge request timeout must be positive")
-        if min(self.ema_fast_period, self.ema_slow_period, self.adx_period, self.atr_period) < 2:
+        periods = (
+            self.bollinger_period,
+            self.rsi_period,
+            self.ema_fast_period,
+            self.ema_slow_period,
+            self.macd_1m_fast,
+            self.macd_1m_slow,
+            self.macd_1m_signal,
+            self.adx_period,
+            self.atr_period,
+        )
+        if min(periods) < 2:
             raise ValueError("indicator periods must be >= 2")
         if self.ema_fast_period >= self.ema_slow_period:
             raise ValueError("ema_fast_period must be less than ema_slow_period")
-        if self.macd_fast >= self.macd_slow:
-            raise ValueError("macd_fast must be less than macd_slow")
-        if self.tp1_r <= 0 or self.tp2_r <= self.tp1_r:
-            raise ValueError("take-profit R thresholds must be ordered and positive")
+        if self.macd_1m_fast >= self.macd_1m_slow:
+            raise ValueError("1-minute MACD fast period must be less than slow period")
+        if self.bollinger_stddev <= 0:
+            raise ValueError("bollinger_stddev must be positive")
+        if not 0 < self.rsi_oversold < self.rsi_overbought < 100:
+            raise ValueError("RSI thresholds must satisfy 0 < oversold < overbought < 100")
         percentiles = (
             self.volatility_recovery_percentile,
             self.volatility_risk_off_percentile,
@@ -154,7 +159,30 @@ class Settings(BaseSettings):
             or self.volatility_shock_15m <= self.volatility_rise_15m
         ):
             raise ValueError("volatility shock thresholds must exceed rise thresholds")
+        if self.max_premium_fraction <= 0 or self.max_premium_fraction > Decimal("0.5"):
+            raise ValueError("max_premium_fraction must be between 0 and 0.5")
+        if self.max_contracts < 1:
+            raise ValueError("max_contracts must be at least 1")
+        if self.max_trades_per_day < 1:
+            raise ValueError("max_trades_per_day must be at least 1")
+        if self.daily_loss_limit <= 0 or self.daily_loss_limit > Decimal("0.5"):
+            raise ValueError("daily_loss_limit must be between 0 and 0.5")
+        if self.option_stop_loss_pct <= 0 or self.option_stop_loss_pct >= 1:
+            raise ValueError("option_stop_loss_pct must be between 0 and 1")
+        if self.tp1_profit_pct <= 0:
+            raise ValueError("tp1_profit_pct must be positive")
+        if self.tp2_profit_pct <= self.tp1_profit_pct:
+            raise ValueError("tp2_profit_pct must exceed tp1_profit_pct")
+        if self.trailing_atr_multiplier <= 0:
+            raise ValueError("trailing_atr_multiplier must be positive")
+        if self.fee_per_contract < 0:
+            raise ValueError("fee_per_contract must be non-negative")
         return self
+
+    @property
+    def rules(self):
+        from .policy import rules_from_settings
+        return rules_from_settings(self)
 
     def assert_live_authorized(self) -> None:
         if self.trading_mode is not TradingMode.LIVE:

@@ -8,6 +8,7 @@ from decimal import ROUND_DOWN, Decimal
 from .config import Settings
 from .domain import BrokerOrder, OrderRequest
 from .interfaces import Broker, Journal, QuoteSupplier
+from .policy import RULES
 
 FILLED_STATUSES = {"filled", "filled_status", "done"}
 TERMINAL_STATUSES = FILLED_STATUSES | {"canceled", "cancelled", "rejected", "expired"}
@@ -29,8 +30,8 @@ class OrderExecutor:
         self, request: OrderRequest, quote_supplier: QuoteSupplier
     ) -> BrokerOrder | None:
         initial_limit = request.limit_price
-        ceiling = tick_price(initial_limit * (Decimal(1) + self.settings.max_entry_slippage_pct))
-        attempts = self.settings.entry_reprices + 1
+        ceiling = tick_price(initial_limit + RULES.slippage_quote)
+        attempts = RULES.entry_reprices + 1
         current = request
         total_filled = 0
         filled_notional = Decimal(0)
@@ -94,7 +95,7 @@ class OrderExecutor:
         total_filled = 0
         filled_notional = Decimal(0)
         last_order: BrokerOrder | None = None
-        for attempt in range(max_attempts):
+        for _attempt in range(max_attempts):
             await self.journal.order_intent(current)
             order = await self.broker.submit_limit(current)
             await self.journal.broker_order(order)
@@ -116,13 +117,18 @@ class OrderExecutor:
             if quote.bid is None or quote.bid <= 0:
                 await asyncio.sleep(1)
                 continue
-            discount = min(Decimal("0.05") * Decimal(attempt + 1), quote.bid * Decimal("0.10"))
             current = replace(
                 request,
                 quantity=request.quantity - total_filled,
-                limit_price=tick_price(max(Decimal("0.01"), quote.bid - discount)),
+                limit_price=tick_price(
+                    max(Decimal("0.01"), quote.bid - RULES.slippage_quote)
+                ),
             )
-        self._log.error("CRITICAL exit failure | %s | unable to fill after %d attempts", request.symbol, max_attempts)
+        self._log.error(
+            "CRITICAL exit failure | %s | unable to fill after %d attempts",
+            request.symbol,
+            max_attempts,
+        )
         await self.journal.event(
             "critical_exit_failure",
             "unable to confirm an exit fill after all retries",
@@ -133,7 +139,7 @@ class OrderExecutor:
     async def _wait_terminal(self, order: BrokerOrder) -> BrokerOrder:
         if order.status.lower() in TERMINAL_STATUSES:
             return order
-        deadline = asyncio.get_running_loop().time() + self.settings.order_timeout_seconds
+        deadline = asyncio.get_running_loop().time() + RULES.order_timeout_seconds
         current = order
         while asyncio.get_running_loop().time() < deadline:
             await asyncio.sleep(0.5)

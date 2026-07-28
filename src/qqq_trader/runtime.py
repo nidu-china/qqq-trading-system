@@ -9,6 +9,7 @@ from .configuration import with_editable_values
 from .domain import TradingMode
 from .engine import TradingEngine
 from .persistence import MySQLJournal, ParquetMarketStore
+from .policy import RULES
 from .reporting import DailyReportGenerator
 from .service import TradingService
 
@@ -38,7 +39,7 @@ async def build_runtime(settings: Settings | None = None) -> Runtime:
         if settings.trading_mode is TradingMode.LIVE
         else PaperBroker(
             starting_equity=settings.paper_starting_equity,
-            fee_per_contract=settings.fee_per_contract,
+            fee_per_contract=RULES.fee_per_contract,
         )
     )
     engine = TradingEngine(settings, market, broker, journal)

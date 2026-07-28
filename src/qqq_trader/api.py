@@ -23,7 +23,8 @@ from .config import NY_TZ, Settings
 from .configuration import editable_values, with_editable_values
 from .domain import SystemState
 from .engine import TradingEngine
-from .persistence import MySQLJournal
+from .market_hours import regular_session_bars
+from .persistence import MySQLJournal, ParquetMarketStore
 
 
 class ConfigUpdate(BaseModel):
@@ -36,6 +37,9 @@ class BacktestCreate(BaseModel):
     end_date: date
     starting_equity: Decimal = Field(default=Decimal("100000"), gt=0)
     config_version: int | None = Field(default=None, ge=1)
+    strategy_profile: str = Field(
+        default="dynamic", pattern="^(dynamic|timed_trend)$"
+    )
     params: dict[str, Any] | None = Field(default=None)
 
 
@@ -329,7 +333,11 @@ def create_app(
     @app.get("/api/v1/config")
     async def config() -> dict[str, Any]:
         active = await journal.active_config() if hasattr(journal, "active_config") else None
-        current = active.values if active is not None else editable_values(engine.settings)
+        current = (
+            editable_values(with_editable_values(engine.settings, active.values))
+            if active is not None
+            else editable_values(engine.settings)
+        )
         return {
             "version": active.id if active is not None else 0,
             "values": current,
@@ -363,7 +371,9 @@ def create_app(
                 "version": row.id,
                 "created_at": row.created_at.isoformat(),
                 "active": row.active,
-                "values": row.values,
+                "values": editable_values(
+                    with_editable_values(engine.settings, row.values)
+                ),
             }
             for row in await journal.config_versions()
         ]
@@ -371,6 +381,120 @@ def create_app(
     @app.get("/api/v1/market-data/availability")
     async def availability() -> list[dict[str, Any]]:
         return backtests.availability() if backtests is not None else []
+
+    @app.get("/api/v1/market-data/kline")
+    async def kline(
+        trading_date: date = Query(..., alias="date"),
+        timeframe: str = Query(default="1m", pattern="^(1m|5m|day)$"),
+    ) -> dict[str, Any]:
+        from decimal import Decimal as D
+
+        from .strategy import bollinger_bands, ema_series
+        from .strategy import vwap as calc_vwap
+
+        if settings is None:
+            raise HTTPException(501, "market data service is unavailable")
+        bar_path = (
+            settings.data_dir
+            / "bars"
+            / f"symbol={settings.underlying_symbol}"
+            / f"date={trading_date.isoformat()}"
+            / f"{timeframe}.parquet"
+        )
+        if not bar_path.exists():
+            raise HTTPException(404, f"no {timeframe} bars for {trading_date}")
+        bars = ParquetMarketStore.read_bars(bar_path)
+        bars.sort(key=lambda b: b.start)
+        if timeframe != "day":
+            bars = regular_session_bars(bars)
+
+        closes = [b.close for b in bars]
+        ema_fast_period = settings.ema_fast_period
+        ema_slow_period = settings.ema_slow_period
+        macd_fast = settings.macd_1m_fast
+        macd_slow = settings.macd_1m_slow
+        macd_sig = settings.macd_1m_signal
+        boll_period = settings.bollinger_period
+        boll_std = settings.bollinger_stddev
+
+        ema9_vals = ema_series(closes, ema_fast_period) if len(closes) >= ema_fast_period else []
+        ema20_vals = ema_series(closes, ema_slow_period) if len(closes) >= ema_slow_period else []
+
+        macd_required = macd_slow + macd_sig - 1
+        macd_fast_ema = ema_series(closes, macd_fast) if len(closes) >= macd_fast else []
+        macd_slow_ema = ema_series(closes, macd_slow) if len(closes) >= macd_slow else []
+        macd_lines: list[D] = []
+        signal_lines: list[D] = []
+        hist_lines: list[D] = []
+        if macd_fast_ema and macd_slow_ema:
+            offset = macd_slow - macd_fast
+            macd_lines = [f - s for f, s in zip(macd_fast_ema[offset:], macd_slow_ema, strict=True)]
+            if len(macd_lines) >= macd_sig:
+                signal_lines = ema_series(macd_lines, macd_sig)
+                sig_offset = macd_sig - 1
+                hist_lines = [
+                    m - s
+                    for m, s in zip(
+                        macd_lines[sig_offset:],
+                        signal_lines,
+                        strict=True,
+                    )
+                ]
+
+        items = []
+        for i, b in enumerate(bars):
+            item: dict[str, Any] = {
+                "time": b.start.isoformat(),
+                "open": float(b.open),
+                "high": float(b.high),
+                "low": float(b.low),
+                "close": float(b.close),
+                "volume": b.volume,
+            }
+
+            ema9_start = ema_fast_period - 1
+            if i >= ema9_start and ema9_vals:
+                ei = i - ema9_start
+                if 0 <= ei < len(ema9_vals):
+                    item["ema9"] = float(ema9_vals[ei])
+            ema20_start = ema_slow_period - 1
+            if i >= ema20_start and ema20_vals:
+                ei = i - ema20_start
+                if 0 <= ei < len(ema20_vals):
+                    item["ema20"] = float(ema20_vals[ei])
+
+            if i >= 0:
+                item["vwap"] = float(calc_vwap(bars[: i + 1]))
+
+            if i + 1 >= boll_period:
+                upper, middle, lower = bollinger_bands(
+                    closes[: i + 1], boll_period, boll_std
+                )
+                item["boll_upper"] = float(upper)
+                item["boll_mid"] = float(middle)
+                item["boll_lower"] = float(lower)
+
+            macd_start = macd_slow - 1
+            if i >= macd_start and macd_lines:
+                mi = i - macd_start
+                if 0 <= mi < len(macd_lines):
+                    item["macd_line"] = float(macd_lines[mi])
+                sig_start = macd_required - 1
+                if i >= sig_start and signal_lines:
+                    si = i - sig_start
+                    if 0 <= si < len(signal_lines):
+                        item["macd_signal"] = float(signal_lines[si])
+                    if 0 <= si < len(hist_lines):
+                        item["macd_hist"] = float(hist_lines[si])
+
+            items.append(item)
+
+        return {
+            "symbol": settings.underlying_symbol,
+            "date": trading_date.isoformat(),
+            "timeframe": timeframe,
+            "bars": items,
+        }
 
     @app.post("/api/v1/backtests", status_code=202)
     async def create_backtest(command: BacktestCreate) -> dict[str, Any]:

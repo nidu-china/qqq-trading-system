@@ -10,6 +10,7 @@ const menus = [
   ['/signals', '信号对比', 'SG'],
   ['/trades', '交易记录', 'TR'],
   ['/reports', '交易日报', 'RP'],
+  ['/kline', 'K线行情', 'KL'],
   ['/backtests', '策略回测', 'BT'],
   ['/configuration', '参数配置', 'CF'],
 ]

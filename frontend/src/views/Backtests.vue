@@ -8,25 +8,35 @@ import { CanvasRenderer } from 'echarts/renderers'
 import { api, localTime, etTime, money, percent } from '../api'
 use([LineChart, ScatterChart, BarChart, GridComponent, TooltipComponent, LegendComponent, MarkPointComponent, DataZoomComponent, CanvasRenderer])
 const availability=ref<any[]>([]),jobs=ref<any[]>([]),versions=ref<any[]>([]),selected=ref<any>(),submitting=ref(false)
-const form=reactive({dates:[] as string[],starting_equity:'100000',config_version:undefined as number|undefined})
+const form=reactive({
+  dates:[] as string[],
+  starting_equity:'10000',
+  config_version:undefined as number|undefined,
+  strategy_profile:'dynamic',
+})
 const completeDates=computed(()=>availability.value.filter(x=>x.bars).map(x=>x.date))
 const chartRef=ref<HTMLElement>(), dateKey=(d:Date)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 let timer:number
 
 const showParams = ref(false)
 const params = reactive<Record<string, any>>({
-  orb_min_volume_ratio: 1.5,
-  ema_fast_period: 9, ema_slow_period: 21,
-  bollinger_period: 20, bollinger_stddev: 2.0,
-  volume_average_period: 20, min_volume_ratio: 1.0,
-  rsi_period: 14, rsi_call_max: 70, rsi_put_min: 30,
-  bb_width_max: 0.02,
-  strike_offset: 2.0,
-  stop_loss_pct: 0.25, take_profit_1_pct: 0.50, take_profit_2_pct: 1.0,
-  risk_per_trade: 0.005, daily_loss_limit: 0.02,
-  max_contracts: 10, max_premium_fraction: 0.05,
+  bollinger_period: 20, bollinger_stddev: 2,
+  rsi_period: 14, rsi_overbought: 70, rsi_oversold: 30,
+  ema_fast_period: 9, ema_slow_period: 20,
+  macd_1m_fast: 5, macd_1m_slow: 10, macd_1m_signal: 3,
+  adx_period: 14, atr_period: 14,
   volatility_filter_enabled: true,
-  entry_start: '09:45:00', entry_end: '14:00:00',
+  volatility_symbol: 'VIX',
+  volatility_lookback_days: 20,
+  volatility_max_staleness_minutes: 3,
+  volatility_risk_off_percentile: 0.8,
+  volatility_recovery_percentile: 0.6,
+  volatility_rise_5m: 0.08,
+  volatility_rise_15m: 0.12,
+  volatility_fall_5m: -0.05,
+  volatility_fall_15m: -0.08,
+  volatility_shock_5m: 0.15,
+  volatility_shock_15m: 0.25,
 })
 
 async function loadConfig() {
@@ -47,6 +57,7 @@ async function submit(){
       end_date: form.dates[1],
       starting_equity: form.starting_equity,
       config_version: form.config_version,
+      strategy_profile: form.strategy_profile,
     }
     if (showParams.value) {
       payload.params = { ...params }
@@ -68,7 +79,8 @@ const bbUpper=ps.map((x:any)=>x.bb_upper??null)
 const bbLower=ps.map((x:any)=>x.bb_lower??null)
 const bbMid=ps.map((x:any)=>x.bb_middle??null)
 const ema9=ps.map((x:any)=>x.ema9??null)
-const ema21=ps.map((x:any)=>x.ema21??null)
+const emaSlow=ps.map((x:any)=>x.ema_slow??x.ema20??null)
+const emaSlowLabel=`EMA${res.indicator_periods?.ema_slow??20}`
 const vwapLine=ps.map((x:any)=>x.vwap??null)
 const vol=ps.map((x:any)=>x.volume??0)
 const buyPoints=(res.trades||[]).filter((t:any)=>t.entry_at).map((t:any)=>{const idx=ps.reduce((best:number,p:any,i:number)=>Math.abs(new Date(p.time).getTime()-new Date(t.entry_at).getTime())<Math.abs(new Date(ps[best].time).getTime()-new Date(t.entry_at).getTime())?i:best,0);return[idx,prices[idx]]})
@@ -76,7 +88,7 @@ const sellPoints=(res.trades||[]).filter((t:any)=>t.exit_at).map((t:any)=>{const
 chart.setOption({
   grid:[{left:60,right:20,top:30,height:'60%'},{left:60,right:20,top:'75%',height:'18%'}],
   tooltip:{trigger:'axis',axisPointer:{type:'cross'}},
-  legend:{data:['QQQ','布林上轨','布林中轨','布林下轨','EMA9','EMA21','VWAP','买入','卖出','成交量'],top:0,textStyle:{color:'#7890ad',fontSize:10}},
+  legend:{data:['QQQ','布林上轨','布林中轨','布林下轨','EMA9',emaSlowLabel,'VWAP','买入','卖出','成交量'],top:0,textStyle:{color:'#7890ad',fontSize:10}},
   xAxis:[
     {type:'category',data:times,gridIndex:0,axisLabel:{show:false}},
     {type:'category',data:times,gridIndex:1,axisLabel:{color:'#7890ad',fontSize:9,rotate:30}},
@@ -91,7 +103,7 @@ chart.setOption({
     {name:'布林中轨',type:'line',xAxisIndex:0,yAxisIndex:0,data:bbMid,showSymbol:false,lineStyle:{color:'#7890ad',width:1,type:'dotted'},z:1},
     {name:'布林下轨',type:'line',xAxisIndex:0,yAxisIndex:0,data:bbLower,showSymbol:false,lineStyle:{color:'#f59e0b',width:1,type:'dashed'},z:1},
     {name:'EMA9',type:'line',xAxisIndex:0,yAxisIndex:0,data:ema9,showSymbol:false,lineStyle:{color:'#22c55e',width:1.2},z:1},
-    {name:'EMA21',type:'line',xAxisIndex:0,yAxisIndex:0,data:ema21,showSymbol:false,lineStyle:{color:'#f472b6',width:1.2},z:1},
+    {name:emaSlowLabel,type:'line',xAxisIndex:0,yAxisIndex:0,data:emaSlow,showSymbol:false,lineStyle:{color:'#f472b6',width:1.2},z:1},
     {name:'VWAP',type:'line',xAxisIndex:0,yAxisIndex:0,data:vwapLine,showSymbol:false,lineStyle:{color:'#a78bfa',width:1.5,type:'dotted'},z:1},
     {name:'买入',type:'scatter',xAxisIndex:0,yAxisIndex:0,data:buyPoints,symbol:'triangle',symbolSize:14,itemStyle:{color:'#22c55e'},z:10},
     {name:'卖出',type:'scatter',xAxisIndex:0,yAxisIndex:0,data:sellPoints,symbol:'diamond',symbolSize:14,itemStyle:{color:'#ef4444'},z:10},
@@ -126,48 +138,51 @@ function regimeLabel(key: string): string {
 }
 
 const PARAM_LABELS: Record<string, string> = {
-  orb_min_volume_ratio: 'ORB 量比阈值',
+  bollinger_period: 'BOLL 周期',
+  bollinger_stddev: 'BOLL 标准差',
+  rsi_period: 'RSI 周期',
+  rsi_overbought: 'RSI 超买线',
+  rsi_oversold: 'RSI 超卖线',
   ema_fast_period: 'EMA 快线周期',
   ema_slow_period: 'EMA 慢线周期',
-  bollinger_period: '布林带周期',
-  bollinger_stddev: '布林带标准差',
-  volume_average_period: '量均值周期',
-  min_volume_ratio: '趋势量比阈值',
-  rsi_period: 'RSI 周期',
-  rsi_call_max: 'RSI 超买',
-  rsi_put_min: 'RSI 超卖',
-  bb_width_max: 'BB宽度上限',
-  strike_offset: '行权价偏移',
-  stop_loss_pct: '止损比例',
-  take_profit_1_pct: '第一止盈',
-  take_profit_2_pct: '第二止盈',
-  risk_per_trade: '单笔风险',
-  daily_loss_limit: '日亏上限',
-  max_contracts: '最大合约数',
-  max_premium_fraction: '最大权利金比例',
+  macd_1m_fast: '1分钟 MACD 快线',
+  macd_1m_slow: '1分钟 MACD 慢线',
+  macd_1m_signal: '1分钟 MACD 信号线',
+  adx_period: 'ADX 周期',
+  atr_period: 'ATR 周期',
   volatility_filter_enabled: 'VIX 过滤',
-  entry_start: '开仓开始',
-  entry_end: '开仓结束',
-  forced_close: '强制平仓',
-  cooldown_minutes: '冷却分钟',
-  max_trades_per_day: '日最大交易',
+  volatility_symbol: 'VIX 标的',
+  volatility_lookback_days: 'VIX 回看天数',
+  volatility_max_staleness_minutes: 'VIX 最大滞后',
+  volatility_risk_off_percentile: 'Risk-off 分位',
+  volatility_recovery_percentile: 'Recovery 分位',
+  volatility_rise_5m: 'VIX 5分钟上涨',
+  volatility_rise_15m: 'VIX 15分钟上涨',
+  volatility_fall_5m: 'VIX 5分钟回落',
+  volatility_fall_15m: 'VIX 15分钟回落',
+  volatility_shock_5m: 'VIX 5分钟冲击',
+  volatility_shock_15m: 'VIX 15分钟冲击',
 }
 function paramLabel(key: string): string {
   return PARAM_LABELS[key] || key.replace(/_/g, ' ')
 }
 
 const strategyKeys = [
-  'orb_min_volume_ratio',
-  'ema_fast_period', 'ema_slow_period',
   'bollinger_period', 'bollinger_stddev',
-  'volume_average_period', 'min_volume_ratio',
-  'rsi_period', 'rsi_call_max', 'rsi_put_min',
-  'bb_width_max',
-  'entry_start', 'entry_end',
-  'strike_offset',
-  'stop_loss_pct', 'take_profit_1_pct', 'take_profit_2_pct',
-  'risk_per_trade', 'daily_loss_limit', 'max_contracts',
+  'rsi_period', 'rsi_overbought', 'rsi_oversold',
+  'ema_fast_period', 'ema_slow_period',
+  'macd_1m_fast', 'macd_1m_slow', 'macd_1m_signal',
+  'adx_period', 'atr_period',
+  'volatility_filter_enabled', 'volatility_symbol',
+  'volatility_lookback_days', 'volatility_max_staleness_minutes',
+  'volatility_risk_off_percentile', 'volatility_recovery_percentile',
+  'volatility_rise_5m', 'volatility_rise_15m',
+  'volatility_fall_5m', 'volatility_fall_15m',
+  'volatility_shock_5m', 'volatility_shock_15m',
 ]
+function visibleStrategyKeys(settings: Record<string, any>): string[] {
+  return strategyKeys.filter(key => settings[key] !== undefined)
+}
 </script>
 <template>
   <div class="panel">
@@ -175,6 +190,10 @@ const strategyKeys = [
     <div class="toolbar">
       <el-date-picker v-model="form.dates" type="daterange" value-format="YYYY-MM-DD" :disabled-date="(d: Date)=>!completeDates.includes(dateKey(d))" start-placeholder="开始日期" end-placeholder="结束日期"/>
       <el-input v-model="form.starting_equity" placeholder="初始权益" style="width:150px"><template #prepend>$</template></el-input>
+      <el-select v-model="form.strategy_profile" style="width:190px">
+        <el-option label="动态结构策略" value="dynamic"/>
+        <el-option label="分时趋势做T" value="timed_trend"/>
+      </el-select>
       <el-select v-model="form.config_version" clearable placeholder="当前环境参数" style="width:180px"><el-option v-for="v in versions" :key="v.version" :label="`参数版本 v${v.version}`" :value="v.version"/></el-select>
       <el-button :type="showParams?'warning':'default'" @click="showParams=!showParams">{{ showParams ? '收起参数' : '自定义参数' }}</el-button>
       <el-button type="primary" :loading="submitting" @click="submit">开始回测</el-button>
@@ -184,55 +203,32 @@ const strategyKeys = [
     <el-collapse-transition>
       <div v-show="showParams" class="params-panel">
         <div class="params-group">
-          <h4>策略一：ORB 开盘突破 (9:35-10:00)</h4>
+          <h4>1 分钟指标</h4>
           <div class="param-row">
-            <label>ORB 量比阈值</label><el-input-number v-model="params.orb_min_volume_ratio" :min="0.5" :max="5" :step="0.1" :precision="1" controls-position="right" size="small"/>
+            <label>BOLL 周期</label><el-input-number v-model="params.bollinger_period" :min="2" :max="100" controls-position="right" size="small"/>
+            <label>BOLL 标准差</label><el-input-number v-model="params.bollinger_stddev" :min="0.1" :max="5" :step="0.1" controls-position="right" size="small"/>
+            <label>RSI 周期</label><el-input-number v-model="params.rsi_period" :min="2" :max="50" controls-position="right" size="small"/>
+            <label>RSI 超买/超卖</label><span><el-input-number v-model="params.rsi_overbought" :min="50" :max="100" size="small"/><el-input-number v-model="params.rsi_oversold" :min="0" :max="50" size="small"/></span>
+          </div>
+          <div class="param-row">
+            <label>EMA 快/慢</label><span><el-input-number v-model="params.ema_fast_period" :min="2" :max="50" size="small"/><el-input-number v-model="params.ema_slow_period" :min="3" :max="100" size="small"/></span>
+            <label>MACD 快/慢/信号</label><span><el-input-number v-model="params.macd_1m_fast" :min="1" :max="30" size="small"/><el-input-number v-model="params.macd_1m_slow" :min="2" :max="60" size="small"/><el-input-number v-model="params.macd_1m_signal" :min="1" :max="30" size="small"/></span>
+            <label>ADX 周期</label><el-input-number v-model="params.adx_period" :min="2" :max="50" controls-position="right" size="small"/>
+            <label>ATR 周期</label><el-input-number v-model="params.atr_period" :min="2" :max="50" controls-position="right" size="small"/>
           </div>
         </div>
         <div class="params-group">
-          <h4>策略二：EMA 趋势回踩 (10:00-11:30)</h4>
+          <h4>VIX 波动率过滤</h4>
           <div class="param-row">
-            <label>EMA 快线</label><el-input-number v-model="params.ema_fast_period" :min="3" :max="20" controls-position="right" size="small"/>
-            <label>EMA 慢线</label><el-input-number v-model="params.ema_slow_period" :min="10" :max="50" controls-position="right" size="small"/>
-            <label>量比阈值</label><el-input-number v-model="params.min_volume_ratio" :min="0.5" :max="5" :step="0.1" :precision="1" controls-position="right" size="small"/>
-          </div>
-        </div>
-        <div class="params-group">
-          <h4>策略三：BB+RSI 均值回归 (11:30-14:00)</h4>
-          <div class="param-row">
-            <label>布林带周期</label><el-input-number v-model="params.bollinger_period" :min="5" :max="50" controls-position="right" size="small"/>
-            <label>标准差</label><el-input-number v-model="params.bollinger_stddev" :min="0.5" :max="5" :step="0.1" :precision="1" controls-position="right" size="small"/>
-            <label>BB宽度上限</label><el-input-number v-model="params.bb_width_max" :min="0.005" :max="0.05" :step="0.005" :precision="3" controls-position="right" size="small"/>
+            <label>启用过滤</label><el-switch v-model="params.volatility_filter_enabled" size="small"/>
+            <label>标的</label><el-input v-model="params.volatility_symbol" size="small"/>
+            <label>回看天数</label><el-input-number v-model="params.volatility_lookback_days" :min="2" :max="252" controls-position="right" size="small"/>
+            <label>最大滞后分钟</label><el-input-number v-model="params.volatility_max_staleness_minutes" :min="1" :max="60" controls-position="right" size="small"/>
           </div>
           <div class="param-row">
-            <label>RSI 周期</label><el-input-number v-model="params.rsi_period" :min="5" :max="30" controls-position="right" size="small"/>
-            <label>RSI 超卖</label><el-input-number v-model="params.rsi_put_min" :min="10" :max="40" controls-position="right" size="small"/>
-            <label>RSI 超买</label><el-input-number v-model="params.rsi_call_max" :min="60" :max="90" controls-position="right" size="small"/>
-          </div>
-        </div>
-        <div class="params-group">
-          <h4>风险管理</h4>
-          <div class="param-row">
-            <label>止损</label><el-input-number v-model="params.stop_loss_pct" :min="0.1" :max="1" :step="0.05" :precision="2" controls-position="right" size="small"/>
-            <label>止盈1</label><el-input-number v-model="params.take_profit_1_pct" :min="0.3" :max="5" :step="0.1" :precision="1" controls-position="right" size="small"/>
-            <label>止盈2</label><el-input-number v-model="params.take_profit_2_pct" :min="0.5" :max="10" :step="0.1" :precision="1" controls-position="right" size="small"/>
-          </div>
-          <div class="param-row">
-            <label>单笔风险</label><el-input-number v-model="params.risk_per_trade" :min="0.005" :max="0.1" :step="0.005" :precision="3" controls-position="right" size="small"/>
-            <label>日亏上限</label><el-input-number v-model="params.daily_loss_limit" :min="0.01" :max="0.1" :step="0.005" :precision="3" controls-position="right" size="small"/>
-            <label>最大合约</label><el-input-number v-model="params.max_contracts" :min="1" :max="50" controls-position="right" size="small"/>
-          </div>
-        </div>
-        <div class="params-group">
-          <h4>时间与过滤</h4>
-          <div class="param-row">
-            <label>开仓开始</label><el-time-picker v-model="params.entry_start" value-format="HH:mm:ss" format="HH:mm" size="small"/>
-            <label>开仓结束</label><el-time-picker v-model="params.entry_end" value-format="HH:mm:ss" format="HH:mm" size="small"/>
-            <label>VIX 过滤</label><el-switch v-model="params.volatility_filter_enabled" size="small"/>
-          </div>
-          <div class="param-row">
-            <label>行权偏移 $</label><el-input-number v-model="params.strike_offset" :min="0" :max="20" :step="0.5" :precision="1" controls-position="right" size="small"/>
-            <label>最大权利金比例</label><el-input-number v-model="params.max_premium_fraction" :min="0.01" :max="0.2" :step="0.01" :precision="2" controls-position="right" size="small"/>
+            <label>Risk-off / Recovery 分位</label><span><el-input-number v-model="params.volatility_risk_off_percentile" :step="0.01" size="small"/><el-input-number v-model="params.volatility_recovery_percentile" :step="0.01" size="small"/></span>
+            <label>5分钟涨/跌/冲击</label><span><el-input-number v-model="params.volatility_rise_5m" :step="0.01" size="small"/><el-input-number v-model="params.volatility_fall_5m" :step="0.01" size="small"/><el-input-number v-model="params.volatility_shock_5m" :step="0.01" size="small"/></span>
+            <label>15分钟涨/跌/冲击</label><span><el-input-number v-model="params.volatility_rise_15m" :step="0.01" size="small"/><el-input-number v-model="params.volatility_fall_15m" :step="0.01" size="small"/><el-input-number v-model="params.volatility_shock_15m" :step="0.01" size="small"/></span>
           </div>
         </div>
       </div>
@@ -349,7 +345,7 @@ const strategyKeys = [
         <div v-if="selected.result?.settings_used" class="result-section">
           <h3>策略参数</h3>
           <div class="params-grid">
-            <div v-for="key in strategyKeys.filter(k => selected.result.settings_used[k] !== undefined)" :key="key" class="param-item">
+            <div v-for="key in visibleStrategyKeys(selected.result.settings_used)" :key="key" class="param-item">
               <span class="stat-label">{{ paramLabel(key) }}</span>
               <span class="stat-value">{{ selected.result.settings_used[key] }}</span>
             </div>
@@ -478,6 +474,7 @@ const strategyKeys = [
 }
 .param-row .el-input-number{width:100px}
 .param-row .el-time-picker{width:100px}
+.param-hint{margin:4px 0 0;font-size:11px;line-height:1.5;color:#607b9a}
 
 @media(max-width:1400px){
   .params-panel{grid-template-columns:repeat(2,1fr)}

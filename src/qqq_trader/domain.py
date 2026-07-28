@@ -33,10 +33,24 @@ class SystemState(StrEnum):
     OPEN = "open"
     EXIT_PENDING = "exit_pending"
     HALTED = "halted"
+    DAILY_HALTED = "daily_halted"
+
+
+class MarketState(StrEnum):
+    OBSERVATION = "observation"
+    UNKNOWN = "unknown"
+    TREND_UP = "trend_up"
+    TREND_DOWN = "trend_down"
+    TREND_RETEST_UP = "trend_retest_up"
+    TREND_RETEST_DOWN = "trend_retest_down"
+    REVERSAL_UP = "reversal_up"
+    REVERSAL_DOWN = "reversal_down"
+    RANGE = "range"
 
 
 class ExitReason(StrEnum):
     STOP_LOSS = "stop_loss"
+    DIRECTION_REVERSAL = "direction_reversal"
     TAKE_PROFIT_1 = "take_profit_1"
     TAKE_PROFIT_2 = "take_profit_2"
     TRAILING_STOP = "trailing_stop"
@@ -46,13 +60,11 @@ class ExitReason(StrEnum):
     DAILY_LOSS = "daily_loss"
     FORCED_CLOSE = "forced_close"
     SHUTDOWN = "shutdown"
-
-
-class MarketState(StrEnum):
-    OBSERVATION = "observation"
-    TREND = "trend"
-    REVERSAL = "reversal"
-    RANGE = "range"
+    STRUCTURE_STOP = "structure_stop"
+    STATE_INVALIDATION = "state_invalidation"
+    BOLLINGER_MIDDLE = "bollinger_middle"
+    BOLLINGER_UPPER = "bollinger_upper"
+    OPENING_CUTOFF = "opening_cutoff"
 
 
 def _aware(value: datetime) -> None:
@@ -134,6 +146,7 @@ class Signal:
     bar_end: datetime
     spot: Decimal
     strategy: str = ""
+    market_state: MarketState = MarketState.UNKNOWN
     stop_price: Decimal | None = None
     atr: Decimal | None = None
     r_value: Decimal | None = None
@@ -141,9 +154,6 @@ class Signal:
     vwap: Decimal | None = None
     indicators: dict[str, str] = field(default_factory=dict)
     id: UUID = field(default_factory=uuid4)
-    # Legacy compatibility fields
-    ema_fast: Decimal = ZERO
-    ema_slow: Decimal = ZERO
 
 
 @dataclass(frozen=True, slots=True)
@@ -176,6 +186,16 @@ class Position:
     stop_price: Decimal | None = None
     broker_order_id: str | None = None
     strategy_name: str | None = None
+    market_state: MarketState = MarketState.UNKNOWN
+    entry_spot: Decimal | None = None
+    underlying_stop: Decimal | None = None
+    highest_bid: Decimal | None = None
+    entry_atr: Decimal | None = None
+    peak_spot: Decimal | None = None
+    midday_reduced: bool = False
+    range_middle_taken: bool = False
+    entry_vwap: Decimal | None = None
+    entry_intent_id: UUID | None = None
 
     def __post_init__(self) -> None:
         _aware(self.opened_at)

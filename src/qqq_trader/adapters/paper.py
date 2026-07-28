@@ -19,7 +19,7 @@ class PaperBroker:
 
     def __init__(
         self,
-        starting_equity: Decimal = Decimal("100000"),
+        starting_equity: Decimal = Decimal("10000"),
         fee_per_contract: Decimal = Decimal("1.50"),
     ) -> None:
         self.starting_equity = starting_equity
@@ -62,7 +62,11 @@ class PaperBroker:
         )
         self._orders[order_id] = order
         if request.side is OrderSide.BUY:
-            self.cash -= request.limit_price * Decimal(100) * request.quantity
+            entry_fee = self.fee_per_contract * request.quantity
+            self.cash -= (
+                request.limit_price * Decimal(100) * request.quantity + entry_fee
+            )
+            self.realized_pnl -= entry_fee
             self._positions[request.symbol] = Position(
                 symbol=request.symbol,
                 direction=self._direction(request.symbol),

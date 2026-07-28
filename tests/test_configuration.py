@@ -1,14 +1,12 @@
-from decimal import Decimal
-
 import pytest
 
+from conftest import make_settings
 from qqq_trader.config import Settings
 from qqq_trader.configuration import editable_values, with_editable_values
 
 
 def test_editable_values_exclude_credentials_and_infrastructure():
-    settings = Settings(
-        _env_file=None,
+    settings = make_settings(
         account_id="secret-account",
         longbridge_app_key="secret-key",
         longbridge_app_secret="secret-value",
@@ -21,45 +19,62 @@ def test_editable_values_exclude_credentials_and_infrastructure():
     assert "longbridge_app_key" not in values
     assert "longbridge_app_secret" not in values
     assert "longbridge_access_token" not in values
-    assert values["risk_per_trade"] == "0.0025"
-
-    # Verify the field list matches actual settings
+    assert values["bollinger_period"] == 20
+    assert values["bollinger_stddev"] == "2"
     assert "adx_period" in values
     assert "atr_period" in values
+    assert "risk_per_trade" not in values
+    assert "entry_start" not in values
 
 
 def test_online_configuration_runs_cross_field_validation():
     with pytest.raises(ValueError, match="not editable"):
-        with_editable_values(Settings(), {"nonexistent_field": 30})
+        with_editable_values(make_settings(), {"nonexistent_field": 30})
 
-    updated = with_editable_values(Settings(), {"risk_per_trade": "0.01"})
-    assert updated.risk_per_trade == Decimal("0.01")
+    updated = with_editable_values(make_settings(), {"bollinger_stddev": "2.5"})
+    assert str(updated.bollinger_stddev) == "2.5"
 
 
 def test_online_configuration_rejects_non_editable_fields():
     with pytest.raises(ValueError, match="not editable"):
-        with_editable_values(Settings(), {"trading_mode": "live"})
+        with_editable_values(make_settings(), {"trading_mode": "live"})
 
 
-def test_legacy_paper_signal_only_value_is_ignored():
+def test_legacy_fields_are_silently_ignored():
     updated = with_editable_values(
-        Settings(_env_file=None),
-        {"paper_signal_only": True, "risk_per_trade": "0.01"},
+        make_settings(),
+        {"paper_signal_only": True, "risk_per_trade": "0.01", "macd_fast": 12},
     )
-    assert updated.risk_per_trade == Decimal("0.01")
     assert "paper_signal_only" not in editable_values(updated)
+    assert "risk_per_trade" not in editable_values(updated)
 
 
-def test_strategy_config_defaults():
-    settings = Settings(_env_file=None)
+def test_indicator_config_defaults():
+    settings = make_settings()
     assert settings.ema_fast_period == 9
     assert settings.ema_slow_period == 20
     assert settings.adx_period == 14
     assert settings.atr_period == 14
-    assert settings.macd_fast == 12
-    assert settings.macd_slow == 26
+    assert settings.bollinger_period == 20
+    assert settings.bollinger_stddev == 2
+    assert settings.rsi_overbought == 70
+    assert settings.rsi_oversold == 30
+    assert (settings.macd_1m_fast, settings.macd_1m_slow, settings.macd_1m_signal) == (5, 10, 3)
+    assert not hasattr(settings, "macd_5m_fast")
 
 
 def test_indicator_period_validated():
     with pytest.raises(ValueError, match="indicator periods"):
-        Settings(_env_file=None, ema_fast_period=1)
+        make_settings(ema_fast_period=1)
+
+
+def test_indicator_cross_field_validation():
+    with pytest.raises(ValueError, match="RSI thresholds"):
+        make_settings(rsi_oversold=80, rsi_overbought=70)
+    with pytest.raises(ValueError, match="1-minute MACD"):
+        make_settings(macd_1m_fast=12, macd_1m_slow=10)
+
+
+def test_settings_rejects_unknown_strategy_profile():
+    with pytest.raises(ValueError, match="strategy_profile"):
+        make_settings(strategy_profile="unknown")

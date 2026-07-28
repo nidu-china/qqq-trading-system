@@ -3,13 +3,14 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime, time, timedelta, timezone
-from decimal import Decimal
 
 from .config import NY_TZ, Settings
 from .domain import SystemState
 from .engine import TradingEngine
 from .interfaces import VolatilityDataProvider
+from .market_hours import regular_session_bars
 from .persistence import ParquetMarketStore
+from .policy import RULES
 from .reporting import DailyReportData, DailyReportGenerator, TradeSummary
 from .strategy import BarAggregator
 
@@ -33,6 +34,7 @@ class TradingService:
         self.last_minute = None
         self.reported_date = None
         self.bars_1m = []
+        self.strategy_warmup_bars = []
         self.volatility_bars_1m = []
         self.volatility_bars_5m = []
         self.volatility_daily_bars = []
@@ -45,6 +47,7 @@ class TradingService:
         self._log.info("service starting")
         await self.engine.start()
         if self.engine.state is not SystemState.HALTED:
+            await self._warm_strategy_history()
             await self._subscribe_realtime_candlesticks()
         if self.engine.settings.volatility_filter_enabled:
             await self._warm_volatility_history()
@@ -71,17 +74,30 @@ class TradingService:
             recent = await self.engine.market.recent_bars(  # type: ignore[attr-defined]
                 self.engine.settings.underlying_symbol, 500, "1m"
             )
-            market_open = now.astimezone(NY_TZ).replace(hour=9, minute=0, second=0, microsecond=0)
-            self.bars_1m = [bar for bar in recent if bar.end <= now and bar.start >= market_open]
-            self.market_store.write_bars(self.bars_1m, "1m")
-            bars_5m = BarAggregator.to_five_minutes(self.bars_1m)
-            self.market_store.write_bars(bars_5m, "5m")
+            merged = {bar.start: bar for bar in [*self.strategy_warmup_bars, *recent]}
+            self.bars_1m = [
+                merged[key] for key in sorted(merged) if merged[key].end <= now
+            ][-1000:]
+            current_day_bars = [
+                bar
+                for bar in regular_session_bars(self.bars_1m)
+                if bar.start.astimezone(NY_TZ).date() == local.date()
+            ]
+            if current_day_bars:
+                self.market_store.replace_bars(current_day_bars, "1m")
+            bars_5m = BarAggregator.to_five_minutes(current_day_bars)
+            if bars_5m:
+                self.market_store.replace_bars(bars_5m, "5m")
             if local.minute % 5 == 0 or self.last_bar_end is None:
                 self._log.info(
                     "bars updated | %s 1m=%d 5m=%d | last=%s",
                     self.engine.settings.underlying_symbol,
                     len(self.bars_1m), len(bars_5m),
-                    self.bars_1m[-1].end.astimezone(NY_TZ).strftime("%H:%M") if self.bars_1m else "N/A",
+                    (
+                        self.bars_1m[-1].end.astimezone(NY_TZ).strftime("%H:%M")
+                        if self.bars_1m
+                        else "N/A"
+                    ),
                 )
             await self._refresh_volatility(now)
             completed_1m = [bar for bar in self.bars_1m if bar.complete]
@@ -120,6 +136,22 @@ class TradingService:
         ):
             await self._generate_report(local)
             self.reported_date = local.date()
+
+    async def _warm_strategy_history(self) -> None:
+        now = datetime.now(timezone.utc).astimezone(NY_TZ)
+        start = now.date() - timedelta(days=35)
+        end = now.date() - timedelta(days=1)
+        try:
+            self.strategy_warmup_bars = await self.engine.market.historical_bars(
+                self.engine.settings.underlying_symbol, start, end, "1m"
+            )
+        except Exception as exc:
+            self.strategy_warmup_bars = []
+            await self.engine.journal.event(
+                "strategy_warmup_failed",
+                str(exc),
+                {"symbol": self.engine.settings.underlying_symbol},
+            )
 
     async def _warm_volatility_history(self) -> None:
         now = datetime.now(timezone.utc)
@@ -213,7 +245,9 @@ class TradingService:
     async def _capture_candidate_options(self, now, local, bars_5m) -> None:
         local_time = local.time().replace(tzinfo=None)
         if not (
-            self.engine.settings.entry_start <= local_time <= self.engine.settings.forced_close
+            RULES.entry_start_for(self.engine.settings.strategy_profile)
+            <= local_time
+            <= RULES.forced_close
         ):
             return
         try:
@@ -241,15 +275,9 @@ class TradingService:
                 )
                 self.chain_captured_date = local.date()
 
-            candidates = []
-            for contract in contracts:
-                target = (
-                    spot_quote.last + self.engine.settings.strike_offset
-                    if contract.right.value == "call"
-                    else spot_quote.last - self.engine.settings.strike_offset
-                )
-                if abs(contract.strike - target) <= Decimal("2"):
-                    candidates.append(contract)
+            candidates = sorted(
+                contracts, key=lambda contract: abs(contract.strike - spot_quote.last)
+            )[: RULES.option_candidate_count * 2]
             snapshots = await asyncio.gather(
                 *(self.engine.market.latest_quote(contract.symbol) for contract in candidates),
                 return_exceptions=True,

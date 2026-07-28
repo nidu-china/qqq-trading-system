@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -15,11 +14,11 @@ from .api import create_app
 from .backtest import BacktestResult, EventDrivenBacktester, load_option_frames_path
 from .config import NY_TZ, Settings
 from .logging_config import setup_logging
+from .market_hours import regular_session_bars
 from .persistence import MySQLJournal, ParquetMarketStore
 from .reporting import DailyReportData, DailyReportGenerator, TradeSummary
 from .risk import ContractSelector, RiskEngine
 from .runtime import build_runtime
-from .strategy import strategy_from_settings
 
 app = typer.Typer(no_args_is_help=True, help="QQQ 0DTE automated trading system")
 
@@ -107,7 +106,7 @@ def backfill(
         start_date = date.fromisoformat(start)
         end_date = date.fromisoformat(end)
         settings = Settings()
-        log = setup_logging(settings.log_dir, settings.log_level)
+        setup_logging(settings.log_dir, settings.log_level)
         session = LongbridgeSession(settings)
         market = LongbridgeMarketData(session)
         typer.echo(f"loading configuration from {settings.model_config['env_file']}")
@@ -116,17 +115,12 @@ def backfill(
         try:
             typer.echo(f"requesting {symbol} 1m bars: {start_date} to {end_date}")
             bars = await market.historical_bars(symbol, start_date, end_date, "1m")
-            market_open = time(9, 30)
-            market_close = time(16, 0)
-            bars = [
-                b for b in bars
-                if market_open <= b.start.astimezone(NY_TZ).time() < market_close
-            ]
+            bars = regular_session_bars(bars)
             store = ParquetMarketStore(settings.data_dir)
-            store.write_bars(bars, "1m")
+            store.replace_bars(bars, "1m")
             from .strategy import BarAggregator
 
-            store.write_bars(BarAggregator.to_five_minutes(bars), "5m")
+            store.replace_bars(BarAggregator.to_five_minutes(bars), "5m")
             typer.echo(f"saved {len(bars)} {symbol} one-minute bars (market hours only)")
             if include_volatility and symbol != settings.volatility_symbol:
                 typer.echo(f"requesting {settings.volatility_symbol} 5m and daily bars")
@@ -136,8 +130,8 @@ def backfill(
                 volatility_daily = await market.historical_bars(
                     settings.volatility_symbol, start_date, end_date, "day"
                 )
-                store.write_bars(volatility_5m, "5m")
-                store.write_bars(volatility_daily, "day")
+                store.replace_bars(volatility_5m, "5m")
+                store.replace_bars(volatility_daily, "day")
                 typer.echo(
                     f"saved {len(volatility_5m)} intraday and "
                     f"{len(volatility_daily)} daily {settings.volatility_symbol} bars"
@@ -154,10 +148,15 @@ def backtest(
     option_frames: Path | None = typer.Option(None, exists=True),
     volatility_bars: Path | None = typer.Option(None, exists=True),
     volatility_daily_bars: Path | None = typer.Option(None, exists=True),
-    starting_equity: str = typer.Option("100000"),
+    starting_equity: str = typer.Option("10000"),
+    strategy_profile: str = typer.Option(
+        "dynamic", help="Strategy profile: dynamic or timed_trend"
+    ),
 ) -> None:
     """Replay saved bars and optional captured candidate-option Bid/Ask frames."""
-    settings = Settings(trading_mode="replay")
+    settings = Settings(
+        trading_mode="replay", strategy_profile=strategy_profile
+    )
     saved_bars = ParquetMarketStore.read_bars_path(bars, "1m")
     frames = load_option_frames_path(option_frames) if option_frames else {}
     saved_volatility = (
@@ -170,8 +169,8 @@ def backtest(
     )
     tester = EventDrivenBacktester(
         settings,
-        strategy_from_settings(settings),
-        ContractSelector(settings.strike_offset),
+        None,
+        ContractSelector(),
         RiskEngine(settings),
     )
     result = tester.run(
@@ -181,14 +180,17 @@ def backtest(
         saved_volatility,
         saved_volatility_daily,
     )
-    payload = {**_backtest_metrics(result)}
+    payload = {
+        **_backtest_metrics(result),
+        "strategy_profile": settings.strategy_profile,
+    }
 
     warnings = [
         message
         for condition, message in (
             (
                 not option_frames,
-                "No option Bid/Ask frames supplied; this is not a 0DTE PnL backtest.",
+                "No option Bid/Ask frames supplied; Greeks synthetic pricing is used.",
             ),
             (
                 settings.volatility_filter_enabled and not volatility_bars,

@@ -1,3 +1,5 @@
+"""Live/Paper engine sharing the STRATEGY.md state machine and risk policy."""
+
 from __future__ import annotations
 
 import asyncio
@@ -11,6 +13,9 @@ from .domain import (
     Bar,
     BrokerOrder,
     Direction,
+    ExitDecision,
+    ExitReason,
+    MarketState,
     OrderRequest,
     OrderSide,
     Position,
@@ -21,9 +26,10 @@ from .domain import (
 )
 from .execution import TERMINAL_STATUSES, OrderExecutor
 from .interfaces import Broker, Journal, MarketDataProvider
+from .policy import RULES
 from .reporting import TradeSummary
 from .risk import ContractSelector, RiskEngine
-from .strategy import strategy_from_settings
+from .strategy import StrategyEngine, strategy_from_settings
 from .volatility import VolatilityFilter, VolatilitySnapshot
 
 
@@ -40,9 +46,9 @@ class TradingEngine:
         self.broker = broker
         self.journal = journal
         self.log = logging.getLogger("qqq_trader.engine")
-        self.strategy = strategy_from_settings(settings)
-        self.selector = ContractSelector(settings.strike_offset)
+        self.selector = ContractSelector()
         self.risk = RiskEngine(settings)
+        self.strategy: StrategyEngine = strategy_from_settings(settings)
         self.volatility_filter = VolatilityFilter(settings)
         self.executor = OrderExecutor(broker, journal, settings)
         self.state = SystemState.STARTING
@@ -64,11 +70,8 @@ class TradingEngine:
         self.pending_config_version: int | None = None
         self._pending_settings: tuple[Settings, int] | None = None
         self._lock = asyncio.Lock()
-        self.day_r_loss = Decimal(0)
-        self.position_r_value: Decimal | None = None
 
     async def apply_settings(self, settings: Settings, version: int) -> bool:
-        """Atomically apply settings, deferring while an order or position is active."""
         async with self._lock:
             if self.position is not None or self.state in {
                 SystemState.ENTRY_PENDING,
@@ -87,9 +90,9 @@ class TradingEngine:
 
     def _activate_settings(self, settings: Settings, version: int) -> None:
         self.settings = settings
-        self.strategy = strategy_from_settings(settings)
-        self.selector = ContractSelector(settings.strike_offset)
+        self.selector = ContractSelector()
         self.risk = RiskEngine(settings)
+        self.strategy = strategy_from_settings(settings)
         self.volatility_filter = VolatilityFilter(settings)
         self.executor = OrderExecutor(self.broker, self.journal, settings)
         self.config_version = version
@@ -182,7 +185,7 @@ class TradingEngine:
 
         for order in orders:
             await self.broker.cancel_order(order.order_id)
-            deadline = asyncio.get_running_loop().time() + self.settings.order_timeout_seconds
+            deadline = asyncio.get_running_loop().time() + RULES.order_timeout_seconds
             final = order
             while asyncio.get_running_loop().time() < deadline:
                 final = await self.broker.order(order.order_id)
@@ -218,6 +221,42 @@ class TradingEngine:
             self.position = position
             self.position_config_version = self.config_version
             self.entry_reference = signal.reference_price
+            position.strategy_name = str(signal.indicators.get("strategy") or "")
+            try:
+                position.market_state = MarketState(
+                    str(signal.indicators.get("market_state") or "unknown")
+                )
+            except ValueError:
+                position.market_state = MarketState.UNKNOWN
+            if signal.indicators.get("spot"):
+                position.entry_spot = Decimal(str(signal.indicators["spot"]))
+            if signal.indicators.get("underlying_stop"):
+                position.underlying_stop = Decimal(
+                    str(signal.indicators["underlying_stop"])
+                )
+            position.highest_bid = position.entry_price
+            if signal.indicators.get("highest_bid"):
+                position.highest_bid = Decimal(str(signal.indicators["highest_bid"]))
+            if signal.indicators.get("stop_price"):
+                position.stop_price = Decimal(str(signal.indicators["stop_price"]))
+            if signal.indicators.get("atr"):
+                position.entry_atr = Decimal(str(signal.indicators["atr"]))
+            if position.entry_spot is not None:
+                position.peak_spot = position.entry_spot
+            elif signal.indicators.get("peak_spot"):
+                position.peak_spot = Decimal(str(signal.indicators["peak_spot"]))
+            if signal.indicators.get("entry_vwap"):
+                position.entry_vwap = Decimal(str(signal.indicators["entry_vwap"]))
+            position.midday_reduced = bool(signal.indicators.get("midday_reduced", False))
+            position.range_middle_taken = bool(
+                signal.indicators.get("range_middle_taken", False)
+            )
+            position.first_target_taken = bool(
+                signal.indicators.get(
+                    "first_target_taken", position.first_target_taken
+                )
+            )
+            position.entry_intent_id = signal.intent_id
             self.trading_date = datetime.now(timezone.utc).astimezone(NY_TZ).date()
             await self.journal.trade_signal_status(signal.intent_id, "executed")
             self.log.info(
@@ -269,256 +308,371 @@ class TradingEngine:
         volatility_bars: list[Bar] | None = None,
         volatility_daily_bars: list[Bar] | None = None,
     ) -> None:
+        """Evaluate every completed 1-minute bar without look-ahead."""
         async with self._lock:
-            if self.state is not SystemState.READY or self.position is not None or not bars:
+            if not bars:
                 return
-            now = now or datetime.now(timezone.utc)
-            local_now = now.astimezone(NY_TZ)
-            account: AccountSnapshot | None = None
-            if self.trading_date != local_now.date():
-                self.trading_date = local_now.date()
-                self.trades_today = 0
-                self.realized_pnl = Decimal(0)
-                self.day_r_loss = Decimal(0)
-                self.cooldown_until = None
-                self.last_signal_bar = None
-                account = await self._local_account(None)
+            if self.state in {
+                SystemState.STARTING,
+                SystemState.ENTRY_PENDING,
+                SystemState.EXIT_PENDING,
+                SystemState.HALTED,
+                SystemState.DAILY_HALTED,
+            }:
+                return
+            decision_at = now or bars[-1].end
+            trading_day = bars[-1].end.astimezone(NY_TZ).date()
+            if self.trading_date != trading_day:
+                account = await self.broker.account_snapshot()
+                self.trading_date = trading_day
                 self.opening_equity = account.equity
-                await self.journal.event(
-                    "trading_day_started",
-                    f"daily signal and risk counters reset for {self.trading_date}",
-                )
-            local_time = local_now.time().replace(tzinfo=None)
-            if not self.settings.entry_start <= local_time <= self.settings.entry_end:
-                return
-            if self.cooldown_until and now < self.cooldown_until:
-                return
-            if self.trades_today >= self.settings.max_trades_per_day:
-                return
-            newest = bars[-1]
-            if self.last_signal_bar == newest.end:
-                return
+                self.realized_pnl = Decimal(0)
+                self.trades_today = 0
+                self.cooldown_until = None
 
-            account = account or await self._local_account(None)
-            if self.risk.daily_loss_breached(self.day_r_loss):
-                await self._halt("daily loss limit reached")
+            signal = self.strategy.evaluate(bars)
+            if self.position is not None:
+                bar_decision = self.strategy.bar_exit_decision(self.position)
+                quote = await self.market.latest_quote(self.position.symbol)
+                if quote.bid is not None:
+                    previous_highest = self.position.highest_bid
+                    account = await self._local_account(quote.bid)
+                    daily_breached = self.risk.daily_loss_breached(
+                        account.day_pnl, self.opening_equity
+                    )
+                    price_decision = self.risk.exit_decision(
+                        self.position,
+                        quote.bid,
+                        decision_at,
+                        daily_loss_breached=daily_breached,
+                        current_spot=bars[-1].close,
+                    )
+                    if (
+                        self.position.highest_bid != previous_highest
+                        or self.position.peak_spot is not None
+                    ):
+                        await self._persist_position_metadata(self.position)
+                    decision = price_decision
+                    if (
+                        price_decision is None
+                        or price_decision.reason
+                        not in {ExitReason.DAILY_LOSS, ExitReason.FORCED_CLOSE}
+                    ):
+                        decision = bar_decision or price_decision
+                    if decision is not None:
+                        await self._exit_position(decision, quote, decision_at)
                 return
-            spot_quote = await self.market.latest_quote(self.settings.underlying_symbol)
-            quote_age = Decimal(str((now - spot_quote.timestamp).total_seconds()))
-            if quote_age < 0 or quote_age > self.settings.max_quote_age_seconds:
-                await self.journal.event("signal_rejected", "stale underlying quote")
+            if self.state is not SystemState.READY or signal is None:
                 return
-            signal = self.strategy.evaluate(bars, spot_quote.last)
-            if signal is None:
+            local_time = decision_at.astimezone(NY_TZ).time().replace(tzinfo=None)
+            if not (
+                RULES.entry_start_for(self.settings.strategy_profile)
+                <= local_time
+                < RULES.entry_end_for(self.settings.strategy_profile)
+            ):
+                await self.journal.signal(signal, False, "outside_entry_window")
                 return
-            self.last_signal_bar = newest.end
-            self.log.info(
-                "signal detected | %s | spot=%.2f | bar_end=%s",
-                signal.direction.value, spot_quote.last, newest.end.isoformat(),
-            )
-
+            signal_age = (decision_at - signal.bar_end).total_seconds()
+            if signal_age < 0 or signal_age > RULES.signal_ttl_seconds:
+                await self.journal.signal(signal, False, "signal_expired")
+                return
+            if self.trades_today >= RULES.max_trades_for(
+                self.settings.strategy_profile
+            ):
+                await self.journal.signal(signal, False, "max_trades_per_day")
+                return
+            if self.cooldown_until is not None and decision_at < self.cooldown_until:
+                await self.journal.signal(signal, False, "cooldown")
+                return
+            account = await self.broker.account_snapshot()
+            day_pnl = self.realized_pnl
+            if self.risk.daily_loss_breached(day_pnl, self.opening_equity):
+                self.state = SystemState.DAILY_HALTED
+                await self.journal.signal(signal, False, "daily_loss_limit")
+                return
             if self.settings.volatility_filter_enabled:
                 snapshot = self.volatility_filter.evaluate(
                     volatility_bars or [],
-                    newest.end,
+                    signal.bar_end,
                     volatility_daily_bars or [],
                 )
                 self.last_volatility = snapshot
-                await self.journal.event(
-                    "volatility_regime",
-                    snapshot.regime.value,
-                    {"bar_end": newest.end.isoformat(), **snapshot.as_dict()},
-                )
                 if not snapshot.allows(signal.direction):
                     reason = f"volatility_{snapshot.regime.value}"
                     if snapshot.reason:
                         reason = f"{reason}_{snapshot.reason}"
-                    self.log.info("signal rejected | volatility filter | %s", reason)
                     await self.journal.signal(signal, False, reason)
                     return
 
-            contracts = await self.market.option_chain(
-                self.settings.underlying_symbol, local_now.date()
+            try:
+                contracts = await self.market.option_chain(
+                    self.settings.underlying_symbol, trading_day
+                )
+                candidates = self.selector.shortlist(
+                    contracts, signal.direction, signal.spot
+                )
+                snapshots = await asyncio.gather(
+                    *(self.market.latest_quote(contract.symbol) for contract in candidates),
+                    return_exceptions=True,
+                )
+            except Exception as exc:
+                await self.journal.signal(signal, False, f"option_chain_error:{exc}")
+                return
+            liquid_quotes: dict[str, Quote] = {}
+            rejection_reasons: list[str] = []
+            for contract, snapshot in zip(candidates, snapshots, strict=True):
+                if isinstance(snapshot, Exception):
+                    rejection_reasons.append("quote_error")
+                    continue
+                problem = self.risk.quote_problem(snapshot, decision_at)
+                if problem is None:
+                    liquid_quotes[contract.symbol] = snapshot
+                else:
+                    rejection_reasons.append(problem)
+            contract = self.selector.select(
+                candidates, signal.direction, signal.spot, liquid_quotes
             )
-            contract = self.selector.select(contracts, signal.direction, spot_quote.last)
-            if contract is None:
-                await self.journal.signal(signal, False, "same_day_contract_not_found")
+            if contract is None or contract.symbol not in liquid_quotes:
+                reason = rejection_reasons[0] if rejection_reasons else "no_liquid_contract"
+                await self.journal.signal(signal, False, reason)
                 return
-            await self.market.subscribe([contract.symbol])
-            option_quote = await self.market.latest_quote(contract.symbol)
-            problem = self.risk.quote_problem(option_quote, now)
-            if problem:
-                await self.journal.signal(signal, False, problem)
-                return
-            assert option_quote.ask is not None
-            equity = account.equity
-            if signal.r_value and signal.r_value > 0:
-                stop_dist = signal.r_value * Decimal(100)
-            else:
-                stop_dist = option_quote.ask * Decimal("0.25") * Decimal(100)
-            quantity = self.risk.position_size(equity, option_quote.ask, stop_dist)
+            quote = liquid_quotes[contract.symbol]
+            assert quote.ask is not None
+            remaining_daily_loss = self.opening_equity * RULES.daily_loss_limit + min(
+                day_pnl, Decimal(0)
+            )
+            size_factor = Decimal(signal.indicators.get("size_factor", "1"))
+            quantity = self.risk.position_size(
+                account.equity, quote.ask, remaining_daily_loss, size_factor
+            )
             if quantity < 1:
                 await self.journal.signal(signal, False, "risk_budget_too_small")
                 return
-
-            await self.journal.signal(signal, True)
+            await self.journal.signal(signal, True, "accepted")
             request = OrderRequest(
                 symbol=contract.symbol,
                 side=OrderSide.BUY,
                 quantity=quantity,
-                limit_price=option_quote.ask,
-                reason=f"entry_{signal.direction.value}",
+                limit_price=quote.ask,
+                reason=f"entry_{signal.strategy}",
             )
-            await self._publish_trade_signal(
-                request,
-                signal.direction,
-                signal.bar_end,
-                signal.indicators,
-            )
+            indicators = {
+                **signal.indicators,
+                "spot": str(signal.spot),
+                "underlying_stop": str(signal.stop_price),
+                "config_version": str(self.config_version),
+            }
             self.state = SystemState.ENTRY_PENDING
+            await self._publish_trade_signal(
+                request, signal.direction, signal.bar_end, indicators
+            )
             filled = await self.executor.entry(request, self.market.latest_quote)
-            if filled is None or filled.average_price is None:
-                await self.journal.trade_signal_status(request.intent_id, "failed")
+            fully_filled = filled is not None and filled.filled_quantity > 0
+            await self.journal.trade_signal_status(
+                request.intent_id, "executed" if fully_filled else "failed"
+            )
+            if not fully_filled or filled is None or filled.average_price is None:
                 self.state = SystemState.READY
                 return
-            await self.journal.trade_signal_status(request.intent_id, "executed")
             self.position = Position(
                 symbol=contract.symbol,
                 direction=signal.direction,
                 quantity=filled.filled_quantity,
                 entry_price=filled.average_price,
                 opened_at=filled.submitted_at,
+                initial_quantity=filled.filled_quantity,
+                stop_price=filled.average_price
+                * (Decimal(1) - RULES.option_stop_loss_pct),
                 broker_order_id=filled.order_id,
+                strategy_name=signal.strategy,
+                market_state=signal.market_state,
+                entry_spot=signal.spot,
+                underlying_stop=signal.stop_price,
+                highest_bid=filled.average_price,
+                entry_atr=signal.atr,
+                peak_spot=signal.spot,
+                entry_vwap=signal.vwap,
+                entry_intent_id=request.intent_id,
             )
+            self.entry_reference = signal.spot
             self.position_config_version = self.config_version
             self.position_mae = Decimal(0)
             self.position_mfe = Decimal(0)
-            self.entry_reference = option_quote.ask
-            self.position_r_value = signal.r_value if signal.r_value else option_quote.ask * Decimal("0.25")
             self.trades_today += 1
-            self.state = SystemState.OPEN
-            await self.journal.event(
-                "position_opened",
-                f"opened {contract.symbol}",
-                {"quantity": self.position.quantity, "price": str(self.position.entry_price)},
+            self.realized_pnl -= (
+                RULES.fee_per_contract * filled.filled_quantity
             )
+            await self._persist_position_metadata(self.position)
+            await self.market.subscribe([contract.symbol])
+            self.state = SystemState.OPEN
 
     async def on_position_quote(self, quote: Quote, now: datetime | None = None) -> None:
+        """Manage option-price exits on every executable quote."""
         async with self._lock:
             if self.state is not SystemState.OPEN or self.position is None:
                 return
             if quote.symbol != self.position.symbol or quote.bid is None:
                 return
-            now = now or datetime.now(timezone.utc)
-            mark_pnl = (
-                (quote.bid - self.position.entry_price) * Decimal(100) * self.position.quantity
-            )
-            self.position_mae = min(self.position_mae, mark_pnl)
-            self.position_mfe = max(self.position_mfe, mark_pnl)
+            decision_at = now or quote.timestamp
+            move = (quote.bid - self.position.entry_price) * Decimal(100)
+            self.position_mae = min(self.position_mae, move)
+            self.position_mfe = max(self.position_mfe, move)
             account = await self._local_account(quote.bid)
-            daily_breach = self.risk.daily_loss_breached(self.day_r_loss)
+            daily_breached = self.risk.daily_loss_breached(
+                account.day_pnl, self.opening_equity
+            )
+            previous_highest = self.position.highest_bid
             decision = self.risk.exit_decision(
-                self.position, quote.bid, now,
-                daily_loss_breached=daily_breach,
-                r_value=self.position_r_value,
+                self.position,
+                quote.bid,
+                decision_at,
+                daily_loss_breached=daily_breached,
             )
-            if decision is None:
-                return
+            if self.position.highest_bid != previous_highest:
+                await self._persist_position_metadata(self.position)
+            if decision is not None:
+                await self._exit_position(decision, quote, decision_at)
 
-            self.log.info(
-                "exit triggered | %s | bid=%.4f | reason=%s | qty=%d",
-                self.position.symbol, quote.bid, decision.reason.value, decision.quantity,
-            )
-            self.state = SystemState.EXIT_PENDING
-            request = OrderRequest(
-                symbol=self.position.symbol,
-                side=OrderSide.SELL,
-                quantity=decision.quantity,
-                limit_price=quote.bid,
-                reason=decision.reason.value,
-            )
-            await self._publish_trade_signal(
-                request,
-                self.position.direction,
-                now,
-                {
-                    "entry_price": str(self.position.entry_price),
-                    "mark_pnl": str(mark_pnl),
-                    "mae": str(self.position_mae),
-                    "mfe": str(self.position_mfe),
-                },
-            )
-            filled = await self.executor.exit(request, self.market.latest_quote)
-            if filled is None or filled.average_price is None:
-                await self.journal.trade_signal_status(request.intent_id, "failed")
-                await self._halt("critical exit failure; broker state must be reconciled")
-                return
-            await self.journal.trade_signal_status(request.intent_id, "executed")
+    async def _exit_position(
+        self,
+        decision: ExitDecision,
+        quote: Quote,
+        decision_at: datetime,
+    ) -> None:
+        position = self.position
+        if position is None or quote.bid is None:
+            return
+        quantity = min(decision.quantity, position.quantity)
+        if quantity <= 0:
+            return
+        request = OrderRequest(
+            symbol=position.symbol,
+            side=OrderSide.SELL,
+            quantity=quantity,
+            limit_price=quote.bid,
+            reason=decision.reason.value,
+        )
+        self.state = SystemState.EXIT_PENDING
+        await self._publish_trade_signal(
+            request,
+            position.direction,
+            decision_at,
+            {
+                "entry_price": str(position.entry_price),
+                "strategy": position.strategy_name or "",
+                "market_state": position.market_state.value,
+            },
+        )
+        filled = await self.executor.exit(request, self.market.latest_quote)
+        successful = filled is not None and filled.filled_quantity > 0
+        await self.journal.trade_signal_status(
+            request.intent_id, "executed" if successful else "failed"
+        )
+        if not successful or filled is None or filled.average_price is None:
+            self.state = SystemState.OPEN
+            return
+        sold = min(filled.filled_quantity, position.quantity)
+        fees = RULES.fee_per_contract * Decimal(2) * sold
+        gross_pnl = (
+            (filled.average_price - position.entry_price) * Decimal(100) * sold
+        )
+        pnl = gross_pnl - fees
+        self.realized_pnl += gross_pnl - RULES.fee_per_contract * sold
+        summary = TradeSummary(
+            symbol=position.symbol,
+            direction=position.direction.value,
+            quantity=sold,
+            entry_price=position.entry_price,
+            exit_price=filled.average_price,
+            pnl=pnl,
+            fees=fees,
+            entry_at=position.opened_at.isoformat(),
+            exit_at=decision_at.isoformat(),
+            exit_reason=decision.reason.value,
+            slippage=max(Decimal(0), quote.bid - filled.average_price),
+            mae=self.position_mae,
+            mfe=self.position_mfe,
+        )
+        self.closed_trades.append(summary)
+        await self.journal.trade_summary(
+            {
+                "symbol": summary.symbol,
+                "direction": summary.direction,
+                "quantity": summary.quantity,
+                "entry_price": summary.entry_price,
+                "exit_price": summary.exit_price,
+                "pnl": summary.pnl,
+                "fees": summary.fees,
+                "slippage": summary.slippage,
+                "mae": summary.mae,
+                "mfe": summary.mfe,
+                "entry_at": position.opened_at,
+                "exit_at": decision_at,
+                "exit_reason": summary.exit_reason,
+            }
+        )
+        position.quantity -= sold
+        if decision.reason in {
+            ExitReason.TAKE_PROFIT_1,
+            ExitReason.BOLLINGER_MIDDLE,
+        }:
+            position.first_target_taken = True
+            if decision.reason is ExitReason.BOLLINGER_MIDDLE:
+                position.range_middle_taken = True
+        if decision.reason is ExitReason.MIDDAY_REDUCE:
+            position.midday_reduced = True
+        if decision.new_stop is not None:
+            position.stop_price = decision.new_stop
+        if position.quantity > 0:
+            await self._persist_position_metadata(position)
+            self.state = SystemState.OPEN
+            return
+        self.position = None
+        self.position_config_version = None
+        self.cooldown_until = decision_at + timedelta(minutes=RULES.cooldown_minutes)
+        if decision.reason is ExitReason.DAILY_LOSS:
+            self.state = SystemState.DAILY_HALTED
+        else:
+            self.state = SystemState.READY
+        if self._pending_settings is not None and self.state is SystemState.READY:
+            pending_settings, pending_version = self._pending_settings
+            self._activate_settings(pending_settings, pending_version)
 
-            pnl = (filled.average_price - self.position.entry_price) * Decimal(
-                100
-            ) * filled.filled_quantity - self.settings.fee_per_contract * filled.filled_quantity
-            self.realized_pnl += pnl
-            if self.position_r_value and self.position_r_value > 0:
-                one_r_dollar = self.position_r_value * Decimal(100) * filled.filled_quantity
-                if one_r_dollar > 0:
-                    self.day_r_loss += max(Decimal(0), -pnl / one_r_dollar)
-            summary = TradeSummary(
-                symbol=self.position.symbol,
-                direction=self.position.direction.value,
-                quantity=filled.filled_quantity,
-                entry_price=self.position.entry_price,
-                exit_price=filled.average_price,
-                pnl=pnl,
-                fees=self.settings.fee_per_contract * filled.filled_quantity,
-                entry_at=self.position.opened_at.isoformat(),
-                exit_at=now.isoformat(),
-                exit_reason=decision.reason.value,
-                slippage=abs(self.position.entry_price - self.entry_reference)
-                + abs(filled.average_price - quote.bid),
-                mae=self.position_mae,
-                mfe=self.position_mfe,
-            )
-            self.closed_trades.append(summary)
-            await self.journal.trade_summary(
-                {
-                    "symbol": summary.symbol,
-                    "direction": summary.direction,
-                    "quantity": summary.quantity,
-                    "entry_price": summary.entry_price,
-                    "exit_price": summary.exit_price,
-                    "pnl": summary.pnl,
-                    "fees": summary.fees,
-                    "entry_at": datetime.fromisoformat(summary.entry_at),
-                    "exit_at": datetime.fromisoformat(summary.exit_at),
-                    "exit_reason": summary.exit_reason,
-                    "slippage": summary.slippage,
-                    "mae": summary.mae,
-                    "mfe": summary.mfe,
-                }
-            )
-            self.position.quantity -= filled.filled_quantity
-            if self.position.quantity <= 0:
-                self.position = None
-                self.position_config_version = None
-                self.position_mae = Decimal(0)
-                self.position_mfe = Decimal(0)
-                self.entry_reference = Decimal(0)
-                self.position_r_value = None
-                self.cooldown_until = now + timedelta(minutes=self.settings.cooldown_minutes)
-                self.state = SystemState.HALTED if daily_breach else SystemState.READY
-                if self._pending_settings is not None:
-                    pending_settings, pending_version = self._pending_settings
-                    self._activate_settings(pending_settings, pending_version)
-            else:
-                self.position.first_target_taken = True
-                self.position.stop_price = decision.new_stop
-                self.state = SystemState.OPEN
-            await self.journal.event(
-                "position_reduced",
-                decision.reason.value,
-                {"quantity": filled.filled_quantity, "pnl": str(pnl)},
-            )
+    async def _persist_position_metadata(self, position: Position) -> None:
+        if position.entry_intent_id is None:
+            return
+        writer = getattr(self.journal, "trade_signal_metadata", None)
+        if writer is None:
+            return
+        metadata = {
+            "strategy": position.strategy_name or "",
+            "market_state": position.market_state.value,
+            "entry_spot": str(position.entry_spot) if position.entry_spot is not None else None,
+            "underlying_stop": (
+                str(position.underlying_stop)
+                if position.underlying_stop is not None
+                else None
+            ),
+            "highest_bid": (
+                str(position.highest_bid) if position.highest_bid is not None else None
+            ),
+            "midday_reduced": position.midday_reduced,
+            "range_middle_taken": position.range_middle_taken,
+            "first_target_taken": position.first_target_taken,
+            "stop_price": (
+                str(position.stop_price) if position.stop_price is not None else None
+            ),
+            "entry_vwap": (
+                str(position.entry_vwap) if position.entry_vwap is not None else None
+            ),
+            "initial_quantity": position.initial_quantity,
+            "entry_atr": str(position.entry_atr) if position.entry_atr is not None else None,
+            "peak_spot": str(position.peak_spot) if position.peak_spot is not None else None,
+        }
+        await writer(
+            position.entry_intent_id,
+            {key: value for key, value in metadata.items() if value is not None},
+        )
 
     async def shutdown(self) -> None:
         self.log.info("shutdown requested")
@@ -645,6 +799,11 @@ class TradingEngine:
             "trades_today": self.trades_today,
             "trading_date": self.trading_date.isoformat() if self.trading_date else None,
             "position": self.position.symbol if self.position else None,
+            "market_state": (
+                self.position.market_state.value
+                if self.position is not None
+                else self.strategy.last_state.value
+            ),
             "volatility": self.last_volatility.as_dict() if self.last_volatility else None,
             "last_error": self.last_error,
             "config_version": self.config_version,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from fastapi.testclient import TestClient
@@ -7,7 +8,8 @@ from typer.testing import CliRunner
 
 from qqq_trader.api import create_app
 from qqq_trader.cli import app
-from qqq_trader.domain import SystemState
+from qqq_trader.domain import Bar, SystemState
+from qqq_trader.market_hours import regular_session_bars
 
 
 class FakeEngine:
@@ -48,3 +50,23 @@ def test_cli_exposes_all_operational_commands():
     backtest_help = CliRunner().invoke(app, ["backtest", "--help"])
     assert backtest_help.exit_code == 0
     assert "--bars" in backtest_help.stdout
+
+
+def test_regular_session_filter_excludes_extended_hours():
+    def bar_at(hour: int, minute: int) -> Bar:
+        start = datetime(2026, 7, 24, hour, minute, tzinfo=timezone.utc)
+        return Bar(
+            "QQQ.US",
+            start,
+            start + timedelta(minutes=1),
+            Decimal("700"),
+            Decimal("701"),
+            Decimal("699"),
+            Decimal("700"),
+            100,
+        )
+
+    # July is EDT: 08:00, 09:30 and 16:00 ET respectively.
+    bars = [bar_at(12, 0), bar_at(13, 30), bar_at(20, 0)]
+
+    assert regular_session_bars(bars) == [bars[1]]

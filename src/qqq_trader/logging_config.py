@@ -43,7 +43,9 @@ def setup_logging(log_dir: Path, level: str = "INFO", name: str = "qqq_trader") 
     )
     file_handler.setLevel(getattr(logging, level.upper(), logging.INFO))
     file_handler.setFormatter(formatter)
-    file_handler.namer = lambda name: name.replace(".log.", "_") + ".log" if ".log." in name else name
+    file_handler.namer = (
+        lambda name: name.replace(".log.", "_") + ".log" if ".log." in name else name
+    )
     logger.addHandler(file_handler)
 
     logging.getLogger("uvicorn").setLevel(logging.WARNING)

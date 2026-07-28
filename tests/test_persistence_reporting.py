@@ -19,6 +19,19 @@ def test_parquet_bars_are_idempotent(tmp_path, bullish_bars):
     assert manifest["rows"] == len(bullish_bars)
 
 
+def test_replace_bars_removes_stale_rows(tmp_path, bullish_bars):
+    store = ParquetMarketStore(tmp_path)
+    path = store.write_bars(bullish_bars, "1m")
+    assert path is not None
+
+    store.replace_bars(bullish_bars[1:], "1m")
+
+    loaded = store.read_bars(path)
+    assert loaded == bullish_bars[1:]
+    manifest = json.loads(path.with_suffix(".manifest.json").read_text(encoding="utf-8"))
+    assert manifest["rows"] == len(bullish_bars) - 1
+
+
 def test_generates_three_report_formats_and_chart(tmp_path, bullish_bars):
     trade = TradeSummary(
         "QQQ260715C105000.US",

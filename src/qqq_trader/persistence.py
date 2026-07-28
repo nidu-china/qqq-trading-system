@@ -259,6 +259,12 @@ class MySQLJournal:
             if row is not None:
                 row.status = status
 
+    async def trade_signal_metadata(self, intent_id: UUID, metadata: dict) -> None:
+        async with self.sessions() as session, session.begin():
+            row = await session.get(TradeSignalRow, intent_id)
+            if row is not None:
+                row.indicators = {**(row.indicators or {}), **metadata}
+
     async def trade_signal_by_intent(self, intent_id: UUID) -> TradeSignal | None:
         async with self.sessions() as session:
             row = await session.get(TradeSignalRow, intent_id)
@@ -386,9 +392,9 @@ class MySQLJournal:
                 entry_price = buy_orders[0].average_price or buy_signal.reference_price
                 exit_price = sell_orders[0].average_price or sell_signal.reference_price
                 quantity = min(buy_orders[0].filled_quantity, sell_orders[0].filled_quantity)
-                from .config import Settings
+                from .policy import RULES
 
-                fee = Settings().fee_per_contract
+                fee = RULES.fee_per_contract * Decimal(2)
                 pnl = (exit_price - entry_price) * Decimal(100) * quantity - fee * quantity
                 session.add(
                     TradeSummaryRow(
@@ -529,7 +535,10 @@ class MySQLJournal:
                 (
                     await session.scalars(
                         select(TradeSignalRow)
-                        .where(TradeSignalRow.decision_at >= start, TradeSignalRow.decision_at < end)
+                        .where(
+                            TradeSignalRow.decision_at >= start,
+                            TradeSignalRow.decision_at < end,
+                        )
                         .order_by(TradeSignalRow.decision_at)
                     )
                 ).all()
@@ -791,6 +800,12 @@ class MemoryJournal:
                 item["status"] = status
                 return
 
+    async def trade_signal_metadata(self, intent_id: UUID, metadata: dict) -> None:
+        for item in self.trade_signals:
+            if item["signal"].intent_id == intent_id:
+                item["signal"].indicators.update(metadata)
+                return
+
     async def trade_signal_by_intent(self, intent_id: UUID) -> TradeSignal | None:
         for item in self.trade_signals:
             if item["signal"].intent_id == intent_id:
@@ -890,6 +905,25 @@ class ParquetMarketStore:
             existing = self.read_bars(path) if path.exists() else []
             merged = {bar.start: bar for bar in [*existing, *day_bars]}
             ordered = [merged[key] for key in sorted(merged)]
+            records = [self._bar_record(bar) for bar in ordered]
+            self._atomic_parquet(path, pa.Table.from_pylist(records))
+            self._write_manifest(path, records)
+            last_path = path
+        return last_path
+
+    def replace_bars(self, bars: list[Bar], timeframe: str) -> Path | None:
+        """Replace each supplied trading-day partition instead of merging stale bars."""
+        if not bars:
+            return None
+        by_day: dict[tuple[str, date], list[Bar]] = {}
+        for bar in bars:
+            by_day.setdefault((bar.symbol, bar.start.date()), []).append(bar)
+        last_path: Path | None = None
+        for (symbol, trading_date), day_bars in by_day.items():
+            directory = self.root / "bars" / f"symbol={symbol}" / f"date={trading_date.isoformat()}"
+            path = directory / f"{timeframe}.parquet"
+            deduplicated = {bar.start: bar for bar in day_bars}
+            ordered = [deduplicated[key] for key in sorted(deduplicated)]
             records = [self._bar_record(bar) for bar in ordered]
             self._atomic_parquet(path, pa.Table.from_pylist(records))
             self._write_manifest(path, records)

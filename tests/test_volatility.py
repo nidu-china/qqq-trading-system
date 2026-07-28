@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
-from qqq_trader.config import Settings
+from conftest import make_settings
 from qqq_trader.domain import Bar, Direction
 from qqq_trader.volatility import VolatilityFilter, VolatilityRegime
 
@@ -49,7 +49,7 @@ def snapshot(values: tuple[str, str, str]):
         make_bar(decision_at - timedelta(minutes=5), values[1]),
         make_bar(decision_at, values[2]),
     ]
-    return VolatilityFilter(Settings()).evaluate(intraday, decision_at, daily_history(decision_at))
+    return VolatilityFilter(make_settings()).evaluate(intraday, decision_at, daily_history(decision_at))
 
 
 def test_risk_off_allows_only_put():
@@ -75,6 +75,6 @@ def test_shock_blocks_both_directions():
 
 def test_missing_history_fails_closed():
     decision_at = datetime(2026, 7, 15, 14, 0, tzinfo=timezone.utc)
-    result = VolatilityFilter(Settings()).evaluate([], decision_at)
+    result = VolatilityFilter(make_settings()).evaluate([], decision_at)
     assert result.regime is VolatilityRegime.UNAVAILABLE
     assert result.reason == "missing_intraday_data"

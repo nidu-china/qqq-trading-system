@@ -6,6 +6,7 @@ export default createRouter({
     { path: '/signals', component: () => import('./views/Signals.vue'), meta: { title: '信号对比' } },
     { path: '/trades', component: () => import('./views/Trades.vue'), meta: { title: '交易记录' } },
     { path: '/reports', component: () => import('./views/Reports.vue'), meta: { title: '交易日报' } },
+    { path: '/kline', component: () => import('./views/KLine.vue'), meta: { title: 'K线行情' } },
     { path: '/backtests', component: () => import('./views/Backtests.vue'), meta: { title: '策略回测' } },
     { path: '/configuration', component: () => import('./views/Configuration.vue'), meta: { title: '参数配置' } },
   ],

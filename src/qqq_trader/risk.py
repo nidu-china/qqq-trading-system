@@ -1,64 +1,75 @@
-"""Risk engine: R-based position sizing and exit management.
+"""Contract selection, position sizing and exit management."""
 
-1R = account equity * risk_per_trade (default 0.25%)
-Position size = 1R / stop_distance_per_share
-Stop: swing point + 0.1 * ATR
-Take profit: +1R reduce half, +2R/2.5R hard target
-Stale: exit if < +0.5R after 20 minutes
-Daily: stop trading after -2R cumulative
-"""
 from __future__ import annotations
 
-from datetime import datetime, time
+from datetime import datetime
 from decimal import ROUND_FLOOR, Decimal
 
 from .config import Settings
 from .domain import (
-    AccountSnapshot,
     Direction,
     ExitDecision,
     ExitReason,
     OptionContract,
     Position,
     Quote,
-    Signal,
 )
+from .policy import RULES
 
 
 class ContractSelector:
-    def __init__(self, strike_offset: Decimal = Decimal("2")) -> None:
-        self.strike_offset = strike_offset
+    """Shortlist near-ATM contracts and prefer a liquid Delta near ±0.45."""
+
+    def shortlist(
+        self,
+        contracts: list[OptionContract] | tuple[OptionContract, ...],
+        direction: Direction,
+        spot: Decimal,
+    ) -> list[OptionContract]:
+        return sorted(
+            (contract for contract in contracts if contract.right is direction),
+            key=lambda item: abs(item.strike - spot),
+        )[: RULES.option_candidate_count]
 
     def select(
         self,
-        contracts: "list[OptionContract] | tuple[OptionContract, ...]",
+        contracts: list[OptionContract] | tuple[OptionContract, ...],
         direction: Direction,
         spot: Decimal,
+        quotes: dict[str, Quote] | None = None,
     ) -> OptionContract | None:
-        eligible = [contract for contract in contracts if contract.right is direction]
-        if not eligible:
+        shortlist = self.shortlist(contracts, direction, spot)
+        if not shortlist:
             return None
-        target = (
-            spot + self.strike_offset if direction is Direction.CALL else spot - self.strike_offset
-        )
-
-        def ranking(contract: OptionContract) -> tuple[Decimal, Decimal]:
-            tie_break = -contract.strike if direction is Direction.CALL else contract.strike
-            return abs(contract.strike - target), tie_break
-
-        return min(eligible, key=ranking)
+        if quotes:
+            ranked: list[tuple[Decimal, Decimal, OptionContract]] = []
+            for contract in shortlist:
+                quote = quotes.get(contract.symbol)
+                if quote is None:
+                    continue
+                try:
+                    delta = abs(Decimal(str(quote.extra.get("delta", ""))))
+                except Exception:
+                    continue
+                ranked.append(
+                    (abs(delta - RULES.target_delta), abs(contract.strike - spot), contract)
+                )
+            if ranked:
+                return min(ranked, key=lambda item: (item[0], item[1]))[2]
+        return min(shortlist, key=lambda item: abs(item.strike - spot))
 
 
 class RiskEngine:
-    """R-based risk management engine."""
+    """Fixed STRATEGY.md risk rules shared by live, paper and replay."""
 
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
+        self.rules = settings.rules
 
     def quote_problem(self, quote: Quote, now: datetime) -> str | None:
-        """Check if an option quote is usable."""
+        rules = self.rules
         age = Decimal(str((now - quote.timestamp).total_seconds()))
-        if age < 0 or age > self.settings.max_quote_age_seconds:
+        if age < 0 or age > rules.max_quote_age_seconds:
             return "stale_quote"
         if quote.bid is None or quote.ask is None or quote.bid <= 0 or quote.ask <= 0:
             return "missing_bid_ask"
@@ -67,54 +78,58 @@ class RiskEngine:
         mid = quote.mid
         spread = quote.spread
         assert mid is not None and spread is not None
-        if spread > self.settings.max_spread_absolute:
+        if spread > rules.max_spread_absolute:
             return "absolute_spread_too_wide"
-        if mid <= 0 or spread / mid > self.settings.max_spread_ratio:
+        if mid <= 0 or spread / mid > rules.max_spread_ratio:
             return "relative_spread_too_wide"
-        if quote.open_interest < self.settings.min_open_interest:
+        if quote.open_interest < rules.min_open_interest:
             return "insufficient_open_interest"
-        if quote.volume < self.settings.min_option_volume:
+        if quote.volume < rules.min_option_volume:
             return "insufficient_volume"
         return None
 
-    def compute_r_value(self, equity: Decimal) -> Decimal:
-        """Calculate 1R dollar amount from account equity."""
-        return equity * self.settings.risk_per_trade
+    def planned_loss_per_contract(self, entry_price: Decimal) -> Decimal:
+        rules = self.rules
+        estimated_entry = entry_price + rules.slippage_quote
+        estimated_stop = max(
+            Decimal("0.01"),
+            estimated_entry * (Decimal(1) - rules.option_stop_loss_pct)
+            - rules.slippage_quote,
+        )
+        return (
+            (estimated_entry - estimated_stop) * Decimal(100)
+            + rules.fee_per_contract * Decimal(2)
+        )
 
     def position_size(
         self,
         equity: Decimal,
         entry_price: Decimal,
-        stop_distance_per_contract: Decimal,
+        remaining_daily_loss: Decimal,
+        size_factor: Decimal = Decimal("1"),
     ) -> int:
-        """Calculate position size based on R-risk.
-
-        stop_distance_per_contract: dollar risk per contract (option price move * 100)
-        """
-        if equity <= 0 or entry_price <= 0 or stop_distance_per_contract <= 0:
+        rules = self.rules
+        if equity <= 0 or entry_price <= 0 or remaining_daily_loss <= 0 or size_factor <= 0:
             return 0
-        one_r = self.compute_r_value(equity)
-        by_risk = int((one_r / stop_distance_per_contract).to_integral_value(rounding=ROUND_FLOOR))
-        premium_budget = equity * self.settings.max_premium_fraction
+        estimated_entry = entry_price + rules.slippage_quote
+        premium_cost = estimated_entry * Decimal(100) + rules.fee_per_contract
+        planned_loss = self.planned_loss_per_contract(entry_price)
         by_premium = int(
-            (premium_budget / (entry_price * Decimal(100))).to_integral_value(rounding=ROUND_FLOOR)
+            (equity * rules.max_premium_fraction / premium_cost).to_integral_value(
+                rounding=ROUND_FLOOR
+            )
         )
-        return max(1, min(by_risk, by_premium, self.settings.max_contracts))
+        by_daily_risk = int(
+            (remaining_daily_loss / planned_loss).to_integral_value(rounding=ROUND_FLOOR)
+        )
+        normal = min(by_premium, by_daily_risk, rules.max_contracts)
+        return max(
+            0,
+            int((Decimal(normal) * size_factor).to_integral_value(rounding=ROUND_FLOOR)),
+        )
 
-    def validate_stop(self, signal: Signal) -> str | None:
-        """Reject if stop distance exceeds max_stop_atr_ratio * ATR."""
-        if signal.stop_price is None or signal.atr is None or signal.atr <= 0:
-            return None
-        if signal.r_value is None:
-            return None
-        max_allowed = signal.atr * self.settings.max_stop_atr_ratio
-        if signal.r_value > max_allowed:
-            return "stop_too_wide"
-        return None
-
-    def daily_loss_breached(self, cumulative_r_loss: Decimal) -> bool:
-        """Check if daily R-loss limit is breached."""
-        return cumulative_r_loss >= self.settings.daily_loss_limit_r
+    def daily_loss_breached(self, day_pnl: Decimal, opening_equity: Decimal) -> bool:
+        return opening_equity > 0 and day_pnl <= -(opening_equity * self.rules.daily_loss_limit)
 
     def exit_decision(
         self,
@@ -122,61 +137,80 @@ class RiskEngine:
         executable_bid: Decimal,
         now: datetime,
         daily_loss_breached: bool = False,
-        r_value: Decimal | None = None,
+        current_spot: Decimal | None = None,
     ) -> ExitDecision | None:
-        """Determine if position should be exited.
-
-        r_value: the 1R distance in option price terms for this position.
-        """
+        rules = self.rules
         if daily_loss_breached:
             return ExitDecision(ExitReason.DAILY_LOSS, position.quantity)
-
         from .config import NY_TZ
+
         local_time = now.astimezone(NY_TZ).time().replace(tzinfo=None)
-
-        # Forced close
-        if local_time >= self.settings.forced_close:
+        if local_time >= rules.forced_close:
             return ExitDecision(ExitReason.FORCED_CLOSE, position.quantity)
-
-        # Midday reduction at reduce_at time
-        reduce_at = self.settings.reduce_at
-        if (
-            local_time >= reduce_at
-            and not position.first_target_taken
-            and position.quantity > 1
-        ):
-            quantity = (position.quantity + 1) // 2
-            return ExitDecision(ExitReason.MIDDAY_REDUCE, quantity, position.entry_price)
-
-        # Stop loss
-        stop = position.stop_price or (position.entry_price * Decimal("0.5"))
-        if executable_bid <= stop:
+        position.highest_bid = max(position.highest_bid or position.entry_price, executable_bid)
+        if current_spot is not None and position.peak_spot is not None:
+            if position.direction is Direction.CALL:
+                position.peak_spot = max(position.peak_spot, current_spot)
+            else:
+                position.peak_spot = min(position.peak_spot, current_spot)
+        option_stop = position.stop_price or (
+            position.entry_price * (Decimal(1) - rules.option_stop_loss_pct)
+        )
+        if executable_bid <= option_stop:
             return ExitDecision(ExitReason.STOP_LOSS, position.quantity)
-
-        # R-based take profits
-        if r_value and r_value > 0:
-            pnl = executable_bid - position.entry_price
-            r_multiple = pnl / r_value
-
-            # +2R or +2.5R: full exit
-            if r_multiple >= self.settings.tp2_r:
-                return ExitDecision(ExitReason.TAKE_PROFIT_2, position.quantity)
-
-            # +1R: reduce half
-            if not position.first_target_taken and r_multiple >= self.settings.tp1_r:
-                if position.quantity == 1:
-                    return ExitDecision(ExitReason.TAKE_PROFIT_1, 1)
-                quantity = (position.quantity + 1) // 2
+        profit_pct = (executable_bid - position.entry_price) / position.entry_price
+        if profit_pct >= rules.tp2_profit_pct:
+            return ExitDecision(ExitReason.TAKE_PROFIT_2, position.quantity)
+        if not position.first_target_taken and profit_pct >= rules.tp1_profit_pct:
+            quantity = (
+                position.quantity
+                if position.quantity == 1
+                else (position.quantity + 1) // 2
+            )
+            return ExitDecision(ExitReason.TAKE_PROFIT_1, quantity, position.entry_price)
+        entry_atr = position.entry_atr
+        if (
+            current_spot is not None
+            and position.peak_spot is not None
+            and entry_atr is not None
+            and entry_atr > 0
+        ):
+            trail_distance = rules.trailing_atr_multiplier * entry_atr
+            if position.direction is Direction.CALL:
+                retracement = position.peak_spot - current_spot
+            else:
+                retracement = current_spot - position.peak_spot
+            minimum_profitable_bid = (
+                position.entry_price
+                + rules.fee_per_contract * Decimal(2) / Decimal(100)
+            )
+            if retracement >= trail_distance and executable_bid > minimum_profitable_bid:
+                return ExitDecision(ExitReason.TRAILING_STOP, position.quantity)
+        elif position.highest_bid > position.entry_price:
+            trailing_price = position.entry_price + (
+                Decimal(1) - rules.trailing_giveback_pct
+            ) * (position.highest_bid - position.entry_price)
+            if position.first_target_taken:
+                trailing_price = max(trailing_price, position.entry_price)
+            minimum_profitable_bid = (
+                position.entry_price
+                + rules.fee_per_contract * Decimal(2) / Decimal(100)
+            )
+            if minimum_profitable_bid < executable_bid <= trailing_price:
+                return ExitDecision(ExitReason.TRAILING_STOP, position.quantity)
+        if (now - position.opened_at).total_seconds() >= rules.stale_minutes * 60:
+            if executable_bid < position.entry_price:
+                return ExitDecision(ExitReason.STALE_POSITION, position.quantity)
+        if (
+            local_time >= rules.reduce_at
+            and not position.midday_reduced
+            and not (position.strategy_name or "").startswith("timed_")
+        ):
+            position.midday_reduced = True
+            if position.quantity > 1:
                 return ExitDecision(
-                    ExitReason.TAKE_PROFIT_1, quantity, position.entry_price
+                    ExitReason.MIDDAY_REDUCE,
+                    (position.quantity + 1) // 2,
+                    position.entry_price,
                 )
-
-        # Stale position: losing money after stale_minutes
-        if r_value and r_value > 0:
-            elapsed_seconds = (now - position.opened_at).total_seconds()
-            if elapsed_seconds >= self.settings.stale_minutes * 60:
-                pnl = executable_bid - position.entry_price
-                if pnl < Decimal(0):
-                    return ExitDecision(ExitReason.STALE_POSITION, position.quantity)
-
         return None

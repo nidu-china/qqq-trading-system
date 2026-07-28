@@ -1,175 +1,162 @@
-from __future__ import annotations
-
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
-from qqq_trader.config import Settings
+from conftest import make_settings
 from qqq_trader.domain import Direction, ExitReason, OptionContract, Position, Quote
 from qqq_trader.risk import ContractSelector, RiskEngine
 
+NOW = datetime(2026, 7, 15, 14, 0, tzinfo=timezone.utc)
 
-def contract(strike: str, right: Direction) -> OptionContract:
-    marker = "C" if right is Direction.CALL else "P"
-    return OptionContract(
-        f"QQQ260715{marker}{int(Decimal(strike) * 1000):06d}.US",
-        "QQQ.US",
-        date(2026, 7, 15),
-        Decimal(strike),
-        right,
+
+def _quote(symbol: str, delta: str = "0.45") -> Quote:
+    return Quote(
+        symbol,
+        NOW,
+        Decimal("1.05"),
+        Decimal("1.00"),
+        Decimal("1.10"),
+        volume=100,
+        open_interest=500,
+        extra={"delta": delta},
     )
 
 
-def test_selector_uses_directional_tie_break():
+def _position(quantity: int = 4, entry: str = "1.00") -> Position:
+    return Position(
+        "QQQ260715C00500000.US",
+        Direction.CALL,
+        quantity,
+        Decimal(entry),
+        NOW,
+    )
+
+
+def test_contract_selector_uses_five_nearest_and_delta():
     contracts = [
-        contract("101", Direction.CALL),
-        contract("102", Direction.CALL),
-        contract("103", Direction.CALL),
-        contract("98", Direction.PUT),
-        contract("99", Direction.PUT),
+        OptionContract(
+            f"C{strike}",
+            "QQQ.US",
+            date(2026, 7, 15),
+            Decimal(str(strike)),
+            Direction.CALL,
+        )
+        for strike in range(497, 504)
     ]
-    selector = ContractSelector(Decimal("2"))
-    assert selector.select(contracts, Direction.CALL, Decimal("100.5")).strike == Decimal("103")
-    assert selector.select(contracts, Direction.PUT, Decimal("100.5")).strike == Decimal("98")
+    selector = ContractSelector()
+    shortlist = selector.shortlist(contracts, Direction.CALL, Decimal("500.2"))
+    assert len(shortlist) == 5
+    quotes = {item.symbol: _quote(item.symbol, "0.60") for item in shortlist}
+    quotes["C499"] = _quote("C499", "0.46")
+    assert selector.select(contracts, Direction.CALL, Decimal("500.2"), quotes).symbol == "C499"
 
 
-def test_quote_problem_checks():
-    settings = Settings(trading_mode="replay")
-    risk = RiskEngine(settings)
-    now = datetime.now(timezone.utc)
-    good_quote = Quote("OPT.US", now, Decimal("1"), Decimal("0.98"), Decimal("1.00"), 20, 200)
-    assert risk.quote_problem(good_quote, now) is None
-
-    stale_quote = Quote("OPT.US", now - timedelta(seconds=5), Decimal("1"), Decimal("0.98"), Decimal("1.00"), 20, 200)
-    assert risk.quote_problem(stale_quote, now) == "stale_quote"
-
-    wide_spread = Quote("OPT.US", now, Decimal("1"), Decimal("0.80"), Decimal("1.20"), 20, 200)
-    assert risk.quote_problem(wide_spread, now) == "absolute_spread_too_wide"
+def test_liquidity_and_absolute_quote_slippage_rules():
+    risk = RiskEngine(make_settings())
+    assert risk.quote_problem(_quote("C500"), NOW) is None
+    stale = _quote("C500")
+    assert risk.quote_problem(stale, NOW + timedelta(seconds=3)) == "stale_quote"
+    wide = Quote("C500", NOW, Decimal("1"), Decimal("0.80"), Decimal("1.20"), 100, 500)
+    assert risk.quote_problem(wide, NOW) == "absolute_spread_too_wide"
+    # 25% option stop plus $0.02 entry/exit quote slippage and $3 round-trip fee.
+    assert risk.planned_loss_per_contract(Decimal("1.00")) == Decimal("30.50")
 
 
-def test_position_size_r_based():
-    settings = Settings(_env_file=None, trading_mode="replay")
-    risk = RiskEngine(settings)
-    equity = Decimal("100000")
-    entry_price = Decimal("2.00")
-    stop_distance_per_contract = Decimal("50")  # $0.50 * 100 shares
-    size = risk.position_size(equity, entry_price, stop_distance_per_contract)
-    # 1R = 100000 * 0.0025 = $250
-    # contracts = 250 / 50 = 5
-    assert size == 5
+def test_position_size_obeys_premium_daily_budget_and_contract_cap():
+    risk = RiskEngine(make_settings())
+    # $10k * 5% premium permits four $1.02 contracts; daily risk also permits four.
+    assert risk.position_size(Decimal("10000"), Decimal("1"), Decimal("200")) == 4
+    assert risk.position_size(Decimal("100000"), Decimal("0.10"), Decimal("10000")) == 10
+    assert risk.position_size(Decimal("10000"), Decimal("1"), Decimal("30")) == 0
 
 
-def test_position_size_premium_cap():
-    settings = Settings(_env_file=None, trading_mode="replay", max_contracts=10)
-    risk = RiskEngine(settings)
-    equity = Decimal("10000")
-    entry_price = Decimal("5.00")
-    stop_distance_per_contract = Decimal("10")  # very small stop -> big size
-    size = risk.position_size(equity, entry_price, stop_distance_per_contract)
-    # by premium: 10000 * 0.05 / (5 * 100) = 1
-    assert size == 1
+def test_option_stop_targets_trailing_stale_midday_and_forced_close():
+    risk = RiskEngine(make_settings())
+    assert risk.exit_decision(_position(), Decimal("0.75"), NOW).reason is ExitReason.STOP_LOSS
+
+    tp1 = risk.exit_decision(_position(5), Decimal("2.00"), NOW)
+    assert tp1 is not None and tp1.reason is ExitReason.TAKE_PROFIT_1 and tp1.quantity == 3
+    assert tp1.new_stop == Decimal("1.00")
+
+    assert risk.exit_decision(_position(), Decimal("3.50"), NOW).reason is ExitReason.TAKE_PROFIT_2
+
+    trailing = _position()
+    trailing.highest_bid = Decimal("1.40")
+    assert risk.exit_decision(trailing, Decimal("1.27"), NOW).reason is ExitReason.TRAILING_STOP
+
+    losing = _position()
+    losing.highest_bid = Decimal("1.01")
+    assert risk.exit_decision(losing, Decimal("0.99"), NOW) is None
+
+    fees_would_erase_profit = _position()
+    fees_would_erase_profit.highest_bid = Decimal("1.04")
+    assert risk.exit_decision(fees_would_erase_profit, Decimal("1.02"), NOW) is None
+
+    stale = _position()
+    stale.opened_at = NOW - timedelta(minutes=31)
+    assert risk.exit_decision(stale, Decimal("0.99"), NOW).reason is ExitReason.STALE_POSITION
+
+    midday = _position(5)
+    midday_at = datetime(2026, 7, 15, 15, 30, tzinfo=timezone.utc)  # 11:30 ET
+    decision = risk.exit_decision(midday, Decimal("1.01"), midday_at)
+    assert decision is not None and decision.reason is ExitReason.MIDDAY_REDUCE
+    assert decision.quantity == 3
+
+    forced_at = datetime(2026, 7, 15, 17, 55, tzinfo=timezone.utc)  # 13:55 ET
+    assert (
+        risk.exit_decision(_position(), Decimal("1.01"), forced_at).reason
+        is ExitReason.FORCED_CLOSE
+    )
 
 
-def test_position_size_zero_when_equity_too_low():
-    settings = Settings(_env_file=None, trading_mode="replay", max_contracts=10)
-    risk = RiskEngine(settings)
-    size = risk.position_size(Decimal("0"), Decimal("1"), Decimal("50"))
-    assert size == 0
+def test_atr_trailing_stop_on_qqq_retracement():
+    risk = RiskEngine(make_settings())
+    # Call position: QQQ entered at 500, ATR = 0.50
+    pos = _position()
+    pos.entry_spot = Decimal("500.00")
+    pos.entry_atr = Decimal("0.50")
+    pos.peak_spot = Decimal("500.00")
+    # QQQ rallies to 501.20 → peak_spot updated by exit_decision
+    result = risk.exit_decision(pos, Decimal("1.30"), NOW, current_spot=Decimal("501.20"))
+    assert result is None
+    assert pos.peak_spot == Decimal("501.20")
+    # QQQ retraces 0.20 (< 0.5 * ATR = 0.25) → no exit
+    result = risk.exit_decision(pos, Decimal("1.20"), NOW, current_spot=Decimal("501.00"))
+    assert result is None
+    # QQQ retraces 0.30 (>= 0.5 * ATR = 0.25) and bid > entry+fees → trailing stop
+    result = risk.exit_decision(pos, Decimal("1.10"), NOW, current_spot=Decimal("500.90"))
+    assert result is not None and result.reason is ExitReason.TRAILING_STOP
+
+    # Put position: QQQ entered at 500, ATR = 0.50
+    put = Position(
+        "QQQ260715P00500000.US", Direction.PUT, 4,
+        Decimal("1.00"), NOW,
+    )
+    put.entry_spot = Decimal("500.00")
+    put.entry_atr = Decimal("0.50")
+    put.peak_spot = Decimal("500.00")
+    put.highest_bid = Decimal("1.00")
+    # QQQ drops to 498.80 → peak_spot updated
+    risk.exit_decision(put, Decimal("1.30"), NOW, current_spot=Decimal("498.80"))
+    assert put.peak_spot == Decimal("498.80")
+    # QQQ bounces back 0.30 (>= 0.5*ATR=0.25) and still profitable → trailing stop
+    result = risk.exit_decision(put, Decimal("1.10"), NOW, current_spot=Decimal("499.10"))
+    assert result is not None and result.reason is ExitReason.TRAILING_STOP
 
 
-def test_daily_loss_breached():
-    settings = Settings(trading_mode="replay")
-    risk = RiskEngine(settings)
-    # daily_loss_limit_r = 2, so cumulative_r_loss >= 2 triggers
-    assert not risk.daily_loss_breached(Decimal("1.5"))
-    assert risk.daily_loss_breached(Decimal("2.0"))
-    assert risk.daily_loss_breached(Decimal("3.0"))
+def test_atr_trailing_not_triggered_when_unprofitable():
+    """ATR trailing should not fire if bid doesn't cover round-trip fees."""
+    risk = RiskEngine(make_settings())
+    pos = _position()
+    pos.entry_spot = Decimal("500.00")
+    pos.entry_atr = Decimal("0.50")
+    pos.peak_spot = Decimal("501.00")
+    pos.highest_bid = Decimal("1.30")
+    # QQQ retraces 0.60 (>= ATR) but bid barely above entry → fees eat profit
+    result = risk.exit_decision(pos, Decimal("1.02"), NOW, current_spot=Decimal("500.40"))
+    assert result is None
 
 
-def test_exit_stop_loss():
-    settings = Settings(trading_mode="replay")
-    risk = RiskEngine(settings)
-    now = datetime(2026, 7, 15, 15, 0, tzinfo=timezone.utc)  # 11:00 ET
-    pos = Position("OPT.US", Direction.CALL, 5, Decimal("2.00"), now, stop_price=Decimal("1.50"))
-    decision = risk.exit_decision(pos, Decimal("1.40"), now, r_value=Decimal("0.50"))
-    assert decision is not None
-    assert decision.reason is ExitReason.STOP_LOSS
-    assert decision.quantity == 5
-
-
-def test_exit_take_profit_1_reduces_half():
-    settings = Settings(trading_mode="replay")
-    risk = RiskEngine(settings)
-    now = datetime(2026, 7, 15, 15, 0, tzinfo=timezone.utc)
-    pos = Position("OPT.US", Direction.CALL, 6, Decimal("2.00"), now, stop_price=Decimal("1.50"))
-    r_value = Decimal("0.50")  # 1R = $0.50 per contract
-    # bid at +1R => entry + 0.50 = 2.50
-    decision = risk.exit_decision(pos, Decimal("2.50"), now, r_value=r_value)
-    assert decision is not None
-    assert decision.reason is ExitReason.TAKE_PROFIT_1
-    assert decision.quantity == 3  # (6+1)//2 = 3
-
-
-def test_exit_take_profit_2_full_exit():
-    settings = Settings(trading_mode="replay")
-    risk = RiskEngine(settings)
-    now = datetime(2026, 7, 15, 15, 0, tzinfo=timezone.utc)
-    pos = Position("OPT.US", Direction.CALL, 5, Decimal("2.00"), now,
-                   stop_price=Decimal("1.50"), first_target_taken=True)
-    r_value = Decimal("0.50")
-    # bid at +2.5R => entry + 1.25 = 3.25
-    decision = risk.exit_decision(pos, Decimal("3.25"), now, r_value=r_value)
-    assert decision is not None
-    assert decision.reason is ExitReason.TAKE_PROFIT_2
-    assert decision.quantity == 5
-
-
-def test_exit_stale_position():
-    settings = Settings(trading_mode="replay", stale_minutes=20)
-    risk = RiskEngine(settings)
-    opened_at = datetime(2026, 7, 15, 14, 0, tzinfo=timezone.utc)
-    now = opened_at + timedelta(minutes=25)
-    pos = Position("OPT.US", Direction.CALL, 3, Decimal("2.00"), opened_at,
-                   stop_price=Decimal("1.50"), first_target_taken=True)
-    r_value = Decimal("0.50")
-    # Losing money (bid < entry) after stale_minutes
-    decision = risk.exit_decision(pos, Decimal("1.90"), now, r_value=r_value)
-    assert decision is not None
-    assert decision.reason is ExitReason.STALE_POSITION
-
-
-def test_exit_forced_close():
-    settings = Settings(trading_mode="replay")
-    risk = RiskEngine(settings)
-    now = datetime(2026, 7, 15, 18, 0, tzinfo=timezone.utc)  # 14:00 ET
-    pos = Position("OPT.US", Direction.CALL, 3, Decimal("2.00"),
-                   datetime(2026, 7, 15, 15, 0, tzinfo=timezone.utc),
-                   stop_price=Decimal("1.50"))
-    decision = risk.exit_decision(pos, Decimal("2.20"), now, r_value=Decimal("0.50"))
-    assert decision is not None
-    assert decision.reason is ExitReason.FORCED_CLOSE
-
-
-def test_exit_midday_reduce():
-    settings = Settings(trading_mode="replay", reduce_at=time(13, 0))
-    risk = RiskEngine(settings)
-    # reduce_at = 13:00 ET = 17:00 UTC
-    now = datetime(2026, 7, 15, 17, 1, tzinfo=timezone.utc)
-    pos = Position("OPT.US", Direction.CALL, 4, Decimal("2.00"),
-                   datetime(2026, 7, 15, 14, 0, tzinfo=timezone.utc),
-                   stop_price=Decimal("1.50"))
-    decision = risk.exit_decision(pos, Decimal("2.20"), now, r_value=Decimal("0.50"))
-    assert decision is not None
-    assert decision.reason is ExitReason.MIDDAY_REDUCE
-    assert decision.quantity == 2  # (4+1)//2
-
-
-def test_no_exit_when_healthy():
-    settings = Settings(trading_mode="replay")
-    risk = RiskEngine(settings)
-    now = datetime(2026, 7, 15, 15, 0, tzinfo=timezone.utc)  # 11:00 ET
-    pos = Position("OPT.US", Direction.CALL, 5, Decimal("2.00"), now,
-                   stop_price=Decimal("1.50"), first_target_taken=True)
-    r_value = Decimal("0.50")
-    # +0.8R, not stale (just opened), not at stop
-    decision = risk.exit_decision(pos, Decimal("2.40"), now, r_value=r_value)
-    assert decision is None
+def test_daily_loss_is_fixed_at_two_percent():
+    risk = RiskEngine(make_settings())
+    assert not risk.daily_loss_breached(Decimal("-199.99"), Decimal("10000"))
+    assert risk.daily_loss_breached(Decimal("-200"), Decimal("10000"))

@@ -11,10 +11,13 @@ from uuid import uuid4
 from .backtest import EventDrivenBacktester, load_option_frames
 from .config import Settings
 from .configuration import editable_values, with_editable_values
+from .domain import TradingMode
 from .persistence import MySQLJournal, ParquetMarketStore
+from .policy import RULES
 from .reporting import generate_price_chart
 from .risk import ContractSelector, RiskEngine
-from .strategy import strategy_from_settings
+from .strategy import bollinger_bands, ema_series
+from .strategy import vwap as calc_vwap
 
 
 class BacktestCancelled(Exception):
@@ -208,7 +211,14 @@ class BacktestService:
         end = date.fromisoformat(request["end_date"])
         values: dict[str, Any] = request.get("_config_values", {})
         settings = with_editable_values(
-            self.settings.model_copy(update={"trading_mode": "replay"}), values
+            self.settings.model_copy(update={"trading_mode": TradingMode.REPLAY}), values
+        )
+        settings = settings.model_copy(
+            update={
+                "strategy_profile": request.get(
+                    "strategy_profile", settings.strategy_profile
+                )
+            }
         )
         log.info("backtest starting | %s to %s", start, end)
         bars = []
@@ -264,22 +274,37 @@ class BacktestService:
                 volatility_daily.extend(ParquetMarketStore.read_bars(vol_day_root / "day.parquet"))
             vol_cursor = date.fromordinal(vol_cursor.toordinal() + 1)
         if not bars:
-            raise ValueError("no QQQ 5-minute bars exist in the selected date range")
+            raise ValueError("no QQQ 1-minute bars exist in the selected date range")
+        warmup_bars = []
+        warmup_cursor = start - timedelta(days=35)
+        while warmup_cursor < start:
+            warmup_path = (
+                settings.data_dir
+                / "bars"
+                / f"symbol={settings.underlying_symbol}"
+                / f"date={warmup_cursor.isoformat()}"
+                / "1m.parquet"
+            )
+            if warmup_path.exists():
+                warmup_bars.extend(ParquetMarketStore.read_bars(warmup_path))
+            warmup_cursor = date.fromordinal(warmup_cursor.toordinal() + 1)
         if cancel_event.is_set():
             raise BacktestCancelled()
         tester = EventDrivenBacktester(
             settings,
-            strategy_from_settings(settings),
-            ContractSelector(settings.strike_offset),
+            None,
+            ContractSelector(),
             RiskEngine(settings),
         )
         result = tester.run(
             bars,
             frames,
-            Decimal(str(request.get("starting_equity", "100000"))),
+            Decimal(str(request.get("starting_equity", "10000"))),
             volatility,
             volatility_daily,
             cancel_check=cancel_event.is_set,
+            trade_start=start,
+            warmup_bars=warmup_bars,
         )
         wins = sum(1 for trade in result.trades if trade.pnl > 0)
         net = result.ending_equity - result.starting_equity
@@ -299,11 +324,15 @@ class BacktestService:
             [(t.entry_at.isoformat(), t.exit_at.isoformat()) for t in result.trades],
         )
         sorted_bars = sorted(bars, key=lambda x: x.start)
-        from .strategy import ema_series, vwap as calc_vwap
         from zoneinfo import ZoneInfo
+
         et = ZoneInfo("America/New_York")
-        ema_fast = int(getattr(settings, "ema_fast_period", 9))
-        ema_slow = int(getattr(settings, "ema_slow_period", 20))
+        if settings.strategy_profile == "timed_trend":
+            ema_fast = 9
+            ema_slow = RULES.timed_slow_ema_period
+        else:
+            ema_fast = int(getattr(settings, "ema_fast_period", 9))
+            ema_slow = int(getattr(settings, "ema_slow_period", 20))
         all_closes: list[Decimal] = []
         full_series: list[dict[str, Any]] = []
         day_bars: list[Any] = []
@@ -324,7 +353,17 @@ class BacktestService:
                 ema9_vals = ema_series(all_closes, ema_fast)
                 ema20_vals = ema_series(all_closes, ema_slow)
                 point["ema9"] = float(ema9_vals[-1])
-                point["ema21"] = float(ema20_vals[-1])
+                point["ema20"] = float(ema20_vals[-1])
+                point["ema_slow"] = float(ema20_vals[-1])
+            if len(all_closes) >= settings.bollinger_period:
+                upper, middle, lower = bollinger_bands(
+                    all_closes,
+                    settings.bollinger_period,
+                    settings.bollinger_stddev,
+                )
+                point["bb_upper"] = float(upper)
+                point["bb_middle"] = float(middle)
+                point["bb_lower"] = float(lower)
             if day_bars:
                 point["vwap"] = float(calc_vwap(day_bars))
             full_series.append(point)
@@ -348,22 +387,31 @@ class BacktestService:
             "trades": [self._trade_payload(trade) for trade in result.trades],
             "chart_svg": chart_svg,
             "price_series": price_series,
+            "indicator_timeframe": "1m",
+            "indicator_periods": {
+                "ema_fast": ema_fast,
+                "ema_slow": ema_slow,
+            },
             "settings_used": editable_values(settings),
+            "strategy_profile": settings.strategy_profile,
         }
 
     @staticmethod
     def _trade_payload(trade) -> dict[str, Any]:
-        payload = asdict(trade)
-        return {
-            key: value.value
-            if hasattr(value, "value")
-            else value.isoformat()
-            if hasattr(value, "isoformat")
-            else str(value)
-            if isinstance(value, Decimal)
-            else value
-            for key, value in payload.items()
-        }
+        def convert(value):
+            if hasattr(value, "value"):
+                return value.value
+            if hasattr(value, "isoformat"):
+                return value.isoformat()
+            if isinstance(value, Decimal):
+                return str(value)
+            if isinstance(value, dict):
+                return {key: convert(item) for key, item in value.items()}
+            if isinstance(value, (list, tuple)):
+                return [convert(item) for item in value]
+            return value
+
+        return convert(asdict(trade))
 
     async def _persist(self, job: dict[str, Any]) -> None:
         saver = getattr(self.journal, "save_backtest_run", None)

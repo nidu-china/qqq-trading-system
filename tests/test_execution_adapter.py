@@ -12,6 +12,7 @@ from qqq_trader.adapters.longbridge import (
     LongbridgeMarketData,
     LongbridgeSession,
 )
+from conftest import make_settings
 from qqq_trader.config import Settings
 from qqq_trader.domain import BrokerOrder, OrderRequest, OrderSide, Quote
 from qqq_trader.execution import OrderExecutor
@@ -50,18 +51,22 @@ class PartialBroker:
 @pytest.mark.asyncio
 async def test_repricing_only_submits_unfilled_remainder():
     broker = PartialBroker()
-    settings = Settings(entry_reprices=2)
+    settings = make_settings()
     executor = OrderExecutor(broker, MemoryJournal(), settings)
     now = datetime.now(timezone.utc)
 
     async def quote_supplier(symbol):
-        return Quote(symbol, now, Decimal("1.01"), Decimal("1"), Decimal("1.01"), 100, 100)
+        return Quote(symbol, now, Decimal("10"), Decimal("1"), Decimal("10"), 100, 100)
 
     result = await executor.entry(
         OrderRequest("OPT.US", OrderSide.BUY, 4, Decimal("1")), quote_supplier
     )
     assert result is not None and result.filled_quantity == 4
     assert [request.quantity for request in broker.requests] == [4, 2]
+    assert [request.limit_price for request in broker.requests] == [
+        Decimal("1"),
+        Decimal("1.02"),
+    ]
 
 
 class FakeQuoteContext:
@@ -129,7 +134,7 @@ class FakeTradeContext:
 
 @pytest.mark.asyncio
 async def test_longbridge_adapter_matches_v4_positional_signatures():
-    settings = Settings()
+    settings = make_settings()
     session = LongbridgeSession(settings)
     session.quote = FakeQuoteContext()
     session.trade = FakeTradeContext()
@@ -156,7 +161,7 @@ async def test_longbridge_history_request_has_an_application_timeout():
             await asyncio.sleep(1)
             return []
 
-    settings = Settings(_env_file=None, longbridge_request_timeout_seconds="0.01")
+    settings = make_settings(longbridge_request_timeout_seconds="0.01")
     session = LongbridgeSession(settings)
     session.quote = SlowHistoryQuote()
     market = LongbridgeMarketData(session)
@@ -175,7 +180,7 @@ async def test_longbridge_history_is_requested_one_day_at_a_time():
             self.ranges.append((start, end))
             return []
 
-    settings = Settings(_env_file=None)
+    settings = make_settings()
     session = LongbridgeSession(settings)
     session.quote = RecordingHistoryQuote()
     market = LongbridgeMarketData(session)
