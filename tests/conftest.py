@@ -9,28 +9,22 @@ from qqq_trader.config import Settings
 from qqq_trader.domain import Bar
 
 _TRADING_DEFAULTS = {
-    "max_premium_fraction": "0.05",
+    "max_premium_fraction": "0.50",
     "max_contracts": 10,
     "max_trades_per_day": 5,
     "cooldown_minutes": 5,
-    "daily_loss_limit": "0.02",
     "fee_per_contract": "1.50",
     "slippage_quote": "0.02",
     "option_stop_loss_pct": "0.25",
     "tp1_profit_pct": "1.0",
     "tp2_profit_pct": "2.5",
     "trailing_atr_multiplier": "0.5",
-    "stale_minutes": 30,
+    "stale_minutes": 20,
     "max_spread_ratio": "0.10",
     "max_spread_absolute": "0.20",
     "min_open_interest": 100,
     "min_option_volume": 10,
     "target_delta": "0.45",
-    "timed_opening_volume_ratio": "2.0",
-    "timed_opening_range_ratio": "0.75",
-    "timed_opening_body_ratio": "0.65",
-    "timed_opening_close_extreme": "0.35",
-    "timed_slow_ema_period": 21,
 }
 
 

@@ -12,12 +12,11 @@ from .backtest import EventDrivenBacktester, load_option_frames
 from .config import Settings
 from .configuration import editable_values, with_editable_values
 from .domain import TradingMode
+from .indicators import bollinger_bands, macd_histogram
 from .persistence import MySQLJournal, ParquetMarketStore
 from .policy import RULES
 from .reporting import generate_price_chart
 from .risk import ContractSelector, RiskEngine
-from .strategy import bollinger_bands, ema_series
-from .strategy import vwap as calc_vwap
 
 
 class BacktestCancelled(Exception):
@@ -213,13 +212,6 @@ class BacktestService:
         settings = with_editable_values(
             self.settings.model_copy(update={"trading_mode": TradingMode.REPLAY}), values
         )
-        settings = settings.model_copy(
-            update={
-                "strategy_profile": request.get(
-                    "strategy_profile", settings.strategy_profile
-                )
-            }
-        )
         log.info("backtest starting | %s to %s", start, end)
         bars = []
         frames = {}
@@ -327,12 +319,6 @@ class BacktestService:
         from zoneinfo import ZoneInfo
 
         et = ZoneInfo("America/New_York")
-        if settings.strategy_profile == "timed_trend":
-            ema_fast = 9
-            ema_slow = RULES.timed_slow_ema_period
-        else:
-            ema_fast = int(getattr(settings, "ema_fast_period", 9))
-            ema_slow = int(getattr(settings, "ema_slow_period", 20))
         all_closes: list[Decimal] = []
         full_series: list[dict[str, Any]] = []
         day_bars: list[Any] = []
@@ -349,23 +335,31 @@ class BacktestService:
                 "price": float(b.close),
                 "volume": b.volume,
             }
-            if len(all_closes) >= ema_slow:
-                ema9_vals = ema_series(all_closes, ema_fast)
-                ema20_vals = ema_series(all_closes, ema_slow)
-                point["ema9"] = float(ema9_vals[-1])
-                point["ema20"] = float(ema20_vals[-1])
-                point["ema_slow"] = float(ema20_vals[-1])
-            if len(all_closes) >= settings.bollinger_period:
+            boll_period = RULES.timed_boll_period
+            boll_stddev = RULES.timed_boll_stddev
+            if len(all_closes) >= boll_period:
                 upper, middle, lower = bollinger_bands(
                     all_closes,
-                    settings.bollinger_period,
-                    settings.bollinger_stddev,
+                    boll_period,
+                    boll_stddev,
                 )
                 point["bb_upper"] = float(upper)
                 point["bb_middle"] = float(middle)
                 point["bb_lower"] = float(lower)
-            if day_bars:
-                point["vwap"] = float(calc_vwap(day_bars))
+            macd_fast_p = RULES.timed_macd_fast
+            macd_slow_p = RULES.timed_macd_slow
+            macd_sig_p = RULES.timed_macd_signal
+            macd_required = macd_slow_p + macd_sig_p - 1
+            if len(all_closes) >= macd_required:
+                macd_line, signal_line, histogram = macd_histogram(
+                    all_closes,
+                    macd_fast_p,
+                    macd_slow_p,
+                    macd_sig_p,
+                )
+                point["macd"] = float(macd_line)
+                point["macd_signal"] = float(signal_line)
+                point["macd_hist"] = float(histogram)
             full_series.append(point)
         price_series = full_series
         return {
@@ -389,11 +383,19 @@ class BacktestService:
             "price_series": price_series,
             "indicator_timeframe": "1m",
             "indicator_periods": {
-                "ema_fast": ema_fast,
-                "ema_slow": ema_slow,
+                "boll": [
+                    RULES.timed_boll_period,
+                    str(RULES.timed_boll_stddev),
+                ],
+                "macd": [
+                    RULES.timed_macd_fast,
+                    RULES.timed_macd_slow,
+                    RULES.timed_macd_signal,
+                ],
+                "rsi": RULES.timed_rsi_period,
+                "volume_lookback": RULES.timed_volume_lookback,
             },
             "settings_used": editable_values(settings),
-            "strategy_profile": settings.strategy_profile,
         }
 
     @staticmethod

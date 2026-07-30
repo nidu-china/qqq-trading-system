@@ -6,14 +6,13 @@ from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
+from conftest import make_settings
 
 from qqq_trader.adapters.longbridge import (
     LongbridgeBroker,
     LongbridgeMarketData,
     LongbridgeSession,
 )
-from conftest import make_settings
-from qqq_trader.config import Settings
 from qqq_trader.domain import BrokerOrder, OrderRequest, OrderSide, Quote
 from qqq_trader.execution import OrderExecutor
 from qqq_trader.persistence import MemoryJournal
@@ -114,6 +113,9 @@ class FakeTradeContext:
     def __init__(self):
         self.submit_args = None
 
+    async def today_orders(self):
+        return []
+
     async def submit_order(self, *args):
         self.submit_args = args
         return SimpleNamespace(order_id="123")
@@ -147,6 +149,8 @@ async def test_longbridge_adapter_matches_v4_positional_signatures():
     assert len(session.quote.candlestick_args) == 5
 
     broker = LongbridgeBroker(session, settings)
+    assert await broker.open_orders() == []
+    assert await broker.today_orders() == []
     request = OrderRequest("QQQ260715C100000.US", OrderSide.BUY, 1, Decimal("1"))
     order = await broker.submit_limit(request)
     assert order.filled_quantity == 1

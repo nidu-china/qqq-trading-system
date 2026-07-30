@@ -2,6 +2,7 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 from conftest import make_settings
+
 from qqq_trader.domain import Direction, ExitReason, OptionContract, Position, Quote
 from qqq_trader.risk import ContractSelector, RiskEngine
 
@@ -57,21 +58,22 @@ def test_liquidity_and_absolute_quote_slippage_rules():
     assert risk.quote_problem(stale, NOW + timedelta(seconds=3)) == "stale_quote"
     wide = Quote("C500", NOW, Decimal("1"), Decimal("0.80"), Decimal("1.20"), 100, 500)
     assert risk.quote_problem(wide, NOW) == "absolute_spread_too_wide"
-    # 25% option stop plus $0.02 entry/exit quote slippage and $3 round-trip fee.
-    assert risk.planned_loss_per_contract(Decimal("1.00")) == Decimal("30.50")
-
-
-def test_position_size_obeys_premium_daily_budget_and_contract_cap():
+def test_position_size_obeys_premium_budget_and_contract_cap():
     risk = RiskEngine(make_settings())
-    # $10k * 5% premium permits four $1.02 contracts; daily risk also permits four.
-    assert risk.position_size(Decimal("10000"), Decimal("1"), Decimal("200")) == 4
-    assert risk.position_size(Decimal("100000"), Decimal("0.10"), Decimal("10000")) == 10
-    assert risk.position_size(Decimal("10000"), Decimal("1"), Decimal("30")) == 0
+    assert risk.position_size(Decimal("10000"), Decimal("1")) == 10
+    assert risk.position_size(Decimal("100000"), Decimal("0.10")) == 10
+    assert risk.position_size(Decimal("1000"), Decimal("1")) == 4
+    assert risk.position_size(
+        Decimal("10000"), Decimal("1"), size_factor=Decimal("0.5")
+    ) == 5
 
 
 def test_option_stop_targets_trailing_stale_midday_and_forced_close():
     risk = RiskEngine(make_settings())
     assert risk.exit_decision(_position(), Decimal("0.75"), NOW).reason is ExitReason.STOP_LOSS
+    timed = _position()
+    timed.strategy_name = "timed_boll_macd_signal"
+    assert risk.exit_decision(timed, Decimal("0.75"), NOW).reason is ExitReason.STOP_LOSS
 
     tp1 = risk.exit_decision(_position(5), Decimal("2.00"), NOW)
     assert tp1 is not None and tp1.reason is ExitReason.TAKE_PROFIT_1 and tp1.quantity == 3
@@ -92,7 +94,7 @@ def test_option_stop_targets_trailing_stale_midday_and_forced_close():
     assert risk.exit_decision(fees_would_erase_profit, Decimal("1.02"), NOW) is None
 
     stale = _position()
-    stale.opened_at = NOW - timedelta(minutes=31)
+    stale.opened_at = NOW - timedelta(minutes=21)
     assert risk.exit_decision(stale, Decimal("0.99"), NOW).reason is ExitReason.STALE_POSITION
 
     midday = _position(5)
@@ -154,9 +156,3 @@ def test_atr_trailing_not_triggered_when_unprofitable():
     # QQQ retraces 0.60 (>= ATR) but bid barely above entry → fees eat profit
     result = risk.exit_decision(pos, Decimal("1.02"), NOW, current_spot=Decimal("500.40"))
     assert result is None
-
-
-def test_daily_loss_is_fixed_at_two_percent():
-    risk = RiskEngine(make_settings())
-    assert not risk.daily_loss_breached(Decimal("-199.99"), Decimal("10000"))
-    assert risk.daily_loss_breached(Decimal("-200"), Decimal("10000"))

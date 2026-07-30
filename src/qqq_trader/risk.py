@@ -88,60 +88,36 @@ class RiskEngine:
             return "insufficient_volume"
         return None
 
-    def planned_loss_per_contract(self, entry_price: Decimal) -> Decimal:
-        rules = self.rules
-        estimated_entry = entry_price + rules.slippage_quote
-        estimated_stop = max(
-            Decimal("0.01"),
-            estimated_entry * (Decimal(1) - rules.option_stop_loss_pct)
-            - rules.slippage_quote,
-        )
-        return (
-            (estimated_entry - estimated_stop) * Decimal(100)
-            + rules.fee_per_contract * Decimal(2)
-        )
-
     def position_size(
         self,
         equity: Decimal,
         entry_price: Decimal,
-        remaining_daily_loss: Decimal,
         size_factor: Decimal = Decimal("1"),
     ) -> int:
         rules = self.rules
-        if equity <= 0 or entry_price <= 0 or remaining_daily_loss <= 0 or size_factor <= 0:
+        if equity <= 0 or entry_price <= 0 or size_factor <= 0:
             return 0
         estimated_entry = entry_price + rules.slippage_quote
         premium_cost = estimated_entry * Decimal(100) + rules.fee_per_contract
-        planned_loss = self.planned_loss_per_contract(entry_price)
         by_premium = int(
             (equity * rules.max_premium_fraction / premium_cost).to_integral_value(
                 rounding=ROUND_FLOOR
             )
         )
-        by_daily_risk = int(
-            (remaining_daily_loss / planned_loss).to_integral_value(rounding=ROUND_FLOOR)
-        )
-        normal = min(by_premium, by_daily_risk, rules.max_contracts)
+        normal = min(by_premium, rules.max_contracts)
         return max(
             0,
             int((Decimal(normal) * size_factor).to_integral_value(rounding=ROUND_FLOOR)),
         )
-
-    def daily_loss_breached(self, day_pnl: Decimal, opening_equity: Decimal) -> bool:
-        return opening_equity > 0 and day_pnl <= -(opening_equity * self.rules.daily_loss_limit)
 
     def exit_decision(
         self,
         position: Position,
         executable_bid: Decimal,
         now: datetime,
-        daily_loss_breached: bool = False,
         current_spot: Decimal | None = None,
     ) -> ExitDecision | None:
         rules = self.rules
-        if daily_loss_breached:
-            return ExitDecision(ExitReason.DAILY_LOSS, position.quantity)
         from .config import NY_TZ
 
         local_time = now.astimezone(NY_TZ).time().replace(tzinfo=None)

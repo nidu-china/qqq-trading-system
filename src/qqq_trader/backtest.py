@@ -348,11 +348,8 @@ class EventDrivenBacktester:
         last_real_quote: Quote | None = None
         realized = Decimal(0)
         current_day: date | None = None
-        opening_equity = starting_equity
-        day_start_realized = Decimal(0)
         trades_today = 0
         cooldown_until: datetime | None = None
-        daily_halted = False
         last_processed: Bar | None = None
         cancelled = False
 
@@ -424,11 +421,8 @@ class EventDrivenBacktester:
             trading_day = bar.end.astimezone(NY_TZ).date()
             if trading_day != current_day:
                 current_day = trading_day
-                opening_equity = starting_equity + realized
-                day_start_realized = realized
                 trades_today = 0
                 cooldown_until = None
-                daily_halted = False
             available.append(bar)
             signal = self.strategy.evaluate(available)
 
@@ -447,40 +441,28 @@ class EventDrivenBacktester:
                     continue
                 if quote.bid is None:
                     continue
-                unrealized = (
-                    (quote.bid - position.entry_price)
-                    * Decimal(100)
-                    * position.quantity
-                )
-                day_pnl = realized - day_start_realized + unrealized
-                breached = self.risk.daily_loss_breached(day_pnl, opening_equity)
                 price_decision = self.risk.exit_decision(
                     position, quote.bid, bar.end,
-                    daily_loss_breached=breached,
                     current_spot=bar.close,
                 )
                 bar_decision = self.strategy.bar_exit_decision(position)
                 decision = price_decision
                 if (
                     price_decision is None
-                    or price_decision.reason
-                    not in {ExitReason.DAILY_LOSS, ExitReason.FORCED_CLOSE}
+                    or price_decision.reason is not ExitReason.FORCED_CLOSE
                 ):
                     decision = bar_decision or price_decision
                 if decision is not None:
                     close_leg(decision, quote, bar.end)
-                    if decision.reason is ExitReason.DAILY_LOSS:
-                        daily_halted = True
                 continue
 
             if (
                 signal is None
-                or daily_halted
                 or (trade_start is not None and trading_day < trade_start)
             ):
                 continue
             result.signals += 1
-            if trades_today >= RULES.max_trades_for(self.settings.strategy_profile):
+            if trades_today >= RULES.timed_max_trades_per_day:
                 result.reject("max_trades_per_day")
                 result.record_signal(signal, "rejected", "max_trades_per_day")
                 continue
@@ -523,12 +505,11 @@ class EventDrivenBacktester:
                 contract = synthetic.contract
                 quote_source = "synthetic"
                 result.option_data_complete = False
-            remaining_loss = opening_equity * RULES.daily_loss_limit + min(
-                realized - day_start_realized, Decimal(0)
-            )
-            size_factor = Decimal(signal.indicators.get("size_factor", "1"))
+            size_factor = Decimal(1)
             quantity = self.risk.position_size(
-                starting_equity + realized, quote.ask, remaining_loss, size_factor
+                starting_equity + realized,
+                quote.ask,
+                size_factor,
             )
             if quantity < 1:
                 result.reject("risk_budget_too_small")

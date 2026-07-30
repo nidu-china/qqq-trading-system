@@ -118,7 +118,7 @@ def backfill(
             bars = regular_session_bars(bars)
             store = ParquetMarketStore(settings.data_dir)
             store.replace_bars(bars, "1m")
-            from .strategy import BarAggregator
+            from .indicators import BarAggregator
 
             store.replace_bars(BarAggregator.to_five_minutes(bars), "5m")
             typer.echo(f"saved {len(bars)} {symbol} one-minute bars (market hours only)")
@@ -149,14 +149,9 @@ def backtest(
     volatility_bars: Path | None = typer.Option(None, exists=True),
     volatility_daily_bars: Path | None = typer.Option(None, exists=True),
     starting_equity: str = typer.Option("10000"),
-    strategy_profile: str = typer.Option(
-        "dynamic", help="Strategy profile: dynamic or timed_trend"
-    ),
 ) -> None:
     """Replay saved bars and optional captured candidate-option Bid/Ask frames."""
-    settings = Settings(
-        trading_mode="replay", strategy_profile=strategy_profile
-    )
+    settings = Settings(trading_mode="replay")
     saved_bars = ParquetMarketStore.read_bars_path(bars, "1m")
     frames = load_option_frames_path(option_frames) if option_frames else {}
     saved_volatility = (
@@ -180,10 +175,7 @@ def backtest(
         saved_volatility,
         saved_volatility_daily,
     )
-    payload = {
-        **_backtest_metrics(result),
-        "strategy_profile": settings.strategy_profile,
-    }
+    payload = _backtest_metrics(result)
 
     warnings = [
         message

@@ -7,12 +7,12 @@ from datetime import datetime, time, timedelta, timezone
 from .config import NY_TZ, Settings
 from .domain import SystemState
 from .engine import TradingEngine
+from .indicators import BarAggregator
 from .interfaces import VolatilityDataProvider
 from .market_hours import regular_session_bars
 from .persistence import ParquetMarketStore
 from .policy import RULES
 from .reporting import DailyReportData, DailyReportGenerator, TradeSummary
-from .strategy import BarAggregator
 
 
 class TradingService:
@@ -245,9 +245,7 @@ class TradingService:
     async def _capture_candidate_options(self, now, local, bars_5m) -> None:
         local_time = local.time().replace(tzinfo=None)
         if not (
-            RULES.entry_start_for(self.engine.settings.strategy_profile)
-            <= local_time
-            <= RULES.forced_close
+            RULES.timed_opening_start <= local_time <= RULES.forced_close
         ):
             return
         try:

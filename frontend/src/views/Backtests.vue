@@ -12,7 +12,6 @@ const form=reactive({
   dates:[] as string[],
   starting_equity:'10000',
   config_version:undefined as number|undefined,
-  strategy_profile:'dynamic',
 })
 const completeDates=computed(()=>availability.value.filter(x=>x.bars).map(x=>x.date))
 const chartRef=ref<HTMLElement>(), dateKey=(d:Date)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
@@ -39,6 +38,30 @@ const params = reactive<Record<string, any>>({
   volatility_shock_15m: 0.25,
 })
 
+const flattenedTrades = computed(() => {
+  const trades = selected.value?.result?.trades
+  if (!trades) return []
+  const rows: any[] = []
+  for (const t of trades) {
+    const legs = t.exit_legs
+    if (legs && legs.length > 1) {
+      for (const leg of legs) {
+        rows.push({
+          ...t,
+          leg_quantity: leg.quantity,
+          leg_exit_at: leg.exit_at,
+          leg_price: leg.price,
+          leg_pnl: leg.pnl,
+          leg_reason: leg.reason,
+        })
+      }
+    } else {
+      rows.push(t)
+    }
+  }
+  return rows
+})
+
 async function loadConfig() {
   try {
     const res = await api.get('/config')
@@ -57,7 +80,6 @@ async function submit(){
       end_date: form.dates[1],
       starting_equity: form.starting_equity,
       config_version: form.config_version,
-      strategy_profile: form.strategy_profile,
     }
     if (showParams.value) {
       payload.params = { ...params }
@@ -78,39 +100,69 @@ const prices=ps.map((x:any)=>x.price)
 const bbUpper=ps.map((x:any)=>x.bb_upper??null)
 const bbLower=ps.map((x:any)=>x.bb_lower??null)
 const bbMid=ps.map((x:any)=>x.bb_middle??null)
-const ema9=ps.map((x:any)=>x.ema9??null)
-const emaSlow=ps.map((x:any)=>x.ema_slow??x.ema20??null)
-const emaSlowLabel=`EMA${res.indicator_periods?.ema_slow??20}`
-const vwapLine=ps.map((x:any)=>x.vwap??null)
+const macdLine=ps.map((x:any)=>x.macd??null)
+const macdSignal=ps.map((x:any)=>x.macd_signal??null)
+const macdHist=ps.map((x:any)=>x.macd_hist??null)
 const vol=ps.map((x:any)=>x.volume??0)
 const buyPoints=(res.trades||[]).filter((t:any)=>t.entry_at).map((t:any)=>{const idx=ps.reduce((best:number,p:any,i:number)=>Math.abs(new Date(p.time).getTime()-new Date(t.entry_at).getTime())<Math.abs(new Date(ps[best].time).getTime()-new Date(t.entry_at).getTime())?i:best,0);return[idx,prices[idx]]})
 const sellPoints=(res.trades||[]).filter((t:any)=>t.exit_at).map((t:any)=>{const idx=ps.reduce((best:number,p:any,i:number)=>Math.abs(new Date(p.time).getTime()-new Date(t.exit_at).getTime())<Math.abs(new Date(ps[best].time).getTime()-new Date(t.exit_at).getTime())?i:best,0);return[idx,prices[idx]]})
 chart.setOption({
-  grid:[{left:60,right:20,top:30,height:'60%'},{left:60,right:20,top:'75%',height:'18%'}],
+  grid:[
+    {left:60,right:20,top:30,height:'46%'},
+    {left:60,right:20,top:'56%',height:'12%'},
+    {left:60,right:20,top:'72%',height:'18%'},
+  ],
   tooltip:{trigger:'axis',axisPointer:{type:'cross'}},
-  legend:{data:['QQQ','布林上轨','布林中轨','布林下轨','EMA9',emaSlowLabel,'VWAP','买入','卖出','成交量'],top:0,textStyle:{color:'#7890ad',fontSize:10}},
+  legend:{data:['QQQ','布林上轨','布林中轨','布林下轨','买入','卖出','MACD','Signal','Histogram','成交量'],top:0,textStyle:{color:'#7890ad',fontSize:10}},
   xAxis:[
     {type:'category',data:times,gridIndex:0,axisLabel:{show:false}},
-    {type:'category',data:times,gridIndex:1,axisLabel:{color:'#7890ad',fontSize:9,rotate:30}},
+    {type:'category',data:times,gridIndex:1,axisLabel:{show:false}},
+    {type:'category',data:times,gridIndex:2,axisLabel:{color:'#7890ad',fontSize:9,rotate:30}},
   ],
   yAxis:[
     {type:'value',scale:true,gridIndex:0,axisLabel:{color:'#7890ad',formatter:'${value}'},splitLine:{lineStyle:{color:'#1a2a3d'}}},
-    {type:'value',gridIndex:1,axisLabel:{color:'#7890ad',fontSize:9},splitLine:{lineStyle:{color:'#1a2a3d'}}},
+    {type:'value',scale:true,gridIndex:1,axisLabel:{color:'#7890ad',fontSize:9},splitLine:{lineStyle:{color:'#1a2a3d',type:'dashed'}}},
+    {type:'value',gridIndex:2,axisLabel:{color:'#7890ad',fontSize:9},splitLine:{lineStyle:{color:'#1a2a3d'}}},
   ],
   series:[
     {name:'QQQ',type:'line',xAxisIndex:0,yAxisIndex:0,data:prices,showSymbol:false,lineStyle:{color:'#3457d5',width:1.5},z:2},
     {name:'布林上轨',type:'line',xAxisIndex:0,yAxisIndex:0,data:bbUpper,showSymbol:false,lineStyle:{color:'#f59e0b',width:1,type:'dashed'},z:1},
     {name:'布林中轨',type:'line',xAxisIndex:0,yAxisIndex:0,data:bbMid,showSymbol:false,lineStyle:{color:'#7890ad',width:1,type:'dotted'},z:1},
     {name:'布林下轨',type:'line',xAxisIndex:0,yAxisIndex:0,data:bbLower,showSymbol:false,lineStyle:{color:'#f59e0b',width:1,type:'dashed'},z:1},
-    {name:'EMA9',type:'line',xAxisIndex:0,yAxisIndex:0,data:ema9,showSymbol:false,lineStyle:{color:'#22c55e',width:1.2},z:1},
-    {name:emaSlowLabel,type:'line',xAxisIndex:0,yAxisIndex:0,data:emaSlow,showSymbol:false,lineStyle:{color:'#f472b6',width:1.2},z:1},
-    {name:'VWAP',type:'line',xAxisIndex:0,yAxisIndex:0,data:vwapLine,showSymbol:false,lineStyle:{color:'#a78bfa',width:1.5,type:'dotted'},z:1},
     {name:'买入',type:'scatter',xAxisIndex:0,yAxisIndex:0,data:buyPoints,symbol:'triangle',symbolSize:14,itemStyle:{color:'#22c55e'},z:10},
     {name:'卖出',type:'scatter',xAxisIndex:0,yAxisIndex:0,data:sellPoints,symbol:'diamond',symbolSize:14,itemStyle:{color:'#ef4444'},z:10},
-    {name:'成交量',type:'bar',xAxisIndex:1,yAxisIndex:1,data:vol,barWidth:'60%',itemStyle:{color:'rgba(100,130,170,0.5)'}},
+    {name:'MACD',type:'line',xAxisIndex:1,yAxisIndex:1,data:macdLine,showSymbol:false,lineStyle:{color:'#e6a23c',width:1.5},connectNulls:true},
+    {name:'Signal',type:'line',xAxisIndex:1,yAxisIndex:1,data:macdSignal,showSymbol:false,lineStyle:{color:'#409eff',width:1.5},connectNulls:true},
+    {name:'Histogram',type:'bar',xAxisIndex:1,yAxisIndex:1,data:macdHist,itemStyle:{color:(p:any)=>{const v=p.data as number|null;if(v==null)return'transparent';return v>=0?'rgba(38,166,91,0.7)':'rgba(220,53,69,0.7)'}}},
+    {name:'成交量',type:'bar',xAxisIndex:2,yAxisIndex:2,data:vol,barWidth:'60%',itemStyle:{color:'rgba(100,130,170,0.5)'}},
   ],
-  dataZoom:[{type:'inside',xAxisIndex:[0,1],start:0,end:100}]
+  dataZoom:[{type:'inside',xAxisIndex:[0,1,2],start:0,end:100}]
 },true)},{deep:true})
+
+const EXIT_REASON_LABELS: Record<string, string> = {
+  stop_loss: '止损',
+  take_profit_1: '止盈1',
+  take_profit_2: '止盈2',
+  trailing_stop: '移动止盈',
+  structure_stop: '结构止损',
+  forced_close: '尾盘清仓',
+  stale_position: '超时平仓',
+  midday_reduce: '午间减仓',
+  daily_loss: '日亏损限制',
+  vwap_cross: 'VWAP穿越',
+  bollinger_middle: 'BOLL中轨',
+  bollinger_upper: 'BOLL上轨',
+  state_invalidation: '状态失效',
+  opening_cutoff: '开盘截止',
+}
+function exitReasonLabel(key: string): string {
+  return EXIT_REASON_LABELS[key] || key.replace(/_/g, ' ')
+}
+function exitReasonType(key: string): string {
+  if (key === 'take_profit_1' || key === 'take_profit_2' || key === 'trailing_stop') return 'success'
+  if (key === 'stop_loss' || key === 'structure_stop' || key === 'daily_loss') return 'danger'
+  return 'info'
+}
 
 const REJECT_LABELS: Record<string, string> = {
   volatility_unavailable_stale_intraday_data: 'VIX 盘中数据过期',
@@ -190,10 +242,6 @@ function visibleStrategyKeys(settings: Record<string, any>): string[] {
     <div class="toolbar">
       <el-date-picker v-model="form.dates" type="daterange" value-format="YYYY-MM-DD" :disabled-date="(d: Date)=>!completeDates.includes(dateKey(d))" start-placeholder="开始日期" end-placeholder="结束日期"/>
       <el-input v-model="form.starting_equity" placeholder="初始权益" style="width:150px"><template #prepend>$</template></el-input>
-      <el-select v-model="form.strategy_profile" style="width:190px">
-        <el-option label="动态结构策略" value="dynamic"/>
-        <el-option label="分时趋势做T" value="timed_trend"/>
-      </el-select>
       <el-select v-model="form.config_version" clearable placeholder="当前环境参数" style="width:180px"><el-option v-for="v in versions" :key="v.version" :label="`参数版本 v${v.version}`" :value="v.version"/></el-select>
       <el-button :type="showParams?'warning':'default'" @click="showParams=!showParams">{{ showParams ? '收起参数' : '自定义参数' }}</el-button>
       <el-button type="primary" :loading="submitting" @click="submit">开始回测</el-button>
@@ -286,7 +334,7 @@ function visibleStrategyKeys(settings: Record<string, any>): string[] {
         <!-- QQQ 走势 + 买卖点 -->
         <div v-if="selected.result.price_series?.length" class="result-section">
           <h3>QQQ 走势与交易点</h3>
-          <div ref="chartRef" style="height:480px"></div>
+          <div ref="chartRef" style="height:560px"></div>
         </div>
 
         <!-- 信号与数据统计 -->
@@ -360,14 +408,16 @@ function visibleStrategyKeys(settings: Record<string, any>): string[] {
   <!-- 交易明细 -->
   <div v-if="selected?.result?.trades?.length" class="panel" style="margin-top:18px">
     <div class="panel-title"><h2>回测交易明细</h2><span>{{ selected.result.trades.length }} 笔</span></div>
-    <el-table :data="selected.result.trades" stripe>
-      <el-table-column label="合约" min-width="200"><template #default="s"><code>{{ s.row.symbol }}</code></template></el-table-column>
-      <el-table-column label="方向" width="80"><template #default="s"><el-tag :type="s.row.direction==='call'?'success':'danger'" size="small">{{ s.row.direction==='call'?'看涨':'看跌' }}</el-tag></template></el-table-column>
-      <el-table-column prop="quantity" label="数量" width="70" align="center"/>
-      <el-table-column label="入场价" width="100" align="right"><template #default="s">${{ Number(s.row.entry_price).toFixed(2) }}</template></el-table-column>
-      <el-table-column label="出场价" width="100" align="right"><template #default="s">${{ Number(s.row.exit_price).toFixed(2) }}</template></el-table-column>
-      <el-table-column label="盈亏" width="120" align="right"><template #default="s"><span :class="Number(s.row.pnl)>=0?'positive':'negative'">${{ Number(s.row.pnl).toFixed(2) }}</span></template></el-table-column>
-      <el-table-column label="出场原因" width="120"><template #default="s"><el-tag size="small" :type="s.row.reason==='take_profit_1'||s.row.reason==='take_profit_2'?'success':s.row.reason==='stop_loss'?'danger':'info'">{{ s.row.reason }}</el-tag></template></el-table-column>
+    <el-table :data="flattenedTrades" stripe row-class-name="trade-row">
+      <el-table-column label="合约" min-width="180"><template #default="s"><code>{{ s.row.symbol }}</code></template></el-table-column>
+      <el-table-column label="方向" width="70"><template #default="s"><el-tag :type="s.row.direction==='call'?'success':'danger'" size="small">{{ s.row.direction==='call'?'看涨':'看跌' }}</el-tag></template></el-table-column>
+      <el-table-column label="数量" width="60" align="center"><template #default="s">{{ s.row.leg_quantity ?? s.row.quantity }}</template></el-table-column>
+      <el-table-column label="入场时间" width="140"><template #default="s">{{ etTime(s.row.entry_at) }}</template></el-table-column>
+      <el-table-column label="入场价" width="90" align="right"><template #default="s">${{ Number(s.row.entry_price).toFixed(2) }}</template></el-table-column>
+      <el-table-column label="出场时间" width="140"><template #default="s">{{ etTime(s.row.leg_exit_at ?? s.row.exit_at) }}</template></el-table-column>
+      <el-table-column label="出场价" width="90" align="right"><template #default="s">${{ Number(s.row.leg_price ?? s.row.exit_price).toFixed(2) }}</template></el-table-column>
+      <el-table-column label="盈亏" width="100" align="right"><template #default="s"><span :class="Number(s.row.leg_pnl ?? s.row.pnl)>=0?'positive':'negative'">${{ Number(s.row.leg_pnl ?? s.row.pnl).toFixed(2) }}</span></template></el-table-column>
+      <el-table-column label="出场原因" width="110"><template #default="s"><el-tag size="small" :type="exitReasonType(s.row.leg_reason ?? s.row.exit_reason)">{{ exitReasonLabel(s.row.leg_reason ?? s.row.exit_reason) }}</el-tag></template></el-table-column>
     </el-table>
   </div>
 </template>

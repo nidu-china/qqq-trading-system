@@ -3,6 +3,7 @@ from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 from conftest import make_settings
+
 from qqq_trader.backtest import EventDrivenBacktester, OptionFrame
 from qqq_trader.domain import (
     Bar,
@@ -61,7 +62,10 @@ def _day_bars() -> list[Bar]:
 
 
 def test_synthetic_replay_aggregates_exit_legs_and_forces_close():
-    settings = make_settings(volatility_filter_enabled=False)
+    settings = make_settings(
+        volatility_filter_enabled=False,
+        stale_minutes=400,
+    )
     replay = EventDrivenBacktester(settings, strategy=OneSignalStrategy())
     result = replay.run(_day_bars(), {}, Decimal("10000"))
     assert result.signals == 1

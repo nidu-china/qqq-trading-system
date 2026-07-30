@@ -1,7 +1,6 @@
 import pytest
-
 from conftest import make_settings
-from qqq_trader.config import Settings
+
 from qqq_trader.configuration import editable_values, with_editable_values
 
 
@@ -15,7 +14,6 @@ def test_editable_values_exclude_credentials_and_infrastructure():
     values = editable_values(settings)
     assert "account_id" not in values
     assert "database_url" not in values
-    assert "live_trading_ack" not in values
     assert "longbridge_app_key" not in values
     assert "longbridge_app_secret" not in values
     assert "longbridge_access_token" not in values
@@ -38,6 +36,27 @@ def test_online_configuration_runs_cross_field_validation():
 def test_online_configuration_rejects_non_editable_fields():
     with pytest.raises(ValueError, match="not editable"):
         with_editable_values(make_settings(), {"trading_mode": "live"})
+
+
+def test_live_authorization_requires_complete_longbridge_api_credentials():
+    settings = make_settings(
+        trading_mode="live",
+        account_id="account",
+        longbridge_app_key="key",
+        longbridge_app_secret="secret",
+        longbridge_access_token="token",
+    )
+    settings.assert_live_authorized()
+
+    missing_token = make_settings(
+        trading_mode="live",
+        account_id="account",
+        longbridge_app_key="key",
+        longbridge_app_secret="secret",
+        longbridge_access_token="",
+    )
+    with pytest.raises(RuntimeError, match="LONGBRIDGE_ACCESS_TOKEN"):
+        missing_token.assert_live_authorized()
 
 
 def test_legacy_fields_are_silently_ignored():
@@ -73,8 +92,3 @@ def test_indicator_cross_field_validation():
         make_settings(rsi_oversold=80, rsi_overbought=70)
     with pytest.raises(ValueError, match="1-minute MACD"):
         make_settings(macd_1m_fast=12, macd_1m_slow=10)
-
-
-def test_settings_rejects_unknown_strategy_profile():
-    with pytest.raises(ValueError, match="strategy_profile"):
-        make_settings(strategy_profile="unknown")

@@ -20,12 +20,20 @@ class StrategyRules:
     timed_main_start: time = time(9, 45)
     timed_main_last_signal: time = time(11, 25)
     timed_max_trades_per_day: int = 5
-    timed_opening_size_factor: Decimal = Decimal("1")
-    timed_opening_volume_ratio: Decimal = Decimal("2.0")
-    timed_opening_range_ratio: Decimal = Decimal("0.75")
-    timed_opening_body_ratio: Decimal = Decimal("0.65")
-    timed_opening_close_extreme: Decimal = Decimal("0.35")
-    timed_slow_ema_period: int = 21
+    timed_boll_period: int = 20
+    timed_boll_stddev: Decimal = Decimal("2")
+    timed_macd_fast: int = 8
+    timed_macd_slow: int = 17
+    timed_macd_signal: int = 9
+    timed_rsi_period: int = 14
+    timed_call_rsi_max: Decimal = Decimal("70")
+    timed_put_rsi_min: Decimal = Decimal("30")
+    timed_volume_lookback: int = 20
+    timed_volume_ratio: Decimal = Decimal("1.2")
+    timed_trend_cross_lookback: int = 20
+    timed_trend_max_crosses: int = 3
+    timed_reversal_min_bars: int = 3
+    timed_reversal_window: int = 5
 
     cooldown_minutes: int = 5
     max_trades_per_day: int = 5
@@ -62,15 +70,14 @@ class StrategyRules:
     range_adx_max: Decimal = Decimal("18")
     breakout_volume_ratio: Decimal = Decimal("1.2")
 
-    max_premium_fraction: Decimal = Decimal("0.05")
+    max_premium_fraction: Decimal = Decimal("0.50")
     max_contracts: int = 10
     option_stop_loss_pct: Decimal = Decimal("0.25")
-    daily_loss_limit: Decimal = Decimal("0.02")
     tp1_profit_pct: Decimal = Decimal("1.0")
     tp2_profit_pct: Decimal = Decimal("2.5")
     trailing_giveback_pct: Decimal = Decimal("0.30")
     trailing_atr_multiplier: Decimal = Decimal("0.5")
-    stale_minutes: int = 30
+    stale_minutes: int = 20
 
     fee_per_contract: Decimal = Decimal("1.50")
     slippage_quote: Decimal = Decimal("0.02")
@@ -90,20 +97,6 @@ class StrategyRules:
     synthetic_theta: Decimal = Decimal("-3")
     synthetic_min_price: Decimal = Decimal("0.05")
 
-    def entry_start_for(self, profile: str) -> time:
-        return self.timed_opening_start if profile == "timed_trend" else self.entry_start
-
-    def entry_end_for(self, profile: str) -> time:
-        return self.entry_end
-
-    def max_trades_for(self, profile: str) -> int:
-        return (
-            self.timed_max_trades_per_day
-            if profile == "timed_trend"
-            else self.max_trades_per_day
-        )
-
-
 RULES = StrategyRules()
 
 
@@ -112,14 +105,11 @@ def rules_from_settings(settings) -> StrategyRules:
     overrides = {}
     _FIELDS = (
         "max_premium_fraction", "max_contracts", "max_trades_per_day",
-        "cooldown_minutes", "daily_loss_limit", "fee_per_contract",
+        "cooldown_minutes", "fee_per_contract",
         "slippage_quote", "option_stop_loss_pct", "tp1_profit_pct",
         "tp2_profit_pct", "trailing_atr_multiplier", "stale_minutes",
         "max_spread_ratio", "max_spread_absolute", "min_open_interest",
         "min_option_volume", "target_delta",
-        "timed_opening_volume_ratio", "timed_opening_range_ratio",
-        "timed_opening_body_ratio", "timed_opening_close_extreme",
-        "timed_slow_ema_period",
     )
     for field in _FIELDS:
         value = getattr(settings, field, None)

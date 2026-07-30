@@ -67,14 +67,25 @@ class PaperBroker:
                 request.limit_price * Decimal(100) * request.quantity + entry_fee
             )
             self.realized_pnl -= entry_fee
-            self._positions[request.symbol] = Position(
-                symbol=request.symbol,
-                direction=self._direction(request.symbol),
-                quantity=request.quantity,
-                entry_price=request.limit_price,
-                opened_at=now,
-                broker_order_id=order_id,
-            )
+            existing = self._positions.get(request.symbol)
+            if existing is None:
+                self._positions[request.symbol] = Position(
+                    symbol=request.symbol,
+                    direction=self._direction(request.symbol),
+                    quantity=request.quantity,
+                    entry_price=request.limit_price,
+                    opened_at=now,
+                    broker_order_id=order_id,
+                )
+            else:
+                combined_quantity = existing.quantity + request.quantity
+                existing.entry_price = (
+                    existing.entry_price * Decimal(existing.quantity)
+                    + request.limit_price * Decimal(request.quantity)
+                ) / Decimal(combined_quantity)
+                existing.quantity = combined_quantity
+                existing.initial_quantity = combined_quantity
+                existing.broker_order_id = order_id
         else:
             position = self._positions[request.symbol]
             sold = min(request.quantity, position.quantity)

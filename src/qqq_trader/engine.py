@@ -213,9 +213,16 @@ class TradingEngine:
                 return [f"unmatched broker position {position.symbol} requires reconciliation"]
             if signal.direction is not position.direction or position.quantity > signal.quantity:
                 return [f"broker position {position.symbol} does not match its persisted signal"]
-            position.opened_at = signal.decision_at
-            position.initial_quantity = signal.quantity
-            if position.quantity < signal.quantity:
+            opened_at = signal.indicators.get("opened_at")
+            position.opened_at = (
+                datetime.fromisoformat(str(opened_at))
+                if opened_at
+                else signal.decision_at
+            )
+            position.initial_quantity = int(
+                signal.indicators.get("initial_quantity") or signal.quantity
+            )
+            if position.quantity < position.initial_quantity:
                 position.first_target_taken = True
                 position.stop_price = position.entry_price
             self.position = position
@@ -317,7 +324,6 @@ class TradingEngine:
                 SystemState.ENTRY_PENDING,
                 SystemState.EXIT_PENDING,
                 SystemState.HALTED,
-                SystemState.DAILY_HALTED,
             }:
                 return
             decision_at = now or bars[-1].end
@@ -336,15 +342,10 @@ class TradingEngine:
                 quote = await self.market.latest_quote(self.position.symbol)
                 if quote.bid is not None:
                     previous_highest = self.position.highest_bid
-                    account = await self._local_account(quote.bid)
-                    daily_breached = self.risk.daily_loss_breached(
-                        account.day_pnl, self.opening_equity
-                    )
                     price_decision = self.risk.exit_decision(
                         self.position,
                         quote.bid,
                         decision_at,
-                        daily_loss_breached=daily_breached,
                         current_spot=bars[-1].close,
                     )
                     if (
@@ -355,8 +356,7 @@ class TradingEngine:
                     decision = price_decision
                     if (
                         price_decision is None
-                        or price_decision.reason
-                        not in {ExitReason.DAILY_LOSS, ExitReason.FORCED_CLOSE}
+                        or price_decision.reason is not ExitReason.FORCED_CLOSE
                     ):
                         decision = bar_decision or price_decision
                     if decision is not None:
@@ -366,9 +366,9 @@ class TradingEngine:
                 return
             local_time = decision_at.astimezone(NY_TZ).time().replace(tzinfo=None)
             if not (
-                RULES.entry_start_for(self.settings.strategy_profile)
+                RULES.timed_opening_start
                 <= local_time
-                < RULES.entry_end_for(self.settings.strategy_profile)
+                < RULES.timed_main_last_signal
             ):
                 await self.journal.signal(signal, False, "outside_entry_window")
                 return
@@ -376,20 +376,13 @@ class TradingEngine:
             if signal_age < 0 or signal_age > RULES.signal_ttl_seconds:
                 await self.journal.signal(signal, False, "signal_expired")
                 return
-            if self.trades_today >= RULES.max_trades_for(
-                self.settings.strategy_profile
-            ):
+            if self.trades_today >= RULES.timed_max_trades_per_day:
                 await self.journal.signal(signal, False, "max_trades_per_day")
                 return
             if self.cooldown_until is not None and decision_at < self.cooldown_until:
                 await self.journal.signal(signal, False, "cooldown")
                 return
             account = await self.broker.account_snapshot()
-            day_pnl = self.realized_pnl
-            if self.risk.daily_loss_breached(day_pnl, self.opening_equity):
-                self.state = SystemState.DAILY_HALTED
-                await self.journal.signal(signal, False, "daily_loss_limit")
-                return
             if self.settings.volatility_filter_enabled:
                 snapshot = self.volatility_filter.evaluate(
                     volatility_bars or [],
@@ -438,12 +431,9 @@ class TradingEngine:
                 return
             quote = liquid_quotes[contract.symbol]
             assert quote.ask is not None
-            remaining_daily_loss = self.opening_equity * RULES.daily_loss_limit + min(
-                day_pnl, Decimal(0)
-            )
-            size_factor = Decimal(signal.indicators.get("size_factor", "1"))
+            size_factor = Decimal(1)
             quantity = self.risk.position_size(
-                account.equity, quote.ask, remaining_daily_loss, size_factor
+                account.equity, quote.ask, size_factor
             )
             if quantity < 1:
                 await self.journal.signal(signal, False, "risk_budget_too_small")
@@ -459,9 +449,10 @@ class TradingEngine:
             indicators = {
                 **signal.indicators,
                 "spot": str(signal.spot),
-                "underlying_stop": str(signal.stop_price),
                 "config_version": str(self.config_version),
             }
+            if signal.stop_price is not None:
+                indicators["underlying_stop"] = str(signal.stop_price)
             self.state = SystemState.ENTRY_PENDING
             await self._publish_trade_signal(
                 request, signal.direction, signal.bar_end, indicators
@@ -517,16 +508,11 @@ class TradingEngine:
             move = (quote.bid - self.position.entry_price) * Decimal(100)
             self.position_mae = min(self.position_mae, move)
             self.position_mfe = max(self.position_mfe, move)
-            account = await self._local_account(quote.bid)
-            daily_breached = self.risk.daily_loss_breached(
-                account.day_pnl, self.opening_equity
-            )
             previous_highest = self.position.highest_bid
             decision = self.risk.exit_decision(
                 self.position,
                 quote.bid,
                 decision_at,
-                daily_loss_breached=daily_breached,
             )
             if self.position.highest_bid != previous_highest:
                 await self._persist_position_metadata(self.position)
@@ -630,10 +616,7 @@ class TradingEngine:
         self.position = None
         self.position_config_version = None
         self.cooldown_until = decision_at + timedelta(minutes=RULES.cooldown_minutes)
-        if decision.reason is ExitReason.DAILY_LOSS:
-            self.state = SystemState.DAILY_HALTED
-        else:
-            self.state = SystemState.READY
+        self.state = SystemState.READY
         if self._pending_settings is not None and self.state is SystemState.READY:
             pending_settings, pending_version = self._pending_settings
             self._activate_settings(pending_settings, pending_version)
@@ -668,6 +651,7 @@ class TradingEngine:
             "initial_quantity": position.initial_quantity,
             "entry_atr": str(position.entry_atr) if position.entry_atr is not None else None,
             "peak_spot": str(position.peak_spot) if position.peak_spot is not None else None,
+            "opened_at": position.opened_at.isoformat(),
         }
         await writer(
             position.entry_intent_id,

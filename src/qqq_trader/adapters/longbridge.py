@@ -61,25 +61,17 @@ class LongbridgeSession:
     async def connect(self) -> None:
         if self.quote is not None:
             return
-        from longbridge.openapi import AsyncQuoteContext, AsyncTradeContext, Config, OAuthBuilder
+        from longbridge.openapi import AsyncQuoteContext, AsyncTradeContext, Config
 
-        log = logging.getLogger("qqq_trader.longbridge")
-        if self.settings.longbridge_client_id:
-            oauth = await OAuthBuilder(self.settings.longbridge_client_id).build_async(
-                lambda url: log.info("Authorize Longbridge OAuth: %s", url)
+        app_key = self.settings.longbridge_app_key.get_secret_value()
+        app_secret = self.settings.longbridge_app_secret.get_secret_value()
+        access_token = self.settings.longbridge_access_token.get_secret_value()
+        if not all((app_key, app_secret, access_token)):
+            raise RuntimeError(
+                "Longbridge API credentials are missing: set LONGBRIDGE_APP_KEY, "
+                "LONGBRIDGE_APP_SECRET and LONGBRIDGE_ACCESS_TOKEN in .env"
             )
-            self._config = Config.from_oauth(oauth)
-        else:
-            app_key = self.settings.longbridge_app_key.get_secret_value()
-            app_secret = self.settings.longbridge_app_secret.get_secret_value()
-            access_token = self.settings.longbridge_access_token.get_secret_value()
-            if not all((app_key, app_secret, access_token)):
-                raise RuntimeError(
-                    "Longbridge credentials are missing: configure OAuth with "
-                    "LONGBRIDGE_CLIENT_ID or set LONGBRIDGE_APP_KEY, "
-                    "LONGBRIDGE_APP_SECRET and LONGBRIDGE_ACCESS_TOKEN in .env"
-                )
-            self._config = Config.from_apikey(app_key, app_secret, access_token)
+        self._config = Config.from_apikey(app_key, app_secret, access_token)
         self.quote = AsyncQuoteContext.create(self._config)
         self.trade = AsyncTradeContext.create(self._config)
 
@@ -496,22 +488,22 @@ class LongbridgeBroker:
         return positions
 
     async def open_orders(self) -> list[BrokerOrder]:
+        terminal = {
+            "filled",
+            "filled_status",
+            "done",
+            "canceled",
+            "cancelled",
+            "rejected",
+            "expired",
+        }
+        return [
+            order for order in await self.today_orders() if order.status not in terminal
+        ]
+
+    async def today_orders(self) -> list[BrokerOrder]:
         rows = await self.session.trade.today_orders()
-        result = []
-        for row in rows:
-            order = self._broker_order(row, None)
-            terminal = {
-                "filled",
-                "filled_status",
-                "done",
-                "canceled",
-                "cancelled",
-                "rejected",
-                "expired",
-            }
-            if order.status not in terminal:
-                result.append(order)
-        return result
+        return [self._broker_order(row, None) for row in rows]
 
     def _broker_order(self, row: Any, intent_id: UUID | None) -> BrokerOrder:
         order_id = str(_value(row, "order_id"))

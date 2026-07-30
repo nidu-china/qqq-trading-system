@@ -2,8 +2,8 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest
-
 from conftest import make_settings
+
 from qqq_trader.adapters.paper import PaperBroker
 from qqq_trader.domain import (
     Bar,
@@ -104,6 +104,24 @@ async def test_configuration_is_staged_until_an_open_position_is_flat():
     assert not applied
     assert engine.pending_config_version == 2
     assert engine.settings.bollinger_stddev == Decimal("2")
+
+
+@pytest.mark.asyncio
+async def test_paper_broker_adds_to_position_with_weighted_average_cost():
+    broker = PaperBroker()
+    symbol = "QQQ260715C00500000.US"
+    await broker.submit_limit(
+        OrderRequest(symbol, OrderSide.BUY, 2, Decimal("1"))
+    )
+    await broker.submit_limit(
+        OrderRequest(symbol, OrderSide.BUY, 3, Decimal("2"))
+    )
+
+    positions = await broker.positions()
+
+    assert len(positions) == 1
+    assert positions[0].quantity == 5
+    assert positions[0].entry_price == Decimal("1.6")
 
 
 @pytest.mark.asyncio

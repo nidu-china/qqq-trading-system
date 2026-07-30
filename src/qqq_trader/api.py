@@ -37,9 +37,6 @@ class BacktestCreate(BaseModel):
     end_date: date
     starting_equity: Decimal = Field(default=Decimal("100000"), gt=0)
     config_version: int | None = Field(default=None, ge=1)
-    strategy_profile: str = Field(
-        default="dynamic", pattern="^(dynamic|timed_trend)$"
-    )
     params: dict[str, Any] | None = Field(default=None)
 
 
@@ -389,8 +386,8 @@ def create_app(
     ) -> dict[str, Any]:
         from decimal import Decimal as D
 
-        from .strategy import bollinger_bands, ema_series
-        from .strategy import vwap as calc_vwap
+        from .indicators import bollinger_bands, ema_series
+        from .indicators import vwap as calc_vwap
 
         if settings is None:
             raise HTTPException(501, "market data service is unavailable")

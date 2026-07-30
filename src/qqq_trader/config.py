@@ -25,24 +25,21 @@ def _default_env_file() -> Path:
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=_default_env_file(),
-        env_file_encoding="utf-8",
+        env_file_encoding="utf-8-sig",
         case_sensitive=False,
         extra="ignore",
     )
 
     app_name: str = "qqq-0dte-trader"
     trading_mode: TradingMode = TradingMode.PAPER
-    strategy_profile: str = "dynamic"
     paper_starting_equity: Decimal = Decimal("10000")
     account_id: str = ""
-    live_trading_ack: SecretStr = SecretStr("")
     underlying_symbol: str = "QQQ.US"
     database_url: str = "mysql+asyncmy://qqq:qqq@mysql:3306/qqq?charset=utf8mb4"
     data_dir: Path = Path("/data/market")
     report_dir: Path = Path("/data/reports")
     log_dir: Path = Path("logs")
 
-    longbridge_client_id: str = ""
     longbridge_app_key: SecretStr = SecretStr("")
     longbridge_app_secret: SecretStr = SecretStr("")
     longbridge_access_token: SecretStr = SecretStr("")
@@ -82,7 +79,6 @@ class Settings(BaseSettings):
     max_contracts: int
     max_trades_per_day: int
     cooldown_minutes: int
-    daily_loss_limit: Decimal
     fee_per_contract: Decimal
     slippage_quote: Decimal
 
@@ -101,12 +97,6 @@ class Settings(BaseSettings):
     target_delta: Decimal
 
     # 分时趋势策略（必须在 .env 显式配置）
-    timed_opening_volume_ratio: Decimal
-    timed_opening_range_ratio: Decimal
-    timed_opening_body_ratio: Decimal
-    timed_opening_close_extreme: Decimal
-    timed_slow_ema_period: int
-
     api_host: str = "127.0.0.1"
     api_port: int = 8000
     api_token: SecretStr = SecretStr("")
@@ -115,8 +105,6 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_safety(self) -> Settings:
-        if self.strategy_profile not in {"dynamic", "timed_trend"}:
-            raise ValueError("strategy_profile must be 'dynamic' or 'timed_trend'")
         if self.longbridge_request_timeout_seconds <= 0:
             raise ValueError("Longbridge request timeout must be positive")
         periods = (
@@ -165,8 +153,6 @@ class Settings(BaseSettings):
             raise ValueError("max_contracts must be at least 1")
         if self.max_trades_per_day < 1:
             raise ValueError("max_trades_per_day must be at least 1")
-        if self.daily_loss_limit <= 0 or self.daily_loss_limit > Decimal("0.5"):
-            raise ValueError("daily_loss_limit must be between 0 and 0.5")
         if self.option_stop_loss_pct <= 0 or self.option_stop_loss_pct >= 1:
             raise ValueError("option_stop_loss_pct must be between 0 and 1")
         if self.tp1_profit_pct <= 0:
@@ -187,8 +173,15 @@ class Settings(BaseSettings):
     def assert_live_authorized(self) -> None:
         if self.trading_mode is not TradingMode.LIVE:
             return
-        expected = f"I_UNDERSTAND_LIVE_TRADING:{self.account_id}"
-        if not self.account_id or self.live_trading_ack.get_secret_value() != expected:
-            raise RuntimeError("live trading acknowledgement does not match account_id")
-        if not self.longbridge_client_id:
-            raise RuntimeError("LONGBRIDGE_CLIENT_ID is required for live trading")
+        if not self.account_id:
+            raise RuntimeError("ACCOUNT_ID is required for live trading")
+        credentials = (
+            self.longbridge_app_key.get_secret_value(),
+            self.longbridge_app_secret.get_secret_value(),
+            self.longbridge_access_token.get_secret_value(),
+        )
+        if not all(credentials):
+            raise RuntimeError(
+                "LONGBRIDGE_APP_KEY, LONGBRIDGE_APP_SECRET and "
+                "LONGBRIDGE_ACCESS_TOKEN are required for live trading"
+            )

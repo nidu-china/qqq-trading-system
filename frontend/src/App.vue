@@ -7,7 +7,7 @@ const collapsed = ref(false)
 const title = computed(() => route.meta.title as string)
 const menus = [
   ['/', '运行总览', 'OV'],
-  ['/signals', '信号对比', 'SG'],
+  ['/signals', '信号列表', 'SG'],
   ['/trades', '交易记录', 'TR'],
   ['/reports', '交易日报', 'RP'],
   ['/kline', 'K线行情', 'KL'],
