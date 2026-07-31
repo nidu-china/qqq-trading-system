@@ -97,8 +97,8 @@ class Settings(BaseSettings):
     target_delta: Decimal
 
     # 分时趋势策略（必须在 .env 显式配置）
-    api_host: str = "127.0.0.1"
-    api_port: int = 8000
+    api_host: str
+    api_port: int
     api_token: SecretStr = SecretStr("")
     log_level: str = "INFO"
     scheduler_poll_seconds: Decimal = Decimal("1")

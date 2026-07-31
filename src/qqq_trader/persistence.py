@@ -47,6 +47,15 @@ NAMING_CONVENTION = {
 }
 
 
+def _ensure_utc(dt: datetime | None) -> datetime | None:
+    """Attach UTC tzinfo to naive datetimes returned by MySQL."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
 class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
 
@@ -681,7 +690,7 @@ class MySQLJournal:
                 {
                     "id": f"{row.action}:{row.intent_id}",
                     "action": row.action,
-                    "decision_at": row.decision_at,
+                    "decision_at": _ensure_utc(row.decision_at),
                     "direction": row.direction,
                     "symbol": row.symbol or None,
                     "price": row.reference_price,

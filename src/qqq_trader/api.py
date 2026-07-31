@@ -52,6 +52,12 @@ def _decimal(value: Any) -> Any:
     return value
 
 
+def _ensure_utc(dt: datetime | None) -> datetime | None:
+    if dt is None:
+        return None
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+
+
 def _trade(row: Any) -> dict[str, Any]:
     return _decimal(
         {
@@ -63,8 +69,8 @@ def _trade(row: Any) -> dict[str, Any]:
             "exit_price": row.exit_price,
             "pnl": row.pnl,
             "fees": row.fees,
-            "entry_at": row.entry_at,
-            "exit_at": row.exit_at,
+            "entry_at": _ensure_utc(row.entry_at),
+            "exit_at": _ensure_utc(row.exit_at),
             "exit_reason": row.exit_reason,
             "slippage": row.slippage,
             "mae": row.mae,
@@ -99,7 +105,7 @@ def create_app(
     )
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+        allow_origins=["*"],
         allow_methods=["*"],
         allow_headers=["*"],
     )

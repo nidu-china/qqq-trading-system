@@ -25,6 +25,8 @@ _TRADING_DEFAULTS = {
     "min_open_interest": 100,
     "min_option_volume": 10,
     "target_delta": "0.45",
+    "api_host": "127.0.0.1",
+    "api_port": 8000,
 }
 
 

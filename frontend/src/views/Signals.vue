@@ -44,7 +44,7 @@ function loadBacktest() {
 
 function open(row: any) { detail.value = row; drawer.value = true }
 
-onMounted(async () => { await loadJobs(); await loadLive(); timer = window.setInterval(loadLive, 5000) })
+onMounted(async () => { await loadJobs(); await loadLive(); timer = window.setInterval(loadLive, 15000) })
 onBeforeUnmount(() => clearInterval(timer))
 
 const STATUS_MAP: Record<string, { text: string; type: string }> = {
