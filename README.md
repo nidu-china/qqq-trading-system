@@ -52,7 +52,7 @@ data/market/
 
 没有 `candidate_option_quotes` 时回测会自动使用合成期权，并将 `option_data_complete` 标记为 `false`。
 
-## 本地运行
+## 本地运行（Windows）
 
 要求 Python 3.12+、Node.js 和 MySQL。Windows PowerShell 示例：
 
@@ -72,11 +72,144 @@ npm install
 npm run build
 ```
 
-Docker：
+## Linux 部署
 
-```powershell
+### 环境要求
+
+- Python 3.12+
+- Node.js 18+
+- MySQL 8.0+（可使用 Docker 运行）
+
+### 1. MySQL 数据库
+
+如果已有 Docker 运行的 MySQL，直接创建数据库和用户即可；如果从零开始：
+
+```bash
+docker run -d \
+  --name qqq-mysql \
+  -p 3306:3306 \
+  -e MYSQL_ROOT_PASSWORD=your-root-password \
+  -e MYSQL_DATABASE=qqq \
+  -e MYSQL_USER=qqq \
+  -e MYSQL_PASSWORD=your-password \
+  -v /data/app/mysql/data:/var/lib/mysql \
+  --restart=always \
+  mysql:8.0
+```
+
+> 注意：`MYSQL_ROOT_PASSWORD`、`MYSQL_DATABASE`、`MYSQL_USER`、`MYSQL_PASSWORD` 只在**首次初始化**（空数据目录）时生效。如果数据目录已有旧数据，需要手动进入 MySQL 创建库和用户。
+
+### 2. 项目安装
+
+```bash
+cd /opt/qqq-trading-system
+cp .env.example .env
+nano .env  # 编辑所有必填配置（见下方说明）
+
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+
+# 建表
+alembic upgrade head
+```
+
+### 3. 前端构建
+
+```bash
+cd frontend
+npm install
+npm run build
+cd ..
+```
+
+构建后的静态文件由 FastAPI 直接 serve，无需额外的 Web 服务器。
+
+### 4. 启动服务
+
+```bash
+source .venv/bin/activate
+
+# 只启动 Web 界面（K 线、回测、信号查看）
+qqq-trader api
+
+# 启动完整交易引擎 + Web 界面
+qqq-trader trade
+```
+
+访问 `http://服务器IP:8000` 即可打开前端页面。
+
+### 5. systemd 自启动（推荐）
+
+```bash
+sudo tee /etc/systemd/system/qqq-trader.service <<'EOF'
+[Unit]
+Description=QQQ Trading System
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/qqq-trading-system
+EnvironmentFile=/opt/qqq-trading-system/.env
+ExecStart=/opt/qqq-trading-system/.venv/bin/qqq-trader trade
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now qqq-trader
+```
+
+常用命令：
+
+```bash
+sudo systemctl status qqq-trader   # 查看状态
+sudo journalctl -u qqq-trader -f   # 查看日志
+sudo systemctl restart qqq-trader  # 重启
+```
+
+### 6. `.env` 关键配置
+
+所有交易参数**必须**在 `.env` 中显式配置，没有隐含默认值。参考 `.env.example` 获取完整列表。
+
+```dotenv
+# 必填 —— 交易模式与账户
+TRADING_MODE=paper          # paper / live
+ACCOUNT_ID=你的账户ID
+
+# 必填 —— API 监听地址（Linux 部署务必设为 0.0.0.0）
+API_HOST=0.0.0.0
+API_PORT=8000
+
+# 必填 —— 数据库（host 对应 MySQL 地址）
+DATABASE_URL=mysql+asyncmy://qqq:your-password@127.0.0.1:3306/qqq?charset=utf8mb4
+
+# 必填 —— Longbridge 凭证（Live 模式）
+LONGBRIDGE_APP_KEY=
+LONGBRIDGE_APP_SECRET=
+LONGBRIDGE_ACCESS_TOKEN=
+```
+
+> **首次部署务必使用 `TRADING_MODE=paper`**，验证数据接收、信号产生、时区正确后再切换到 `live`。
+
+### 7. Docker 部署（可选）
+
+```bash
 docker compose up --build
 ```
+
+### 美股交易时间参考（夏令时）
+
+| 美东时间 (ET) | 北京时间 (BJT) |
+|---|---|
+| 09:30 开盘 | 21:30 |
+| 11:30 停止新开仓 | 23:30 |
+| 13:55 强制平仓 | 次日 01:55 |
+| 16:00 收盘 | 次日 04:00 |
+| 16:15 生成日报 | 次日 04:15 |
 
 Live 模式除 Longbridge 凭证外，还必须设置：
 
@@ -93,11 +226,22 @@ ACCOUNT_ID=你的账户ID
 
 ## 验证
 
+Windows：
+
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
 .\.venv\Scripts\ruff.exe check src tests
 Set-Location frontend
 npm run build
+```
+
+Linux：
+
+```bash
+source .venv/bin/activate
+pytest -q
+ruff check src tests
+cd frontend && npm run build
 ```
 
 主要测试文件：

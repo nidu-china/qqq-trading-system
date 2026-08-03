@@ -189,10 +189,7 @@ class Position:
     strategy_name: str | None = None
     market_state: MarketState = MarketState.UNKNOWN
     entry_spot: Decimal | None = None
-    underlying_stop: Decimal | None = None
     highest_bid: Decimal | None = None
-    entry_atr: Decimal | None = None
-    peak_spot: Decimal | None = None
     midday_reduced: bool = False
     range_middle_taken: bool = False
     entry_vwap: Decimal | None = None

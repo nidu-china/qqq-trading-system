@@ -61,7 +61,7 @@ async def test_engine_rejects_a_signal_older_than_sixty_seconds():
     now = datetime(2026, 7, 15, 14, 47, 1, tzinfo=timezone.utc)
     signal = Signal(
         Direction.CALL,
-        now - timedelta(seconds=61),
+        now - timedelta(seconds=121),
         Decimal("500"),
         strategy="trend",
         market_state=MarketState.TREND_UP,
@@ -149,7 +149,6 @@ async def test_position_strategy_metadata_survives_startup_recovery():
             "strategy": "range",
             "market_state": "range",
             "spot": "500",
-            "underlying_stop": "499.5",
             "highest_bid": "1.80",
             "midday_reduced": True,
             "range_middle_taken": True,

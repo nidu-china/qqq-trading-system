@@ -120,6 +120,7 @@ class LongbridgeMarketData:
         timeout = float(self.session.settings.longbridge_request_timeout_seconds)
         for symbol in symbols:
             if self._candlestick_periods.get(symbol) == period:
+                self._log.info("candlestick already subscribed | %s %s", symbol, period)
                 continue
             try:
                 async with asyncio.timeout(timeout):
@@ -136,6 +137,10 @@ class LongbridgeMarketData:
             self._candlestick_periods[symbol] = period
             for row in rows:
                 self._store_candlestick(self._bar(symbol, row, period))
+            self._log.info(
+                "candlestick subscribed | %s %s | initial_bars=%d",
+                symbol, period, len(rows),
+            )
 
     def realtime_bars(self, symbol: str, count: int = 500) -> list[Bar]:
         bars = self._candlestick_bars.get(symbol, {})
@@ -247,14 +252,24 @@ class LongbridgeMarketData:
         row = _value(event, "candlestick")
         if row is None:
             return
-        self._store_candlestick(
-            self._bar(
-                symbol,
-                row,
-                period,
-                complete=bool(_value(event, "is_confirmed", False)),
-            )
+        bar = self._bar(
+            symbol,
+            row,
+            period,
+            complete=bool(_value(event, "is_confirmed", False)),
         )
+        was_empty = symbol not in self._candlestick_bars or not self._candlestick_bars[symbol]
+        self._store_candlestick(bar)
+        if was_empty:
+            self._log.info(
+                "first realtime candlestick | %s | bar=%s | complete=%s",
+                symbol, bar.end, bar.complete,
+            )
+        if bar.complete:
+            self._log.debug(
+                "candlestick confirmed | %s | bar=%s | close=%.2f",
+                symbol, bar.end, bar.close,
+            )
 
     def _store_candlestick(self, bar: Bar) -> None:
         bars = self._candlestick_bars.setdefault(bar.symbol, {})
@@ -295,6 +310,11 @@ class LongbridgeMarketData:
 
         realtime = self.realtime_bars(symbol, count)
         if realtime:
+            latest = realtime[-1]
+            self._log.debug(
+                "recent_bars | %s | source=realtime | bars=%d | latest=%s complete=%s",
+                symbol, len(realtime), latest.end, latest.complete,
+            )
             return realtime
         period_value = self._period(Period, period)
         rows = await self.session.quote.candlesticks(
@@ -304,7 +324,15 @@ class LongbridgeMarketData:
             AdjustType.NoAdjust,
             TradeSessions.All,
         )
-        return [self._bar(symbol, row, period) for row in rows]
+        bars = [self._bar(symbol, row, period) for row in rows]
+        if bars:
+            self._log.debug(
+                "recent_bars | %s | source=REST_API | bars=%d | latest=%s",
+                symbol, len(bars), bars[-1].end,
+            )
+        else:
+            self._log.warning("recent_bars | %s | source=REST_API | empty response", symbol)
+        return bars
 
     async def historical_bars(
         self, symbol: str, start: date, end: date, period: str = "1m"

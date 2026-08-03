@@ -35,7 +35,7 @@ class StrategyRules:
     timed_reversal_min_bars: int = 3
     timed_reversal_window: int = 5
 
-    cooldown_minutes: int = 5
+    cooldown_minutes: int = 3
     max_trades_per_day: int = 5
     signal_ttl_seconds: int = 60
     entry_reprices: int = 2
@@ -76,7 +76,6 @@ class StrategyRules:
     tp1_profit_pct: Decimal = Decimal("1.0")
     tp2_profit_pct: Decimal = Decimal("2.5")
     trailing_giveback_pct: Decimal = Decimal("0.30")
-    trailing_atr_multiplier: Decimal = Decimal("0.5")
     stale_minutes: int = 20
 
     fee_per_contract: Decimal = Decimal("1.50")
@@ -88,13 +87,14 @@ class StrategyRules:
     min_option_volume: int = 10
 
     target_delta: Decimal = Decimal("0.45")
+    strike_offset: Decimal = Decimal("2")
     option_candidate_count: int = 5
 
     synthetic_call_delta: Decimal = Decimal("0.45")
     synthetic_put_delta: Decimal = Decimal("-0.45")
     synthetic_gamma: Decimal = Decimal("0.055")
     synthetic_vega: Decimal = Decimal("0.099")
-    synthetic_theta: Decimal = Decimal("-3")
+    synthetic_theta: Decimal = Decimal("-1.5")
     synthetic_min_price: Decimal = Decimal("0.05")
 
 RULES = StrategyRules()
@@ -107,9 +107,9 @@ def rules_from_settings(settings) -> StrategyRules:
         "max_premium_fraction", "max_contracts", "max_trades_per_day",
         "cooldown_minutes", "fee_per_contract",
         "slippage_quote", "option_stop_loss_pct", "tp1_profit_pct",
-        "tp2_profit_pct", "trailing_atr_multiplier", "stale_minutes",
+        "tp2_profit_pct", "stale_minutes",
         "max_spread_ratio", "max_spread_absolute", "min_open_interest",
-        "min_option_volume", "target_delta",
+        "min_option_volume", "target_delta", "strike_offset",
     )
     for field in _FIELDS:
         value = getattr(settings, field, None)

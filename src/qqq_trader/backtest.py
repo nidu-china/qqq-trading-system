@@ -443,7 +443,6 @@ class EventDrivenBacktester:
                     continue
                 price_decision = self.risk.exit_decision(
                     position, quote.bid, bar.end,
-                    current_spot=bar.close,
                 )
                 bar_decision = self.strategy.bar_exit_decision(position)
                 decision = price_decision
@@ -542,10 +541,7 @@ class EventDrivenBacktester:
                 strategy_name=signal.strategy,
                 market_state=signal.market_state,
                 entry_spot=signal.spot,
-                underlying_stop=signal.stop_price,
                 highest_bid=entry_price,
-                entry_atr=signal.atr,
-                peak_spot=signal.spot,
                 entry_vwap=signal.vwap,
             )
             open_trade = OpenTrade(position, quantity, execution_at, quote_source)

@@ -32,7 +32,7 @@ def _position(quantity: int = 4, entry: str = "1.00") -> Position:
     )
 
 
-def test_contract_selector_uses_five_nearest_and_delta():
+def test_contract_selector_uses_strike_offset_and_cheapest():
     contracts = [
         OptionContract(
             f"C{strike}",
@@ -44,11 +44,13 @@ def test_contract_selector_uses_five_nearest_and_delta():
         for strike in range(497, 504)
     ]
     selector = ContractSelector()
-    shortlist = selector.shortlist(contracts, Direction.CALL, Decimal("500.2"))
-    assert len(shortlist) == 5
-    quotes = {item.symbol: _quote(item.symbol, "0.60") for item in shortlist}
-    quotes["C499"] = _quote("C499", "0.46")
-    assert selector.select(contracts, Direction.CALL, Decimal("500.2"), quotes).symbol == "C499"
+    shortlist = selector.shortlist(contracts, Direction.CALL, Decimal("500"))
+    assert {c.symbol for c in shortlist} == {"C498", "C499", "C500", "C501", "C502"}
+    quotes = {item.symbol: _quote(item.symbol) for item in shortlist}
+    cheap = Quote("C502", NOW, Decimal("0.50"), Decimal("0.45"), Decimal("0.55"), 100, 500)
+    quotes["C502"] = cheap
+    chosen = selector.select(contracts, Direction.CALL, Decimal("500"), quotes)
+    assert chosen.symbol == "C502"
 
 
 def test_liquidity_and_absolute_quote_slippage_rules():
@@ -110,49 +112,3 @@ def test_option_stop_targets_trailing_stale_midday_and_forced_close():
     )
 
 
-def test_atr_trailing_stop_on_qqq_retracement():
-    risk = RiskEngine(make_settings())
-    # Call position: QQQ entered at 500, ATR = 0.50
-    pos = _position()
-    pos.entry_spot = Decimal("500.00")
-    pos.entry_atr = Decimal("0.50")
-    pos.peak_spot = Decimal("500.00")
-    # QQQ rallies to 501.20 → peak_spot updated by exit_decision
-    result = risk.exit_decision(pos, Decimal("1.30"), NOW, current_spot=Decimal("501.20"))
-    assert result is None
-    assert pos.peak_spot == Decimal("501.20")
-    # QQQ retraces 0.20 (< 0.5 * ATR = 0.25) → no exit
-    result = risk.exit_decision(pos, Decimal("1.20"), NOW, current_spot=Decimal("501.00"))
-    assert result is None
-    # QQQ retraces 0.30 (>= 0.5 * ATR = 0.25) and bid > entry+fees → trailing stop
-    result = risk.exit_decision(pos, Decimal("1.10"), NOW, current_spot=Decimal("500.90"))
-    assert result is not None and result.reason is ExitReason.TRAILING_STOP
-
-    # Put position: QQQ entered at 500, ATR = 0.50
-    put = Position(
-        "QQQ260715P00500000.US", Direction.PUT, 4,
-        Decimal("1.00"), NOW,
-    )
-    put.entry_spot = Decimal("500.00")
-    put.entry_atr = Decimal("0.50")
-    put.peak_spot = Decimal("500.00")
-    put.highest_bid = Decimal("1.00")
-    # QQQ drops to 498.80 → peak_spot updated
-    risk.exit_decision(put, Decimal("1.30"), NOW, current_spot=Decimal("498.80"))
-    assert put.peak_spot == Decimal("498.80")
-    # QQQ bounces back 0.30 (>= 0.5*ATR=0.25) and still profitable → trailing stop
-    result = risk.exit_decision(put, Decimal("1.10"), NOW, current_spot=Decimal("499.10"))
-    assert result is not None and result.reason is ExitReason.TRAILING_STOP
-
-
-def test_atr_trailing_not_triggered_when_unprofitable():
-    """ATR trailing should not fire if bid doesn't cover round-trip fees."""
-    risk = RiskEngine(make_settings())
-    pos = _position()
-    pos.entry_spot = Decimal("500.00")
-    pos.entry_atr = Decimal("0.50")
-    pos.peak_spot = Decimal("501.00")
-    pos.highest_bid = Decimal("1.30")
-    # QQQ retraces 0.60 (>= ATR) but bid barely above entry → fees eat profit
-    result = risk.exit_decision(pos, Decimal("1.02"), NOW, current_spot=Decimal("500.40"))
-    assert result is None

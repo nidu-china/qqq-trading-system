@@ -41,6 +41,7 @@ class TradingService:
         self.option_tick_buffer: list[dict] = []
         self.option_tick_symbol: str | None = None
         self.chain_captured_date = None
+        self._last_vix_refresh: datetime | None = None
 
     async def run(self) -> None:
         self.running = True
@@ -67,6 +68,14 @@ class TradingService:
         if local.weekday() >= 5:
             return
         local_time = local.time()
+
+        if (
+            local_time >= self.engine.settings.report_at
+            and self.reported_date != local.date()
+        ):
+            await self._generate_report(local)
+            self.reported_date = local.date()
+
         if local_time < time(9, 0) or local_time > time(16, 5):
             return
         if self.last_minute != local.replace(second=0, microsecond=0):
@@ -102,6 +111,15 @@ class TradingService:
             await self._refresh_volatility(now)
             completed_1m = [bar for bar in self.bars_1m if bar.complete]
             if completed_1m and completed_1m[-1].end != self.last_bar_end:
+                new_bar = completed_1m[-1]
+                bar_age = (now - new_bar.end).total_seconds()
+                self._log.info(
+                    "new completed bar | %s | bar_end=%s | now=%s | age=%.1fs",
+                    new_bar.symbol,
+                    new_bar.end.astimezone(NY_TZ).strftime("%H:%M:%S"),
+                    now.astimezone(NY_TZ).strftime("%H:%M:%S"),
+                    bar_age,
+                )
                 self.last_bar_end = completed_1m[-1].end
                 await self.engine.on_completed_bars(
                     completed_1m,
@@ -129,13 +147,6 @@ class TradingService:
                 }
             )
             await self.engine.on_position_quote(quote, now)
-
-        if (
-            local.time().replace(tzinfo=None) >= self.engine.settings.report_at
-            and self.reported_date != local.date()
-        ):
-            await self._generate_report(local)
-            self.reported_date = local.date()
 
     async def _warm_strategy_history(self) -> None:
         now = datetime.now(timezone.utc).astimezone(NY_TZ)
@@ -195,8 +206,6 @@ class TradingService:
         if subscriber is None:
             return
         symbols = [self.engine.settings.underlying_symbol]
-        if self.engine.settings.volatility_filter_enabled:
-            symbols.append(self.engine.settings.volatility_symbol)
         try:
             await subscriber(symbols, "1m")
             self._log.info("subscribed to real-time 1m candlesticks | %s", symbols)
@@ -211,6 +220,10 @@ class TradingService:
                 ", ".join(symbols),
             )
         except Exception as exc:
+            self._log.warning(
+                "candlestick subscription failed | %s | fallback=REST polling | %s",
+                symbols, exc,
+            )
             await self.engine.journal.event(
                 "candlestick_subscription_failed",
                 str(exc),
@@ -220,10 +233,14 @@ class TradingService:
     async def _refresh_volatility(self, now: datetime) -> None:
         if not self.engine.settings.volatility_filter_enabled:
             return
+        if (
+            self._last_vix_refresh is not None
+            and (now - self._last_vix_refresh).total_seconds() < 300
+        ):
+            return
+        symbol = self.engine.settings.volatility_symbol
         try:
-            recent = await self.volatility_provider.recent_bars(
-                self.engine.settings.volatility_symbol, 500, "1m"
-            )
+            recent = await self.volatility_provider.recent_bars(symbol, 500, "1m")
             self.volatility_bars_1m = [bar for bar in recent if bar.end <= now]
             self.market_store.write_bars(self.volatility_bars_1m, "1m")
             derived = BarAggregator.to_five_minutes(self.volatility_bars_1m)
@@ -235,11 +252,26 @@ class TradingService:
                 merged[key] for key in sorted(merged) if merged[key].end >= cutoff
             ]
             self.market_store.write_bars(derived, "5m")
+            latest = self.volatility_bars_1m[-1] if self.volatility_bars_1m else None
+            staleness = (
+                (now - latest.end).total_seconds() / 60 if latest else float("inf")
+            )
+            self._log.info(
+                "VIX refreshed | %s | 1m=%d 5m=%d | latest=%s | stale=%.1fmin",
+                symbol,
+                len(self.volatility_bars_1m),
+                len(self.volatility_bars_5m),
+                latest.end.astimezone(NY_TZ).strftime("%H:%M") if latest else "N/A",
+                staleness,
+            )
+            self._last_vix_refresh = now
         except Exception as exc:
+            self._log.warning("VIX refresh failed | %s | %s", symbol, exc)
+            self._last_vix_refresh = now
             await self.engine.journal.event(
                 "volatility_refresh_failed",
                 str(exc),
-                {"symbol": self.engine.settings.volatility_symbol},
+                {"symbol": symbol},
             )
 
     async def _capture_candidate_options(self, now, local, bars_5m) -> None:
@@ -360,12 +392,12 @@ class TradingService:
             ]
             rejected = [
                 {
-                    "bar_end": row.bar_end.isoformat(),
+                    "decision_at": row.decision_at.isoformat(),
                     "reason": row.reason,
                     "indicators": row.indicators or {},
                 }
                 for row in rows["signals"]
-                if not row.accepted
+                if row.status == "rejected"
             ]
             events = [
                 {

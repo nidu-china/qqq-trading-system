@@ -30,7 +30,7 @@ from .policy import RULES
 from .reporting import TradeSummary
 from .risk import ContractSelector, RiskEngine
 from .strategy import StrategyEngine, strategy_from_settings
-from .volatility import VolatilityFilter, VolatilitySnapshot
+from .volatility import VolatilityFilter, VolatilityRegime, VolatilitySnapshot
 
 
 class TradingEngine:
@@ -237,21 +237,11 @@ class TradingEngine:
                 position.market_state = MarketState.UNKNOWN
             if signal.indicators.get("spot"):
                 position.entry_spot = Decimal(str(signal.indicators["spot"]))
-            if signal.indicators.get("underlying_stop"):
-                position.underlying_stop = Decimal(
-                    str(signal.indicators["underlying_stop"])
-                )
             position.highest_bid = position.entry_price
             if signal.indicators.get("highest_bid"):
                 position.highest_bid = Decimal(str(signal.indicators["highest_bid"]))
             if signal.indicators.get("stop_price"):
                 position.stop_price = Decimal(str(signal.indicators["stop_price"]))
-            if signal.indicators.get("atr"):
-                position.entry_atr = Decimal(str(signal.indicators["atr"]))
-            if position.entry_spot is not None:
-                position.peak_spot = position.entry_spot
-            elif signal.indicators.get("peak_spot"):
-                position.peak_spot = Decimal(str(signal.indicators["peak_spot"]))
             if signal.indicators.get("entry_vwap"):
                 position.entry_vwap = Decimal(str(signal.indicators["entry_vwap"]))
             position.midday_reduced = bool(signal.indicators.get("midday_reduced", False))
@@ -346,12 +336,8 @@ class TradingEngine:
                         self.position,
                         quote.bid,
                         decision_at,
-                        current_spot=bars[-1].close,
                     )
-                    if (
-                        self.position.highest_bid != previous_highest
-                        or self.position.peak_spot is not None
-                    ):
+                    if self.position.highest_bid != previous_highest:
                         await self._persist_position_metadata(self.position)
                     decision = price_decision
                     if (
@@ -364,22 +350,31 @@ class TradingEngine:
                 return
             if self.state is not SystemState.READY or signal is None:
                 return
+            self.log.info(
+                "signal | %s %s | spot=%.2f | bar_end=%s",
+                signal.direction.value, signal.strategy,
+                signal.spot, signal.bar_end.astimezone(NY_TZ).strftime("%H:%M:%S"),
+            )
             local_time = decision_at.astimezone(NY_TZ).time().replace(tzinfo=None)
             if not (
                 RULES.timed_opening_start
                 <= local_time
                 < RULES.timed_main_last_signal
             ):
+                self.log.warning("signal rejected | outside_entry_window | time=%s", local_time)
                 await self.journal.signal(signal, False, "outside_entry_window")
                 return
             signal_age = (decision_at - signal.bar_end).total_seconds()
             if signal_age < 0 or signal_age > RULES.signal_ttl_seconds:
+                self.log.warning("signal rejected | signal_expired | age=%.1fs", signal_age)
                 await self.journal.signal(signal, False, "signal_expired")
                 return
             if self.trades_today >= RULES.timed_max_trades_per_day:
+                self.log.warning("signal rejected | max_trades_per_day | trades=%d", self.trades_today)
                 await self.journal.signal(signal, False, "max_trades_per_day")
                 return
             if self.cooldown_until is not None and decision_at < self.cooldown_until:
+                self.log.warning("signal rejected | cooldown")
                 await self.journal.signal(signal, False, "cooldown")
                 return
             account = await self.broker.account_snapshot()
@@ -390,10 +385,18 @@ class TradingEngine:
                     volatility_daily_bars or [],
                 )
                 self.last_volatility = snapshot
+                if snapshot.regime is VolatilityRegime.UNAVAILABLE:
+                    self.log.warning(
+                        "VIX data unavailable (%s), allowing signal through",
+                        snapshot.reason,
+                    )
                 if not snapshot.allows(signal.direction):
                     reason = f"volatility_{snapshot.regime.value}"
                     if snapshot.reason:
                         reason = f"{reason}_{snapshot.reason}"
+                    self.log.warning(
+                        "signal rejected | %s | regime=%s", reason, snapshot.regime.value
+                    )
                     await self.journal.signal(signal, False, reason)
                     return
 
@@ -409,6 +412,7 @@ class TradingEngine:
                     return_exceptions=True,
                 )
             except Exception as exc:
+                self.log.warning("signal rejected | option_chain_error | %s", exc)
                 await self.journal.signal(signal, False, f"option_chain_error:{exc}")
                 return
             liquid_quotes: dict[str, Quote] = {}
@@ -427,6 +431,10 @@ class TradingEngine:
             )
             if contract is None or contract.symbol not in liquid_quotes:
                 reason = rejection_reasons[0] if rejection_reasons else "no_liquid_contract"
+                self.log.warning(
+                    "signal rejected | %s | candidates=%d liquid=%d reasons=%s",
+                    reason, len(candidates), len(liquid_quotes), rejection_reasons[:3],
+                )
                 await self.journal.signal(signal, False, reason)
                 return
             quote = liquid_quotes[contract.symbol]
@@ -436,8 +444,16 @@ class TradingEngine:
                 account.equity, quote.ask, size_factor
             )
             if quantity < 1:
+                self.log.warning(
+                    "signal rejected | risk_budget_too_small | ask=%.2f equity=%.2f",
+                    quote.ask, account.equity,
+                )
                 await self.journal.signal(signal, False, "risk_budget_too_small")
                 return
+            self.log.info(
+                "signal accepted | %s | qty=%d | ask=%.2f | contract=%s",
+                signal.direction.value, quantity, quote.ask, contract.symbol,
+            )
             await self.journal.signal(signal, True, "accepted")
             request = OrderRequest(
                 symbol=contract.symbol,
@@ -451,8 +467,6 @@ class TradingEngine:
                 "spot": str(signal.spot),
                 "config_version": str(self.config_version),
             }
-            if signal.stop_price is not None:
-                indicators["underlying_stop"] = str(signal.stop_price)
             self.state = SystemState.ENTRY_PENDING
             await self._publish_trade_signal(
                 request, signal.direction, signal.bar_end, indicators
@@ -478,10 +492,7 @@ class TradingEngine:
                 strategy_name=signal.strategy,
                 market_state=signal.market_state,
                 entry_spot=signal.spot,
-                underlying_stop=signal.stop_price,
                 highest_bid=filled.average_price,
-                entry_atr=signal.atr,
-                peak_spot=signal.spot,
                 entry_vwap=signal.vwap,
                 entry_intent_id=request.intent_id,
             )
@@ -631,11 +642,6 @@ class TradingEngine:
             "strategy": position.strategy_name or "",
             "market_state": position.market_state.value,
             "entry_spot": str(position.entry_spot) if position.entry_spot is not None else None,
-            "underlying_stop": (
-                str(position.underlying_stop)
-                if position.underlying_stop is not None
-                else None
-            ),
             "highest_bid": (
                 str(position.highest_bid) if position.highest_bid is not None else None
             ),
@@ -649,8 +655,6 @@ class TradingEngine:
                 str(position.entry_vwap) if position.entry_vwap is not None else None
             ),
             "initial_quantity": position.initial_quantity,
-            "entry_atr": str(position.entry_atr) if position.entry_atr is not None else None,
-            "peak_spot": str(position.peak_spot) if position.peak_spot is not None else None,
             "opened_at": position.opened_at.isoformat(),
         }
         await writer(

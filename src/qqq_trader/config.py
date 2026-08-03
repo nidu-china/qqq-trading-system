@@ -86,7 +86,6 @@ class Settings(BaseSettings):
     option_stop_loss_pct: Decimal
     tp1_profit_pct: Decimal
     tp2_profit_pct: Decimal
-    trailing_atr_multiplier: Decimal
     stale_minutes: int
 
     # 期权流动性（必须在 .env 显式配置）
@@ -95,6 +94,7 @@ class Settings(BaseSettings):
     min_open_interest: int
     min_option_volume: int
     target_delta: Decimal
+    strike_offset: Decimal = Decimal("2")
 
     # 分时趋势策略（必须在 .env 显式配置）
     api_host: str
@@ -159,8 +159,6 @@ class Settings(BaseSettings):
             raise ValueError("tp1_profit_pct must be positive")
         if self.tp2_profit_pct <= self.tp1_profit_pct:
             raise ValueError("tp2_profit_pct must exceed tp1_profit_pct")
-        if self.trailing_atr_multiplier <= 0:
-            raise ValueError("trailing_atr_multiplier must be positive")
         if self.fee_per_contract < 0:
             raise ValueError("fee_per_contract must be non-negative")
         return self

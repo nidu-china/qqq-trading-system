@@ -30,7 +30,7 @@ class VolatilitySnapshot:
     reason: str = ""
 
     def allows(self, direction: Direction) -> bool:
-        if self.regime is VolatilityRegime.NORMAL:
+        if self.regime in {VolatilityRegime.NORMAL, VolatilityRegime.UNAVAILABLE}:
             return True
         if self.regime is VolatilityRegime.RISK_OFF:
             return direction is Direction.PUT

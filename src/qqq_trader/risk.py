@@ -18,7 +18,7 @@ from .policy import RULES
 
 
 class ContractSelector:
-    """Shortlist near-ATM contracts and prefer a liquid Delta near ±0.45."""
+    """Select 0DTE contracts within spot ± strike_offset."""
 
     def shortlist(
         self,
@@ -26,10 +26,16 @@ class ContractSelector:
         direction: Direction,
         spot: Decimal,
     ) -> list[OptionContract]:
-        return sorted(
-            (contract for contract in contracts if contract.right is direction),
-            key=lambda item: abs(item.strike - spot),
-        )[: RULES.option_candidate_count]
+        offset = RULES.strike_offset
+        lower = spot - offset
+        upper = spot + offset
+        candidates = [
+            c for c in contracts
+            if c.right is direction and lower <= c.strike <= upper
+        ]
+        return sorted(candidates, key=lambda c: abs(c.strike - spot))[
+            : RULES.option_candidate_count
+        ]
 
     def select(
         self,
@@ -42,20 +48,16 @@ class ContractSelector:
         if not shortlist:
             return None
         if quotes:
-            ranked: list[tuple[Decimal, Decimal, OptionContract]] = []
+            priced: list[tuple[Decimal, Decimal, OptionContract]] = []
             for contract in shortlist:
                 quote = quotes.get(contract.symbol)
-                if quote is None:
+                if quote is None or quote.ask is None or quote.ask <= 0:
                     continue
-                try:
-                    delta = abs(Decimal(str(quote.extra.get("delta", ""))))
-                except Exception:
-                    continue
-                ranked.append(
-                    (abs(delta - RULES.target_delta), abs(contract.strike - spot), contract)
+                priced.append(
+                    (quote.ask, abs(contract.strike - spot), contract)
                 )
-            if ranked:
-                return min(ranked, key=lambda item: (item[0], item[1]))[2]
+            if priced:
+                return min(priced, key=lambda item: (item[0], item[1]))[2]
         return min(shortlist, key=lambda item: abs(item.strike - spot))
 
 
@@ -115,7 +117,6 @@ class RiskEngine:
         position: Position,
         executable_bid: Decimal,
         now: datetime,
-        current_spot: Decimal | None = None,
     ) -> ExitDecision | None:
         rules = self.rules
         from .config import NY_TZ
@@ -124,11 +125,6 @@ class RiskEngine:
         if local_time >= rules.forced_close:
             return ExitDecision(ExitReason.FORCED_CLOSE, position.quantity)
         position.highest_bid = max(position.highest_bid or position.entry_price, executable_bid)
-        if current_spot is not None and position.peak_spot is not None:
-            if position.direction is Direction.CALL:
-                position.peak_spot = max(position.peak_spot, current_spot)
-            else:
-                position.peak_spot = min(position.peak_spot, current_spot)
         option_stop = position.stop_price or (
             position.entry_price * (Decimal(1) - rules.option_stop_loss_pct)
         )
@@ -144,25 +140,7 @@ class RiskEngine:
                 else (position.quantity + 1) // 2
             )
             return ExitDecision(ExitReason.TAKE_PROFIT_1, quantity, position.entry_price)
-        entry_atr = position.entry_atr
-        if (
-            current_spot is not None
-            and position.peak_spot is not None
-            and entry_atr is not None
-            and entry_atr > 0
-        ):
-            trail_distance = rules.trailing_atr_multiplier * entry_atr
-            if position.direction is Direction.CALL:
-                retracement = position.peak_spot - current_spot
-            else:
-                retracement = current_spot - position.peak_spot
-            minimum_profitable_bid = (
-                position.entry_price
-                + rules.fee_per_contract * Decimal(2) / Decimal(100)
-            )
-            if retracement >= trail_distance and executable_bid > minimum_profitable_bid:
-                return ExitDecision(ExitReason.TRAILING_STOP, position.quantity)
-        elif position.highest_bid > position.entry_price:
+        if position.highest_bid > position.entry_price:
             trailing_price = position.entry_price + (
                 Decimal(1) - rules.trailing_giveback_pct
             ) * (position.highest_bid - position.entry_price)
