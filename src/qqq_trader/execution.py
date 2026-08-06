@@ -136,6 +136,61 @@ class OrderExecutor:
         )
         return None
 
+    async def emergency_exit(
+        self,
+        request: OrderRequest,
+        quote_supplier: QuoteSupplier,
+    ) -> BrokerOrder | None:
+        """Use a market order for a hard stop, then chase any unfilled remainder."""
+        submit_market = getattr(self.broker, "submit_market", None)
+        if not callable(submit_market):
+            return await self.exit(request, quote_supplier)
+
+        await self.journal.order_intent(request)
+        order = await submit_market(request)
+        await self.journal.broker_order(order)
+        final = await self._wait_terminal(order)
+        filled_quantity = final.filled_quantity
+        filled_notional = (
+            final.average_price * filled_quantity
+            if filled_quantity and final.average_price is not None
+            else Decimal(0)
+        )
+        if filled_quantity >= request.quantity and final.average_price is not None:
+            self._log.warning(
+                "emergency exit filled | %s | qty=%d | avg=%s",
+                request.symbol,
+                filled_quantity,
+                final.average_price,
+            )
+            return self._aggregate(
+                request,
+                final,
+                filled_quantity,
+                filled_notional,
+            )
+        if final.status.lower() not in TERMINAL_STATUSES:
+            await self.broker.cancel_order(final.order_id)
+
+        remaining = request.quantity - filled_quantity
+        fallback = await self.exit(
+            replace(request, quantity=remaining),
+            quote_supplier,
+            max_attempts=3,
+        )
+        if fallback is not None and fallback.average_price is not None:
+            filled_quantity += fallback.filled_quantity
+            filled_notional += fallback.average_price * fallback.filled_quantity
+            final = fallback
+        if filled_quantity > 0:
+            return self._aggregate(
+                request,
+                final,
+                filled_quantity,
+                filled_notional,
+            )
+        return None
+
     async def _wait_terminal(self, order: BrokerOrder) -> BrokerOrder:
         if order.status.lower() in TERMINAL_STATUSES:
             return order

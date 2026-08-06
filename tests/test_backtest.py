@@ -72,6 +72,10 @@ def test_synthetic_replay_aggregates_exit_legs_and_forces_close():
     assert len(result.trades) == 1
     trade = result.trades[0]
     assert trade.quote_source == "synthetic"
+    assert trade.pricing_model == "black_scholes_0dte"
+    assert trade.entry_iv is not None
+    assert trade.iv_source == "default"
+    assert trade.entry_spread is not None
     assert trade.strategy == "trend"
     assert trade.market_state is MarketState.TREND_UP
     assert trade.exit_reason == "forced_close"
@@ -130,4 +134,95 @@ def test_replay_prefers_real_option_quotes_when_available():
 
     assert len(result.trades) == 1
     assert result.trades[0].quote_source == "real"
+    assert result.trades[0].modeled_quote_bars == 0
     assert result.option_data_complete
+    entry_point = next(
+        point for point in result.equity_curve if point.timestamp == bars[15].end
+    )
+    assert entry_point.realized_pnl == 0
+    assert entry_point.unrealized_pnl == Decimal("-40.00")
+    assert entry_point.equity == Decimal("9960.00")
+
+
+def test_replay_records_stop_trigger_fill_and_penetration():
+    settings = make_settings(volatility_filter_enabled=False)
+    bars = _day_bars()
+    contract = OptionContract(
+        "QQQ260715C00500000.US",
+        "QQQ.US",
+        date(2026, 7, 15),
+        Decimal("500"),
+        Direction.CALL,
+    )
+    frames = {}
+    for index, bar in enumerate(bars[15:]):
+        bid = Decimal("0.80") if index == 1 else Decimal("1.20")
+        quote = Quote(
+            contract.symbol,
+            bar.end,
+            bid,
+            bid,
+            bid + Decimal("0.01"),
+            volume=100,
+            open_interest=500,
+            extra={"delta": "0.45"},
+        )
+        frames[bar.end] = OptionFrame(
+            bar.end,
+            bar.close,
+            (contract,),
+            {contract.symbol: quote},
+        )
+
+    result = EventDrivenBacktester(
+        settings,
+        strategy=OneSignalStrategy(),
+    ).run(bars, frames, Decimal("10000"))
+
+    leg = result.trades[0].exit_legs[0]
+    assert leg.reason == "stop_loss"
+    assert leg.stop_price == Decimal("0.9075")
+    assert leg.trigger_bid == Decimal("0.80")
+    assert leg.fill_bid == Decimal("0.80")
+    assert leg.stop_penetration == Decimal("0.1075")
+    assert leg.stop_penetration_pct == Decimal("0.1075") / Decimal("1.21")
+
+
+def test_replay_models_missing_minutes_then_returns_to_real_quotes():
+    settings = make_settings(volatility_filter_enabled=False)
+    bars = _day_bars()
+    contract = OptionContract(
+        "QQQ260715C00500000.US",
+        "QQQ.US",
+        date(2026, 7, 15),
+        Decimal("500"),
+        Direction.CALL,
+    )
+    frames = {}
+    for bar in bars[15:]:
+        quote = Quote(
+            contract.symbol,
+            bar.end,
+            Decimal("1.20"),
+            Decimal("1.20"),
+            Decimal("1.21"),
+            volume=100,
+            open_interest=500,
+            extra={"delta": "0.45", "iv": "0.25"},
+        )
+        frames[bar.end] = OptionFrame(
+            bar.end,
+            bar.close,
+            (contract,),
+            {contract.symbol: quote},
+        )
+    del frames[bars[16].end]
+
+    replay = EventDrivenBacktester(settings, strategy=OneSignalStrategy())
+    result = replay.run(bars, frames, Decimal("10000"))
+
+    assert len(result.trades) == 1
+    assert result.trades[0].quote_source == "real"
+    assert result.trades[0].pricing_model == "black_scholes_0dte"
+    assert result.trades[0].modeled_quote_bars == 1
+    assert not result.option_data_complete

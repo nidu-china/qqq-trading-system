@@ -18,6 +18,44 @@ class VolatilityRegime(StrEnum):
     UNAVAILABLE = "unavailable"
 
 
+class VixFiveMinuteTrend(StrEnum):
+    FALLING = "falling"
+    NEUTRAL = "neutral"
+    RISING = "rising"
+
+
+def vix_five_minute_trend(
+    bars: Sequence[Bar],
+    decision_at: datetime,
+    max_staleness_minutes: int,
+    minimum_change: Decimal = Decimal("0.005"),
+) -> VixFiveMinuteTrend:
+    """Classify the latest completed 5-minute VIX candle without look-ahead."""
+    decision_date = decision_at.astimezone(NY_TZ).date()
+    visible = sorted(
+        (
+            bar
+            for bar in bars
+            if bar.complete
+            and bar.end <= decision_at
+            and bar.end.astimezone(NY_TZ).date() == decision_date
+        ),
+        key=lambda bar: bar.end,
+    )
+    if len(visible) < 2:
+        return VixFiveMinuteTrend.NEUTRAL
+    current = visible[-1]
+    previous = visible[-2]
+    if decision_at - current.end > timedelta(minutes=max_staleness_minutes):
+        return VixFiveMinuteTrend.NEUTRAL
+    close_change = current.close / previous.close - Decimal(1)
+    if current.close < current.open and close_change <= -minimum_change:
+        return VixFiveMinuteTrend.FALLING
+    if current.close > current.open and close_change >= minimum_change:
+        return VixFiveMinuteTrend.RISING
+    return VixFiveMinuteTrend.NEUTRAL
+
+
 @dataclass(frozen=True, slots=True)
 class VolatilitySnapshot:
     timestamp: datetime

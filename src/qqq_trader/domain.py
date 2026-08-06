@@ -190,6 +190,7 @@ class Position:
     market_state: MarketState = MarketState.UNKNOWN
     entry_spot: Decimal | None = None
     highest_bid: Decimal | None = None
+    trend_runner: bool = False
     midday_reduced: bool = False
     range_middle_taken: bool = False
     entry_vwap: Decimal | None = None

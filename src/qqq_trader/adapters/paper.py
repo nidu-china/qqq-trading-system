@@ -99,6 +99,10 @@ class PaperBroker:
                 del self._positions[request.symbol]
         return order
 
+    async def submit_market(self, request: OrderRequest) -> BrokerOrder:
+        """Fill a paper market order at the executable reference price."""
+        return await self.submit_limit(request)
+
     async def cancel_order(self, order_id: str) -> None:
         return None
 

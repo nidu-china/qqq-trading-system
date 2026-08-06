@@ -60,6 +60,8 @@ def generate_price_chart(
             ("sell", exit_at, "#d33f49"),
         ):
             when = datetime.fromisoformat(timestamp)
+            if when.tzinfo is None:
+                when = when.replace(tzinfo=timezone.utc)
             nearest_index = min(
                 range(len(bars)),
                 key=lambda i: abs((bars[i].end - when).total_seconds()),

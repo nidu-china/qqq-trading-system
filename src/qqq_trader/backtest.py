@@ -5,8 +5,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
-from decimal import Decimal
+from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal
 from pathlib import Path
+from statistics import median
 
 import pyarrow.parquet as pq
 
@@ -21,6 +22,13 @@ from .domain import (
     Position,
     Quote,
     Signal,
+)
+from .option_pricing import (
+    black_scholes_0dte,
+    historical_daily_volatility,
+    implied_volatility_from_mid,
+    latest_index_volatility,
+    quoted_bid_ask,
 )
 from .policy import RULES
 from .risk import ContractSelector, RiskEngine
@@ -45,6 +53,20 @@ class BacktestExitLeg:
     fees: Decimal
     slippage: Decimal
     reason: str
+    stop_price: Decimal | None = None
+    trigger_bid: Decimal | None = None
+    fill_bid: Decimal | None = None
+    stop_penetration: Decimal | None = None
+    stop_penetration_pct: Decimal | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class BacktestEquityPoint:
+    timestamp: datetime
+    equity: Decimal
+    realized_pnl: Decimal
+    unrealized_pnl: Decimal
+    position_symbol: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,6 +83,11 @@ class BacktestTrade:
     strategy: str = ""
     market_state: MarketState = MarketState.UNKNOWN
     quote_source: str = "synthetic"
+    pricing_model: str | None = None
+    entry_iv: Decimal | None = None
+    iv_source: str | None = None
+    entry_spread: Decimal | None = None
+    modeled_quote_bars: int = 0
     fees: Decimal = Decimal(0)
     slippage: Decimal = Decimal(0)
     exit_legs: tuple[BacktestExitLeg, ...] = ()
@@ -77,6 +104,7 @@ class BacktestResult:
     volatility_data_complete: bool = True
     volatility_regimes: dict[str, int] = field(default_factory=dict)
     signal_records: list[dict] = field(default_factory=list)
+    equity_curve: list[BacktestEquityPoint] = field(default_factory=list)
 
     def reject(self, reason: str) -> None:
         self.rejected[reason] = self.rejected.get(reason, 0) + 1
@@ -114,44 +142,56 @@ class BacktestResult:
 @dataclass(slots=True)
 class SyntheticOption:
     contract: OptionContract
-    theoretical_price: Decimal
-    delta: Decimal
-    last_spot: Decimal
-    last_time: datetime
+    implied_volatility: Decimal
+    iv_source: str
 
-    def quote(self, spot: Decimal, timestamp: datetime) -> Quote:
-        minutes = max(
-            Decimal(0),
-            Decimal(str((timestamp - self.last_time).total_seconds())) / Decimal(60),
+    def quote(
+        self,
+        spot: Decimal,
+        timestamp: datetime,
+        implied_volatility: Decimal | None = None,
+        iv_source: str | None = None,
+    ) -> Quote:
+        if implied_volatility is not None:
+            self.implied_volatility = implied_volatility
+        if iv_source is not None:
+            self.iv_source = iv_source
+        valuation = black_scholes_0dte(
+            spot,
+            self.contract.strike,
+            timestamp,
+            self.implied_volatility,
+            self.contract.right,
+            risk_free_rate=RULES.synthetic_risk_free_rate,
+            dividend_yield=RULES.synthetic_dividend_yield,
+            minutes_per_year=RULES.synthetic_minutes_per_year,
         )
-        spot_change = spot - self.last_spot
-        self.theoretical_price = max(
-            Decimal("0.01"),
-            self.theoretical_price
-            + self.delta * spot_change
-            + Decimal("0.5") * RULES.synthetic_gamma * spot_change * spot_change
-            + RULES.synthetic_theta * minutes / Decimal(390),
+        theoretical, bid, ask = quoted_bid_ask(
+            valuation.price,
+            minimum_price=RULES.synthetic_min_price,
+            minimum_spread=RULES.synthetic_min_spread,
+            maximum_spread=RULES.synthetic_max_spread,
+            spread_ratio=RULES.synthetic_spread_ratio,
         )
-        self.delta += RULES.synthetic_gamma * spot_change
-        if self.contract.right is Direction.CALL:
-            self.delta = min(Decimal("0.95"), max(Decimal("0.05"), self.delta))
-        else:
-            self.delta = min(Decimal("-0.05"), max(Decimal("-0.95"), self.delta))
-        self.last_spot = spot
-        self.last_time = timestamp
+        quoted_mid = (bid + ask) / Decimal(2)
         return Quote(
             symbol=self.contract.symbol,
             timestamp=timestamp,
-            last=self.theoretical_price,
-            bid=max(Decimal("0.01"), self.theoretical_price - RULES.slippage_quote),
-            ask=self.theoretical_price + RULES.slippage_quote,
+            last=theoretical,
+            bid=bid,
+            ask=ask,
             volume=1000,
             open_interest=5000,
             extra={
-                "delta": str(self.delta),
-                "gamma": str(RULES.synthetic_gamma),
-                "theta": str(RULES.synthetic_theta),
-                "vega": str(RULES.synthetic_vega),
+                "delta": str(valuation.delta),
+                "gamma": str(valuation.gamma),
+                "theta": str(valuation.theta),
+                "vega": str(valuation.vega),
+                "iv": str(self.implied_volatility),
+                "iv_source": self.iv_source,
+                "mid": str(quoted_mid),
+                "theoretical": str(theoretical),
+                "model": "black_scholes_0dte",
                 "source": "synthetic",
             },
         )
@@ -163,6 +203,12 @@ class OpenTrade:
     quantity: int
     entry_at: datetime
     quote_source: str
+    entry_mid: Decimal | None = None
+    pricing_model: str | None = None
+    entry_iv: Decimal | None = None
+    iv_source: str | None = None
+    entry_spread: Decimal | None = None
+    modeled_quote_bars: int = 0
     legs: list[BacktestExitLeg] = field(default_factory=list)
 
 
@@ -248,9 +294,19 @@ class EventDrivenBacktester:
 
     @staticmethod
     def _synthetic_option(
-        signal: Signal, trading_day: date
+        signal: Signal,
+        trading_day: date,
+        implied_volatility: Decimal,
+        iv_source: str,
     ) -> SyntheticOption:
-        strike = signal.spot.quantize(Decimal("1"))
+        if signal.direction is Direction.CALL:
+            strike = (signal.spot + RULES.strike_offset).to_integral_value(
+                rounding=ROUND_FLOOR
+            )
+        else:
+            strike = (signal.spot - RULES.strike_offset).to_integral_value(
+                rounding=ROUND_CEILING
+            )
         marker = "C" if signal.direction is Direction.CALL else "P"
         symbol = (
             f"QQQ{trading_day.strftime('%y%m%d')}{marker}"
@@ -259,29 +315,92 @@ class EventDrivenBacktester:
         contract = OptionContract(
             symbol, "QQQ.US", trading_day, strike, signal.direction
         )
-        local = signal.bar_end.astimezone(NY_TZ)
-        close = local.replace(hour=16, minute=0, second=0, microsecond=0)
-        remaining_minutes = max(
-            Decimal(0),
-            Decimal(str((close - local).total_seconds())) / Decimal(60),
-        )
-        intrinsic = (
-            max(Decimal(0), signal.spot - strike)
-            if signal.direction is Direction.CALL
-            else max(Decimal(0), strike - signal.spot)
-        )
-        initial = max(
-            RULES.synthetic_min_price,
-            intrinsic + abs(RULES.synthetic_theta) * remaining_minutes / Decimal(390),
-        )
-        return SyntheticOption(
-            contract,
-            initial,
-            RULES.synthetic_call_delta
-            if signal.direction is Direction.CALL
-            else RULES.synthetic_put_delta,
-            signal.spot,
-            signal.bar_end,
+        return SyntheticOption(contract, implied_volatility, iv_source)
+
+    @staticmethod
+    def _observed_option_iv(
+        frames: dict[datetime, OptionFrame],
+        timestamp: datetime,
+        direction: Direction,
+    ) -> Decimal | None:
+        decision_date = timestamp.astimezone(NY_TZ).date()
+        minute = timestamp.replace(second=0, microsecond=0)
+        candidates: list[OptionFrame] = []
+        seen: set[datetime] = set()
+        direct = frames.get(timestamp)
+        if direct is not None:
+            candidates.append(direct)
+            seen.add(direct.timestamp)
+        for offset in range(RULES.synthetic_observed_iv_max_age_minutes + 1):
+            frame = frames.get(minute - timedelta(minutes=offset))
+            if frame is not None and frame.timestamp not in seen:
+                candidates.append(frame)
+                seen.add(frame.timestamp)
+        for frame in candidates:
+            if frame.timestamp.astimezone(NY_TZ).date() != decision_date:
+                continue
+            age = (timestamp - frame.timestamp).total_seconds() / 60
+            if age < 0 or age > RULES.synthetic_observed_iv_max_age_minutes:
+                continue
+            values: list[Decimal] = []
+            for contract in frame.contracts:
+                if contract.right is not direction:
+                    continue
+                quote = frame.quotes.get(contract.symbol)
+                if quote is None or quote.timestamp > timestamp:
+                    continue
+                mid = quote.mid
+                value = None
+                if mid is not None and frame.spot > 0:
+                    value = implied_volatility_from_mid(
+                        frame.spot,
+                        contract.strike,
+                        quote.timestamp,
+                        mid,
+                        direction,
+                        risk_free_rate=RULES.synthetic_risk_free_rate,
+                        dividend_yield=RULES.synthetic_dividend_yield,
+                        minutes_per_year=RULES.synthetic_minutes_per_year,
+                        floor=RULES.synthetic_iv_floor,
+                        cap=RULES.synthetic_iv_cap,
+                    )
+                if value is None and quote.extra.get("iv") is not None:
+                    value = Decimal(str(quote.extra["iv"]))
+                if value is None:
+                    continue
+                if RULES.synthetic_iv_floor <= value <= RULES.synthetic_iv_cap:
+                    values.append(value)
+            if values:
+                return Decimal(str(median(values)))
+        return None
+
+    @classmethod
+    def _synthetic_iv(
+        cls,
+        bars: list[Bar],
+        volatility_bars: list[Bar],
+        frames: dict[datetime, OptionFrame],
+        timestamp: datetime,
+        direction: Direction,
+    ) -> tuple[Decimal, str]:
+        observed = cls._observed_option_iv(frames, timestamp, direction)
+        if observed is not None:
+            value, source = observed, "observed_option"
+        else:
+            vix = latest_index_volatility(volatility_bars, timestamp)
+            if vix is not None:
+                value, source = vix * RULES.synthetic_vix_multiplier, "vix"
+            else:
+                historical = historical_daily_volatility(bars, timestamp)
+                if historical is not None:
+                    value, source = historical, "historical_20d"
+                else:
+                    value, source = RULES.synthetic_default_iv, "default"
+        if direction is Direction.PUT and source != "observed_option":
+            value += RULES.synthetic_put_iv_skew
+        return (
+            min(RULES.synthetic_iv_cap, max(RULES.synthetic_iv_floor, value)),
+            source,
         )
 
     @staticmethod
@@ -321,6 +440,11 @@ class EventDrivenBacktester:
             strategy=open_trade.position.strategy_name or "",
             market_state=open_trade.position.market_state,
             quote_source=open_trade.quote_source,
+            pricing_model=open_trade.pricing_model,
+            entry_iv=open_trade.entry_iv,
+            iv_source=open_trade.iv_source,
+            entry_spread=open_trade.entry_spread,
+            modeled_quote_bars=open_trade.modeled_quote_bars,
             fees=sum((leg.fees for leg in legs), Decimal(0)),
             slippage=sum((leg.slippage for leg in legs), Decimal(0)),
             exit_legs=legs,
@@ -346,6 +470,7 @@ class EventDrivenBacktester:
         open_trade: OpenTrade | None = None
         synthetic: SyntheticOption | None = None
         last_real_quote: Quote | None = None
+        last_mark_bid: Decimal | None = None
         realized = Decimal(0)
         current_day: date | None = None
         trades_today = 0
@@ -353,20 +478,73 @@ class EventDrivenBacktester:
         last_processed: Bar | None = None
         cancelled = False
 
+        def record_equity(
+            timestamp: datetime,
+            executable_bid: Decimal | None = None,
+        ) -> None:
+            nonlocal last_mark_bid
+            if executable_bid is not None:
+                last_mark_bid = executable_bid
+            unrealized = Decimal(0)
+            position_symbol = None
+            if position is not None:
+                position_symbol = position.symbol
+                mark_bid = last_mark_bid or position.entry_price
+                unrealized = (
+                    (mark_bid - position.entry_price)
+                    * Decimal(100)
+                    * position.quantity
+                    - RULES.fee_per_contract * Decimal(2) * position.quantity
+                )
+            point = BacktestEquityPoint(
+                timestamp,
+                starting_equity + realized + unrealized,
+                realized,
+                unrealized,
+                position_symbol,
+            )
+            if result.equity_curve and result.equity_curve[-1].timestamp == timestamp:
+                result.equity_curve[-1] = point
+            else:
+                result.equity_curve.append(point)
+
         def close_leg(decision: ExitDecision, quote: Quote, timestamp: datetime) -> None:
-            nonlocal position, open_trade, synthetic, last_real_quote, realized, cooldown_until
+            nonlocal position, open_trade, synthetic, last_real_quote, last_mark_bid
+            nonlocal realized, cooldown_until
             assert position is not None and open_trade is not None and quote.bid is not None
             quantity = min(decision.quantity, position.quantity)
             fees = RULES.fee_per_contract * Decimal(2) * quantity
             pnl = (
                 (quote.bid - position.entry_price) * Decimal(100) * quantity - fees
             )
-            slippage = (
-                RULES.slippage_quote * Decimal(2) * Decimal(100) * quantity
-                if open_trade.quote_source == "synthetic"
-                else Decimal(0)
-            )
+            if open_trade.quote_source == "synthetic":
+                exit_mid = Decimal(str(quote.extra.get("mid", quote.mid or quote.bid)))
+                entry_mid = open_trade.entry_mid or position.entry_price
+                slippage = (
+                    max(Decimal(0), position.entry_price - entry_mid)
+                    + max(Decimal(0), exit_mid - quote.bid)
+                ) * Decimal(100) * quantity
+            else:
+                slippage = Decimal(0)
             realized += pnl
+            stop_price = None
+            trigger_bid = None
+            fill_bid = None
+            stop_penetration = None
+            stop_penetration_pct = None
+            if decision.reason is ExitReason.STOP_LOSS:
+                stop_price = position.stop_price or (
+                    position.entry_price
+                    * (Decimal(1) - RULES.option_stop_loss_pct)
+                )
+                trigger_bid = quote.bid
+                fill_bid = quote.bid
+                stop_penetration = max(Decimal(0), stop_price - fill_bid)
+                stop_penetration_pct = (
+                    stop_penetration / position.entry_price
+                    if position.entry_price > 0
+                    else Decimal(0)
+                )
             leg = BacktestExitLeg(
                 timestamp,
                 quote.bid,
@@ -375,8 +553,18 @@ class EventDrivenBacktester:
                 fees,
                 slippage,
                 decision.reason.value,
+                stop_price,
+                trigger_bid,
+                fill_bid,
+                stop_penetration,
+                stop_penetration_pct,
             )
             open_trade.legs.append(leg)
+            record_profitable_exit = getattr(
+                self.strategy, "record_profitable_exit", None
+            )
+            if pnl > 0 and callable(record_profitable_exit):
+                record_profitable_exit(position.direction, timestamp)
             result.signal_records.append(
                 {
                     "id": f"sell:{len(result.signal_records)}:{timestamp.isoformat()}",
@@ -388,10 +576,30 @@ class EventDrivenBacktester:
                     "quantity": quantity,
                     "status": "executed",
                     "reason": decision.reason.value,
-                    "indicators": {"pnl": str(pnl)},
+                    "indicators": {
+                        "pnl": str(pnl),
+                        "stop_price": str(stop_price) if stop_price is not None else None,
+                        "trigger_bid": str(trigger_bid) if trigger_bid is not None else None,
+                        "fill_bid": str(fill_bid) if fill_bid is not None else None,
+                        "stop_penetration": (
+                            str(stop_penetration)
+                            if stop_penetration is not None
+                            else None
+                        ),
+                        "stop_penetration_pct": (
+                            str(stop_penetration_pct)
+                            if stop_penetration_pct is not None
+                            else None
+                        ),
+                    },
                 }
             )
             position.quantity -= quantity
+            if (
+                decision.reason is ExitReason.TRAILING_STOP
+                and position.quantity > 0
+            ):
+                position.trend_runner = True
             if decision.reason in {
                 ExitReason.TAKE_PROFIT_1,
                 ExitReason.BOLLINGER_MIDDLE,
@@ -410,6 +618,7 @@ class EventDrivenBacktester:
                 open_trade = None
                 synthetic = None
                 last_real_quote = None
+                last_mark_bid = None
                 cooldown_until = timestamp + timedelta(minutes=RULES.cooldown_minutes)
 
         ordered = sorted((bar for bar in bars if bar.complete), key=lambda item: item.end)
@@ -424,50 +633,80 @@ class EventDrivenBacktester:
                 trades_today = 0
                 cooldown_until = None
             available.append(bar)
+            set_volatility_context = getattr(
+                self.strategy, "set_volatility_context", None
+            )
+            if callable(set_volatility_context):
+                set_volatility_context(volatility_bars or [], bar.end)
             signal = self.strategy.evaluate(available)
 
             if position is not None:
-                frame = self._frame_at(option_frames, bar.end)
-                if synthetic is not None:
-                    quote = synthetic.quote(bar.close, bar.end)
-                elif frame is not None and position.symbol in frame.quotes:
+                frame = option_frames.get(bar.end)
+                if frame is not None and position.symbol in frame.quotes:
                     quote = frame.quotes[position.symbol]
                     last_real_quote = quote
+                elif synthetic is not None:
+                    implied_volatility, iv_source = self._synthetic_iv(
+                        available,
+                        volatility_bars or [],
+                        option_frames,
+                        bar.end,
+                        position.direction,
+                    )
+                    quote = synthetic.quote(
+                        bar.close,
+                        bar.end,
+                        implied_volatility,
+                        iv_source,
+                    )
+                    result.option_data_complete = False
+                    assert open_trade is not None
+                    open_trade.modeled_quote_bars += 1
+                    if open_trade.pricing_model is None:
+                        open_trade.pricing_model = str(quote.extra["model"])
+                        open_trade.iv_source = str(quote.extra["iv_source"])
                 elif last_real_quote is not None:
                     result.option_data_complete = False
+                    record_equity(bar.end)
                     continue
                 else:
                     result.option_data_complete = False
+                    record_equity(bar.end)
                     continue
                 if quote.bid is None:
+                    record_equity(bar.end)
                     continue
                 price_decision = self.risk.exit_decision(
                     position, quote.bid, bar.end,
                 )
                 bar_decision = self.strategy.bar_exit_decision(position)
                 decision = price_decision
-                if (
-                    price_decision is None
-                    or price_decision.reason is not ExitReason.FORCED_CLOSE
-                ):
+                if price_decision is None or price_decision.reason not in {
+                    ExitReason.FORCED_CLOSE,
+                    ExitReason.STOP_LOSS,
+                }:
                     decision = bar_decision or price_decision
                 if decision is not None:
                     close_leg(decision, quote, bar.end)
+                record_equity(bar.end, quote.bid)
                 continue
 
             if (
                 signal is None
                 or (trade_start is not None and trading_day < trade_start)
             ):
+                record_equity(bar.end)
                 continue
             result.signals += 1
             if trades_today >= RULES.timed_max_trades_per_day:
                 result.reject("max_trades_per_day")
                 result.record_signal(signal, "rejected", "max_trades_per_day")
+                record_equity(bar.end)
                 continue
             if cooldown_until is not None and bar.end < cooldown_until:
                 result.reject("cooldown")
                 result.record_signal(signal, "rejected", "cooldown")
+                record_equity(bar.end)
                 continue
             if self.settings.volatility_filter_enabled:
                 snapshot = self.volatility_filter.evaluate(
@@ -482,6 +721,7 @@ class EventDrivenBacktester:
                         reason = f"{reason}_{snapshot.reason}"
                     result.reject(reason)
                     result.record_signal(signal, "rejected", reason)
+                    record_equity(bar.end)
                     continue
             frame = self._frame_at(option_frames, signal.bar_end)
             contract: OptionContract | None = None
@@ -499,7 +739,19 @@ class EventDrivenBacktester:
                 if contract is not None:
                     quote = valid_quotes.get(contract.symbol)
             if contract is None or quote is None or quote.ask is None:
-                synthetic = self._synthetic_option(signal, trading_day)
+                implied_volatility, iv_source = self._synthetic_iv(
+                    available,
+                    volatility_bars or [],
+                    option_frames,
+                    signal.bar_end,
+                    signal.direction,
+                )
+                synthetic = self._synthetic_option(
+                    signal,
+                    trading_day,
+                    implied_volatility,
+                    iv_source,
+                )
                 quote = synthetic.quote(signal.spot, signal.bar_end)
                 contract = synthetic.contract
                 quote_source = "synthetic"
@@ -516,6 +768,7 @@ class EventDrivenBacktester:
                     signal, "rejected", "risk_budget_too_small", contract.symbol
                 )
                 synthetic = None
+                record_equity(bar.end)
                 continue
             entry_price = quote.ask
             result.record_signal(
@@ -526,6 +779,15 @@ class EventDrivenBacktester:
                 entry_price,
                 quantity,
             )
+            if quote_source == "synthetic":
+                result.signal_records[-1]["indicators"] = {
+                    **result.signal_records[-1]["indicators"],
+                    "option_pricing_model": quote.extra["model"],
+                    "synthetic_iv": quote.extra["iv"],
+                    "synthetic_iv_source": quote.extra["iv_source"],
+                    "synthetic_strike": str(contract.strike),
+                    "synthetic_spread": str(quote.spread),
+                }
             execution_at = (
                 quote.timestamp if quote_source == "real" else signal.bar_end
             )
@@ -544,17 +806,65 @@ class EventDrivenBacktester:
                 highest_bid=entry_price,
                 entry_vwap=signal.vwap,
             )
-            open_trade = OpenTrade(position, quantity, execution_at, quote_source)
+            record_entry = getattr(self.strategy, "record_entry", None)
+            if callable(record_entry):
+                record_entry(signal.direction, execution_at)
+            entry_mid = (
+                Decimal(str(quote.extra.get("mid", quote.mid or entry_price)))
+                if quote_source == "synthetic"
+                else None
+            )
+            open_trade = OpenTrade(
+                position,
+                quantity,
+                execution_at,
+                quote_source,
+                entry_mid,
+                str(quote.extra.get("model")) if quote_source == "synthetic" else None,
+                Decimal(str(quote.extra["iv"]))
+                if quote_source == "synthetic"
+                else None,
+                str(quote.extra.get("iv_source"))
+                if quote_source == "synthetic"
+                else None,
+                quote.spread if quote_source == "synthetic" else None,
+            )
+            if synthetic is None:
+                implied_volatility, iv_source = self._synthetic_iv(
+                    available,
+                    volatility_bars or [],
+                    option_frames,
+                    execution_at,
+                    signal.direction,
+                )
+                synthetic = SyntheticOption(
+                    contract,
+                    implied_volatility,
+                    iv_source,
+                )
             last_real_quote = quote if quote_source == "real" else None
+            last_mark_bid = quote.bid
             trades_today += 1
+            record_equity(bar.end, quote.bid)
 
         if position is not None and open_trade is not None and last_processed is not None:
             final_bar = last_processed
-            quote = (
-                synthetic.quote(final_bar.close, final_bar.end)
-                if synthetic is not None
-                else last_real_quote
-            )
+            if synthetic is not None:
+                implied_volatility, iv_source = self._synthetic_iv(
+                    available,
+                    volatility_bars or [],
+                    option_frames,
+                    final_bar.end,
+                    position.direction,
+                )
+                quote = synthetic.quote(
+                    final_bar.close,
+                    final_bar.end,
+                    implied_volatility,
+                    iv_source,
+                )
+            else:
+                quote = last_real_quote
             if quote is not None and quote.bid is not None:
                 close_leg(
                     ExitDecision(
@@ -564,5 +874,6 @@ class EventDrivenBacktester:
                     quote,
                     final_bar.end,
                 )
+                record_equity(final_bar.end, quote.bid)
         result.ending_equity = starting_equity + realized
         return result

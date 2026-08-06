@@ -95,9 +95,12 @@ class LongbridgeMarketData:
         self._depth_pushes: dict[str, Any] = {}
         self._candlestick_bars: dict[str, dict[datetime, Bar]] = {}
         self._candlestick_periods: dict[str, str] = {}
+        self._quote_listeners: list[Any] = []
+        self._event_loop: asyncio.AbstractEventLoop | None = None
 
     async def connect(self) -> None:
         await self.session.connect()
+        self._event_loop = asyncio.get_running_loop()
         self.session.quote.set_on_quote(self._on_quote)
         self.session.quote.set_on_depth(self._on_depth)
         self.session.quote.set_on_candlestick(self._on_candlestick)
@@ -113,6 +116,11 @@ class LongbridgeMarketData:
             await self.session.quote.subscribe(pending, [SubType.Quote, SubType.Depth])
             self._subscribed.update(pending)
             self._log.info("subscribed quotes | %s", ", ".join(pending))
+
+    def add_quote_listener(self, listener: Any) -> None:
+        """Receive executable quote/depth pushes without REST polling latency."""
+        if listener not in self._quote_listeners:
+            self._quote_listeners.append(listener)
 
     async def subscribe_candlesticks(self, symbols, period: str = "1m") -> None:
         from longbridge.openapi import Period, TradeSessions
@@ -152,8 +160,8 @@ class LongbridgeMarketData:
         pushed_depth = self._depth_pushes.get(symbol)
         if (
             pushed is not None
+            and pushed_depth is not None
             and _decimal(_value(pushed, "last_done")) > 0
-            and not self._looks_like_option(symbol)
         ):
             return self._from_push(symbol, pushed, pushed_depth)
         if self._looks_like_option(symbol):
@@ -243,9 +251,40 @@ class LongbridgeMarketData:
             "timestamp": _value(event, "timestamp", previous.get("timestamp")),
             "volume": _value(event, "volume", previous.get("volume", 0)),
         }
+        self._emit_executable_quote(symbol)
 
     def _on_depth(self, symbol: str, event: Any) -> None:
         self._depth_pushes[symbol] = event
+        self._emit_executable_quote(symbol)
+
+    def _emit_executable_quote(self, symbol: str) -> None:
+        event = self._quote_pushes.get(symbol)
+        depth = self._depth_pushes.get(symbol)
+        if event is None or depth is None or not self._quote_listeners:
+            return
+        quote = self._from_push(symbol, event, depth)
+        if quote.bid is None or quote.bid <= 0:
+            return
+        loop = self._event_loop
+        if loop is None or loop.is_closed():
+            return
+        for listener in self._quote_listeners:
+            loop.call_soon_threadsafe(
+                self._schedule_quote_listener,
+                listener,
+                quote,
+            )
+
+    def _schedule_quote_listener(self, listener: Any, quote: Quote) -> None:
+        task = asyncio.create_task(listener(quote))
+        task.add_done_callback(self._quote_listener_done)
+
+    def _quote_listener_done(self, task: asyncio.Task) -> None:
+        if task.cancelled():
+            return
+        error = task.exception()
+        if error is not None:
+            self._log.error("real-time quote listener failed | %s", error)
 
     def _on_candlestick(self, symbol: str, event: Any) -> None:
         period = self._candlestick_periods.get(symbol, "1m")
@@ -481,6 +520,40 @@ class LongbridgeBroker:
         order_id = str(_value(response, "order_id"))
         self._intent_by_order[order_id] = request.intent_id
         self._log.info("order submitted | order_id=%s", order_id)
+        return await self.order(order_id)
+
+    async def submit_market(self, request: OrderRequest) -> BrokerOrder:
+        """Submit an immediate market exit; used only by hard-stop protection."""
+        from longbridge.openapi import OrderSide, OrderType, TimeInForceType
+
+        self._log.warning(
+            "submit emergency market order | %s %s | %s | qty=%d",
+            request.side.value,
+            request.symbol,
+            request.reason,
+            request.quantity,
+        )
+        side = OrderSide.Buy if request.side is DomainOrderSide.BUY else OrderSide.Sell
+        response = await self.session.trade.submit_order(
+            request.symbol,
+            OrderType.MO,
+            side,
+            Decimal(request.quantity),
+            TimeInForceType.Day,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            str(request.intent_id),
+        )
+        order_id = str(_value(response, "order_id"))
+        self._intent_by_order[order_id] = request.intent_id
         return await self.order(order_id)
 
     async def cancel_order(self, order_id: str) -> None:

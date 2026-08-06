@@ -300,17 +300,33 @@ class BacktestService:
         )
         wins = sum(1 for trade in result.trades if trade.pnl > 0)
         net = result.ending_equity - result.starting_equity
-        equity = result.starting_equity
-        peak = equity
-        max_drawdown = Decimal(0)
-        equity_curve = []
+        realized_equity = result.starting_equity
+        realized_peak = realized_equity
+        realized_max_drawdown = Decimal(0)
         gross_profit = sum((t.pnl for t in result.trades if t.pnl > 0), Decimal(0))
         gross_loss = abs(sum((t.pnl for t in result.trades if t.pnl < 0), Decimal(0)))
         for trade in result.trades:
-            equity += trade.pnl
-            peak = max(peak, equity)
-            max_drawdown = min(max_drawdown, equity - peak)
-            equity_curve.append({"time": trade.exit_at.isoformat(), "equity": str(equity)})
+            realized_equity += trade.pnl
+            realized_peak = max(realized_peak, realized_equity)
+            realized_max_drawdown = min(
+                realized_max_drawdown,
+                realized_equity - realized_peak,
+            )
+        peak = result.starting_equity
+        max_drawdown = Decimal(0)
+        equity_curve = []
+        for point in result.equity_curve:
+            peak = max(peak, point.equity)
+            max_drawdown = min(max_drawdown, point.equity - peak)
+            equity_curve.append(
+                {
+                    "time": point.timestamp.isoformat(),
+                    "equity": str(point.equity),
+                    "realized_pnl": str(point.realized_pnl),
+                    "unrealized_pnl": str(point.unrealized_pnl),
+                    "position_symbol": point.position_symbol,
+                }
+            )
         chart_svg = generate_price_chart(
             bars,
             [(t.entry_at.isoformat(), t.exit_at.isoformat()) for t in result.trades],
@@ -372,6 +388,7 @@ class BacktestService:
             "win_rate": str(Decimal(wins) / Decimal(len(result.trades))) if result.trades else "0",
             "profit_factor": str(gross_profit / gross_loss) if gross_loss else None,
             "max_drawdown": str(max_drawdown),
+            "realized_max_drawdown": str(realized_max_drawdown),
             "equity_curve": equity_curve,
             "rejected": result.rejected,
             "option_data_complete": result.option_data_complete,

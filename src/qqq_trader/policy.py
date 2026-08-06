@@ -18,7 +18,7 @@ class StrategyRules:
     timed_opening_last_signal: time = time(9, 42)
     timed_opening_flat: time = time(9, 45)
     timed_main_start: time = time(9, 45)
-    timed_main_last_signal: time = time(11, 25)
+    timed_main_last_signal: time = time(12, 0)
     timed_max_trades_per_day: int = 5
     timed_boll_period: int = 20
     timed_boll_stddev: Decimal = Decimal("2")
@@ -30,8 +30,14 @@ class StrategyRules:
     timed_put_rsi_min: Decimal = Decimal("30")
     timed_volume_lookback: int = 20
     timed_volume_ratio: Decimal = Decimal("1.2")
+    timed_vix_volume_adjustment: Decimal = Decimal("0.10")
+    timed_vix_trend_min_change: Decimal = Decimal("0.005")
     timed_trend_cross_lookback: int = 20
-    timed_trend_max_crosses: int = 3
+    timed_trend_max_crosses: int = 2
+    timed_continuation_max_band_extension: Decimal = Decimal("1.20")
+    timed_continuation_fresh_macd_volume_multiplier: Decimal = Decimal("1.20")
+    timed_normal_cross2_max_band_extension: Decimal = Decimal("1.20")
+    timed_normal_fresh_macd_volume_multiplier: Decimal = Decimal("1.20")
     timed_reversal_min_bars: int = 3
     timed_reversal_window: int = 5
 
@@ -75,6 +81,7 @@ class StrategyRules:
     option_stop_loss_pct: Decimal = Decimal("0.25")
     tp1_profit_pct: Decimal = Decimal("1.0")
     tp2_profit_pct: Decimal = Decimal("2.5")
+    trailing_activation_profit_pct: Decimal = Decimal("0.25")
     trailing_giveback_pct: Decimal = Decimal("0.30")
     stale_minutes: int = 20
 
@@ -90,12 +97,19 @@ class StrategyRules:
     strike_offset: Decimal = Decimal("2")
     option_candidate_count: int = 5
 
-    synthetic_call_delta: Decimal = Decimal("0.45")
-    synthetic_put_delta: Decimal = Decimal("-0.45")
-    synthetic_gamma: Decimal = Decimal("0.055")
-    synthetic_vega: Decimal = Decimal("0.099")
-    synthetic_theta: Decimal = Decimal("-1.5")
-    synthetic_min_price: Decimal = Decimal("0.05")
+    synthetic_min_price: Decimal = Decimal("0.01")
+    synthetic_iv_floor: Decimal = Decimal("0.08")
+    synthetic_iv_cap: Decimal = Decimal("1.50")
+    synthetic_default_iv: Decimal = Decimal("0.25")
+    synthetic_vix_multiplier: Decimal = Decimal("0.80")
+    synthetic_put_iv_skew: Decimal = Decimal("0.01")
+    synthetic_observed_iv_max_age_minutes: int = 30
+    synthetic_risk_free_rate: Decimal = Decimal("0.04")
+    synthetic_dividend_yield: Decimal = Decimal("0.005")
+    synthetic_minutes_per_year: Decimal = Decimal("142350")
+    synthetic_min_spread: Decimal = Decimal("0.01")
+    synthetic_max_spread: Decimal = Decimal("0.05")
+    synthetic_spread_ratio: Decimal = Decimal("0.005")
 
 RULES = StrategyRules()
 

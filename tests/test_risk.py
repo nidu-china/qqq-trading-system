@@ -73,6 +73,15 @@ def test_position_size_obeys_premium_budget_and_contract_cap():
 def test_option_stop_targets_trailing_stale_midday_and_forced_close():
     risk = RiskEngine(make_settings())
     assert risk.exit_decision(_position(), Decimal("0.75"), NOW).reason is ExitReason.STOP_LOSS
+    assert (
+        risk.exit_decision(
+            _position(),
+            Decimal("0.75"),
+            NOW,
+            allow_stop_loss=False,
+        )
+        is None
+    )
     timed = _position()
     timed.strategy_name = "timed_boll_macd_signal"
     assert risk.exit_decision(timed, Decimal("0.75"), NOW).reason is ExitReason.STOP_LOSS
@@ -85,7 +94,25 @@ def test_option_stop_targets_trailing_stale_midday_and_forced_close():
 
     trailing = _position()
     trailing.highest_bid = Decimal("1.40")
-    assert risk.exit_decision(trailing, Decimal("1.27"), NOW).reason is ExitReason.TRAILING_STOP
+    trailing_decision = risk.exit_decision(trailing, Decimal("1.27"), NOW)
+    assert trailing_decision is not None
+    assert trailing_decision.reason is ExitReason.TRAILING_STOP
+    assert trailing_decision.quantity == 2
+
+    trailing_not_activated = _position()
+    trailing_not_activated.highest_bid = Decimal("1.24")
+    assert risk.exit_decision(trailing_not_activated, Decimal("1.15"), NOW) is None
+
+    single_contract = _position(1)
+    single_contract.highest_bid = Decimal("1.40")
+    assert risk.exit_decision(single_contract, Decimal("1.27"), NOW) is None
+    assert single_contract.trend_runner
+
+    runner = _position()
+    runner.trend_runner = True
+    runner.highest_bid = Decimal("2.00")
+    runner.opened_at = NOW - timedelta(minutes=30)
+    assert risk.exit_decision(runner, Decimal("0.99"), NOW) is None
 
     losing = _position()
     losing.highest_bid = Decimal("1.01")
@@ -110,5 +137,3 @@ def test_option_stop_targets_trailing_stale_midday_and_forced_close():
         risk.exit_decision(_position(), Decimal("1.01"), forced_at).reason
         is ExitReason.FORCED_CLOSE
     )
-
-

@@ -117,6 +117,8 @@ class RiskEngine:
         position: Position,
         executable_bid: Decimal,
         now: datetime,
+        *,
+        allow_stop_loss: bool = True,
     ) -> ExitDecision | None:
         rules = self.rules
         from .config import NY_TZ
@@ -128,8 +130,10 @@ class RiskEngine:
         option_stop = position.stop_price or (
             position.entry_price * (Decimal(1) - rules.option_stop_loss_pct)
         )
-        if executable_bid <= option_stop:
+        if allow_stop_loss and executable_bid <= option_stop:
             return ExitDecision(ExitReason.STOP_LOSS, position.quantity)
+        if position.trend_runner:
+            return None
         profit_pct = (executable_bid - position.entry_price) / position.entry_price
         if profit_pct >= rules.tp2_profit_pct:
             return ExitDecision(ExitReason.TAKE_PROFIT_2, position.quantity)
@@ -140,18 +144,21 @@ class RiskEngine:
                 else (position.quantity + 1) // 2
             )
             return ExitDecision(ExitReason.TAKE_PROFIT_1, quantity, position.entry_price)
-        if position.highest_bid > position.entry_price:
+        maximum_profit_pct = (
+            position.highest_bid - position.entry_price
+        ) / position.entry_price
+        if maximum_profit_pct >= rules.trailing_activation_profit_pct:
             trailing_price = position.entry_price + (
                 Decimal(1) - rules.trailing_giveback_pct
             ) * (position.highest_bid - position.entry_price)
-            if position.first_target_taken:
-                trailing_price = max(trailing_price, position.entry_price)
-            minimum_profitable_bid = (
-                position.entry_price
-                + rules.fee_per_contract * Decimal(2) / Decimal(100)
-            )
-            if minimum_profitable_bid < executable_bid <= trailing_price:
-                return ExitDecision(ExitReason.TRAILING_STOP, position.quantity)
+            if executable_bid <= trailing_price:
+                if position.quantity == 1:
+                    position.trend_runner = True
+                    return None
+                return ExitDecision(
+                    ExitReason.TRAILING_STOP,
+                    (position.quantity + 1) // 2,
+                )
         if (now - position.opened_at).total_seconds() >= rules.stale_minutes * 60:
             if executable_bid < position.entry_price:
                 return ExitDecision(ExitReason.STALE_POSITION, position.quantity)

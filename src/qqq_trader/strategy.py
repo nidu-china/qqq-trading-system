@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime, time
+from datetime import date, datetime, time
 from decimal import Decimal
 
 from .config import NY_TZ
@@ -22,6 +22,7 @@ from .indicators import (
     rsi,
 )
 from .policy import RULES
+from .volatility import VixFiveMinuteTrend, vix_five_minute_trend
 
 ZERO = Decimal(0)
 
@@ -29,14 +30,88 @@ ZERO = Decimal(0)
 class StrategyEngine:
     """One-minute BOLL/MACD strategy with fixed time partitions."""
 
-    def __init__(self, settings) -> None:
+    def __init__(
+        self,
+        settings,
+        *,
+        normal_fresh_macd_filter: bool = False,
+        normal_cross2_filter: bool = False,
+    ) -> None:
         self.settings = settings
+        self.normal_fresh_macd_filter = normal_fresh_macd_filter
+        self.normal_cross2_filter = normal_cross2_filter
         self.last_signal_bar: datetime | None = None
         self.last_context: MarketContext | None = None
         self.last_state = MarketState.UNKNOWN
         self._last_today_1m: list[Bar] = []
         self._last_boll_middle_by_end: dict[datetime, Decimal] = {}
         self._last_macd_hist_by_end: dict[datetime, Decimal] = {}
+        self.vix_trend = VixFiveMinuteTrend.NEUTRAL
+        self._continuation_day: date | None = None
+        self._profitable_exit_directions: set[Direction] = set()
+        self._last_cross_reset = False
+
+    def _set_continuation_day(self, trading_day: date) -> None:
+        if self._continuation_day != trading_day:
+            self._continuation_day = trading_day
+            self._profitable_exit_directions.clear()
+
+    def record_profitable_exit(
+        self,
+        direction: Direction,
+        exited_at: datetime,
+    ) -> None:
+        """Permit a same-direction continuation entry after a profitable exit."""
+        self._set_continuation_day(exited_at.astimezone(NY_TZ).date())
+        self._profitable_exit_directions.add(direction)
+
+    def record_entry(self, direction: Direction, entered_at: datetime) -> None:
+        """Consume continuation eligibility only after an entry actually fills."""
+        self._set_continuation_day(entered_at.astimezone(NY_TZ).date())
+        self._profitable_exit_directions.discard(direction)
+
+    def set_volatility_context(
+        self,
+        volatility_bars: Sequence[Bar],
+        decision_at: datetime,
+    ) -> None:
+        self.vix_trend = vix_five_minute_trend(
+            volatility_bars,
+            decision_at,
+            self.settings.volatility_max_staleness_minutes,
+            RULES.timed_vix_trend_min_change,
+        )
+
+    def _entry_thresholds(
+        self,
+        direction: Direction,
+    ) -> tuple[Decimal, Decimal, int]:
+        favorable = (
+            direction is Direction.CALL
+            and self.vix_trend is VixFiveMinuteTrend.FALLING
+        ) or (
+            direction is Direction.PUT
+            and self.vix_trend is VixFiveMinuteTrend.RISING
+        )
+        adverse = (
+            direction is Direction.CALL
+            and self.vix_trend is VixFiveMinuteTrend.RISING
+        ) or (
+            direction is Direction.PUT
+            and self.vix_trend is VixFiveMinuteTrend.FALLING
+        )
+        volume = RULES.timed_volume_ratio
+        rsi = (
+            RULES.timed_call_rsi_max
+            if direction is Direction.CALL
+            else RULES.timed_put_rsi_min
+        )
+        crosses = RULES.timed_trend_max_crosses
+        if favorable:
+            volume *= Decimal(1) - RULES.timed_vix_volume_adjustment
+        elif adverse:
+            volume *= Decimal(1) + RULES.timed_vix_volume_adjustment
+        return volume, rsi, crosses
 
     @staticmethod
     def _rth(bar: Bar) -> bool:
@@ -97,6 +172,125 @@ class StrategyEngine:
             )
         )
 
+    def _effective_boll_middle_crosses(
+        self,
+        trend_sides: Sequence[bool],
+    ) -> int:
+        crosses = self._prior_boll_middle_crosses(trend_sides)
+        self._last_cross_reset = False
+        if len(trend_sides) < 5:
+            return crosses
+        stable_side = trend_sides[-1]
+        stable_direction = Direction.CALL if stable_side else Direction.PUT
+        if (
+            stable_direction in self._profitable_exit_directions
+            and all(side == stable_side for side in trend_sides[-5:])
+        ):
+            self._last_cross_reset = True
+            return 0
+        return crosses
+
+    @staticmethod
+    def _relative_volume(
+        visible: Sequence[Bar],
+        today: Sequence[Bar],
+        index: int,
+        trading_day: date,
+    ) -> Decimal:
+        current = today[index]
+        previous_today = today[:index]
+        if len(previous_today) >= RULES.timed_volume_lookback:
+            historical_volume = previous_today[-RULES.timed_volume_lookback :]
+        else:
+            current_local = current.end.astimezone(NY_TZ)
+            historical_volume = [
+                bar
+                for bar in visible
+                if bar.end < current.end
+                and bar.end.astimezone(NY_TZ).date() < trading_day
+                and bar.end.astimezone(NY_TZ).time().replace(tzinfo=None)
+                == current_local.time().replace(tzinfo=None)
+            ][-RULES.timed_volume_lookback :]
+        if not historical_volume:
+            return ZERO
+        average_volume = (
+            Decimal(sum(bar.volume for bar in historical_volume))
+            / Decimal(len(historical_volume))
+        )
+        return Decimal(current.volume) / average_volume if average_volume > 0 else ZERO
+
+    @staticmethod
+    def _band_extension(ctx: MarketContext, direction: Direction) -> Decimal:
+        if direction is Direction.CALL:
+            half_width = ctx.boll_upper - ctx.boll_middle
+            distance = ctx.current_close - ctx.boll_middle
+        else:
+            half_width = ctx.boll_middle - ctx.boll_lower
+            distance = ctx.boll_middle - ctx.current_close
+        return distance / half_width if half_width > ZERO else Decimal("999")
+
+    def _continuation_confirmed(
+        self,
+        ctx: MarketContext,
+        direction: Direction,
+        volume_threshold: Decimal,
+    ) -> bool:
+        if not self._last_cross_reset:
+            return True
+        if (
+            self._band_extension(ctx, direction)
+            > RULES.timed_continuation_max_band_extension
+        ):
+            return False
+        if ctx.rvol_val <= ctx.rvol_prev:
+            return False
+        fresh_macd_cross = (
+            direction is Direction.CALL and ctx.macd_hist_prev <= ZERO
+        ) or (
+            direction is Direction.PUT and ctx.macd_hist_prev >= ZERO
+        )
+        if fresh_macd_cross and ctx.rvol_val <= (
+            volume_threshold
+            * RULES.timed_continuation_fresh_macd_volume_multiplier
+        ):
+            return False
+        return True
+
+    def _normal_entry_confirmed(
+        self,
+        ctx: MarketContext,
+        direction: Direction,
+        volume_threshold: Decimal,
+    ) -> bool:
+        """Apply experimental quality gates only to ordinary first entries."""
+        if self._last_cross_reset:
+            return True
+        fresh_macd_cross = (
+            direction is Direction.CALL and ctx.macd_hist_prev <= ZERO
+        ) or (
+            direction is Direction.PUT and ctx.macd_hist_prev >= ZERO
+        )
+        if self.normal_fresh_macd_filter and fresh_macd_cross:
+            if ctx.rvol_val <= ctx.rvol_prev:
+                return False
+            if ctx.rvol_val <= (
+                volume_threshold
+                * RULES.timed_normal_fresh_macd_volume_multiplier
+            ):
+                return False
+        if (
+            self.normal_cross2_filter
+            and ctx.boll_middle_crosses == RULES.timed_trend_max_crosses
+        ):
+            if ctx.rvol_val <= ctx.rvol_prev:
+                return False
+            if (
+                self._band_extension(ctx, direction)
+                > RULES.timed_normal_cross2_max_band_extension
+            ):
+                return False
+        return True
+
     def _one_minute_context(
         self, bars_1m: Sequence[Bar]
     ) -> tuple[MarketContext, list[Bar]] | None:
@@ -108,6 +302,7 @@ class StrategyEngine:
             return None
         current = visible[-1]
         trading_day = current.end.astimezone(NY_TZ).date()
+        self._set_continuation_day(trading_day)
         today = [
             bar
             for bar in visible
@@ -151,42 +346,38 @@ class StrategyEngine:
             RULES.timed_macd_slow,
             RULES.timed_macd_signal,
         )
-        previous_today = today[:-1]
-        if len(previous_today) >= RULES.timed_volume_lookback:
-            historical_volume = previous_today[-RULES.timed_volume_lookback :]
-        else:
-            current_local = current.end.astimezone(NY_TZ)
-            historical_volume = [
-                bar
-                for bar in visible[:-1]
-                if bar.end.astimezone(NY_TZ).date() < trading_day
-                and bar.end.astimezone(NY_TZ).time().replace(tzinfo=None)
-                == current_local.time().replace(tzinfo=None)
-            ][-RULES.timed_volume_lookback :]
-        if not historical_volume:
-            return None
-        average_volume = (
-            Decimal(sum(bar.volume for bar in historical_volume))
-            / Decimal(len(historical_volume))
+        volume_ratio = self._relative_volume(
+            visible,
+            today,
+            len(today) - 1,
+            trading_day,
         )
-        volume_ratio = (
-            Decimal(current.volume) / average_volume
-            if average_volume > 0
+        previous_volume_ratio = (
+            self._relative_volume(
+                visible,
+                today,
+                len(today) - 2,
+                trading_day,
+            )
+            if len(today) >= 2
             else ZERO
         )
+        if volume_ratio <= ZERO:
+            return None
         trend_bars = today[-RULES.timed_trend_cross_lookback :]
         trend_sides = [
             bar.close >= self._last_boll_middle_by_end[bar.end]
             for bar in trend_bars
             if bar.end in self._last_boll_middle_by_end
         ]
-        boll_middle_crosses = self._prior_boll_middle_crosses(trend_sides)
+        boll_middle_crosses = self._effective_boll_middle_crosses(trend_sides)
         context = MarketContext(
             macd_line=macd_line,
             macd_signal=macd_signal,
             macd_hist=macd_hist,
             macd_hist_prev=previous_hist,
             rvol_val=volume_ratio,
+            rvol_prev=previous_volume_ratio,
             day_high=max(bar.high for bar in today),
             day_low=min(bar.low for bar in today),
             current_open=current.open,
@@ -208,13 +399,16 @@ class StrategyEngine:
         )
         return context, today
 
-    @staticmethod
     def _signal(
+        self,
         ctx: MarketContext,
         direction: Direction,
         strategy: str,
         spot: Decimal | None,
     ) -> Signal:
+        volume_threshold, rsi_threshold, cross_threshold = self._entry_thresholds(
+            direction
+        )
         state = (
             MarketState.TREND_UP
             if direction is Direction.CALL
@@ -237,6 +431,8 @@ class StrategyEngine:
                 "boll_middle_prev2": str(ctx.boll_middle_prev2),
                 "boll_lower": str(ctx.boll_lower),
                 "boll_middle_crosses": str(ctx.boll_middle_crosses),
+                "boll_middle_cross_limit": str(cross_threshold),
+                "boll_middle_crosses_reset": str(self._last_cross_reset).lower(),
                 "macd_fast": str(RULES.timed_macd_fast),
                 "macd_slow": str(RULES.timed_macd_slow),
                 "macd_signal_period": str(RULES.timed_macd_signal),
@@ -245,7 +441,19 @@ class StrategyEngine:
                 "macd_hist": str(ctx.macd_hist),
                 "macd_hist_prev": str(ctx.macd_hist_prev),
                 "volume_ratio": str(ctx.rvol_val),
+                "previous_volume_ratio": str(ctx.rvol_prev),
+                "volume_ratio_threshold": str(volume_threshold),
+                "boll_band_extension": str(self._band_extension(ctx, direction)),
+                "continuation_quality_filter": str(
+                    self._last_cross_reset
+                ).lower(),
+                "normal_fresh_macd_filter": str(
+                    self.normal_fresh_macd_filter
+                ).lower(),
+                "normal_cross2_filter": str(self.normal_cross2_filter).lower(),
                 "rsi": str(ctx.rsi_val),
+                "rsi_threshold": str(rsi_threshold),
+                "vix_5m_trend": self.vix_trend.value,
                 "previous_close": str(ctx.prev_close),
                 "two_bars_ago_close": str(ctx.prev2_close),
             },
@@ -257,25 +465,58 @@ class StrategyEngine:
         strategy: str,
         spot: Decimal | None,
     ) -> Signal | None:
-        if ctx.boll_middle_crosses > RULES.timed_trend_max_crosses:
-            return None
-        volume_confirmed = ctx.rvol_val > RULES.timed_volume_ratio
+        call_volume, call_rsi, call_crosses = self._entry_thresholds(Direction.CALL)
+        put_volume, put_rsi, put_crosses = self._entry_thresholds(Direction.PUT)
         if (
-            ctx.current_close > ctx.boll_middle
+            ctx.boll_middle_crosses <= call_crosses
+            and ctx.current_close > ctx.boll_middle
+            and ctx.boll_middle > ctx.boll_middle_prev > ctx.boll_middle_prev2
             and ctx.macd_hist > 0
             and ctx.macd_hist > ctx.macd_hist_prev
-            and volume_confirmed
-            and ctx.rsi_val < RULES.timed_call_rsi_max
+            and ctx.rvol_val > call_volume
+            and ctx.rsi_val < call_rsi
+            and self._continuation_confirmed(
+                ctx,
+                Direction.CALL,
+                call_volume,
+            )
+            and self._normal_entry_confirmed(
+                ctx,
+                Direction.CALL,
+                call_volume,
+            )
         ):
-            return self._signal(ctx, Direction.CALL, strategy, spot)
+            return self._signal(
+                ctx,
+                Direction.CALL,
+                "timed_trend_continuation" if self._last_cross_reset else strategy,
+                spot,
+            )
         if (
-            ctx.current_close < ctx.boll_middle
+            ctx.boll_middle_crosses <= put_crosses
+            and ctx.current_close < ctx.boll_middle
+            and ctx.boll_middle < ctx.boll_middle_prev < ctx.boll_middle_prev2
             and ctx.macd_hist < 0
             and ctx.macd_hist < ctx.macd_hist_prev
-            and volume_confirmed
-            and ctx.rsi_val > RULES.timed_put_rsi_min
+            and ctx.rvol_val > put_volume
+            and ctx.rsi_val > put_rsi
+            and self._continuation_confirmed(
+                ctx,
+                Direction.PUT,
+                put_volume,
+            )
+            and self._normal_entry_confirmed(
+                ctx,
+                Direction.PUT,
+                put_volume,
+            )
         ):
-            return self._signal(ctx, Direction.PUT, strategy, spot)
+            return self._signal(
+                ctx,
+                Direction.PUT,
+                "timed_trend_continuation" if self._last_cross_reset else strategy,
+                spot,
+            )
         return None
 
     def _opening_signal(
@@ -284,16 +525,18 @@ class StrategyEngine:
         spot: Decimal | None,
     ) -> Signal | None:
         """Trade opening volume expansion without ordinary MACD/RSI filters."""
-        if ctx.rvol_val <= RULES.timed_volume_ratio:
-            return None
+        call_volume, _, _ = self._entry_thresholds(Direction.CALL)
+        put_volume, _, _ = self._entry_thresholds(Direction.PUT)
         if (
-            ctx.current_close > ctx.boll_middle
+            ctx.rvol_val > call_volume
+            and ctx.current_close > ctx.boll_middle
             and ctx.current_close > ctx.current_open
             and ctx.current_close > ctx.prev_close
         ):
             return self._signal(ctx, Direction.CALL, "timed_opening_signal", spot)
         if (
-            ctx.current_close < ctx.boll_middle
+            ctx.rvol_val > put_volume
+            and ctx.current_close < ctx.boll_middle
             and ctx.current_close < ctx.current_open
             and ctx.current_close < ctx.prev_close
         ):
@@ -340,6 +583,18 @@ class StrategyEngine:
             and ctx.bar_time >= RULES.timed_opening_flat
         ):
             return ExitDecision(ExitReason.OPENING_CUTOFF, position.quantity)
+
+        if position.trend_runner:
+            if position.direction is Direction.CALL:
+                if ctx.current_close < ctx.boll_middle:
+                    return ExitDecision(ExitReason.BOLLINGER_MIDDLE, position.quantity)
+                if ctx.macd_hist <= ZERO and ctx.macd_hist < ctx.macd_hist_prev:
+                    return ExitDecision(ExitReason.DIRECTION_REVERSAL, position.quantity)
+            else:
+                if ctx.current_close > ctx.boll_middle:
+                    return ExitDecision(ExitReason.BOLLINGER_MIDDLE, position.quantity)
+                if ctx.macd_hist >= ZERO and ctx.macd_hist > ctx.macd_hist_prev:
+                    return ExitDecision(ExitReason.DIRECTION_REVERSAL, position.quantity)
 
         bars_after_entry = [
             bar for bar in self._last_today_1m if bar.end > position.opened_at

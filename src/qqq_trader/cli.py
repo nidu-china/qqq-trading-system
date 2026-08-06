@@ -29,13 +29,11 @@ def _backtest_metrics(result: BacktestResult) -> dict:
     gross_profit = sum(wins, Decimal(0))
     gross_loss = abs(sum(losses, Decimal(0)))
     net_pnl = result.ending_equity - result.starting_equity
-    equity = result.starting_equity
-    peak = equity
+    peak = result.starting_equity
     max_drawdown = Decimal(0)
-    for trade in result.trades:
-        equity += trade.pnl
-        peak = max(peak, equity)
-        max_drawdown = min(max_drawdown, equity - peak)
+    for point in result.equity_curve:
+        peak = max(peak, point.equity)
+        max_drawdown = min(max_drawdown, point.equity - peak)
     return {
         "starting_equity": str(result.starting_equity),
         "ending_equity": str(result.ending_equity),

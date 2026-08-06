@@ -48,6 +48,7 @@ class TradingService:
         self._log.info("service starting")
         await self.engine.start()
         if self.engine.state is not SystemState.HALTED:
+            self._register_realtime_quote_listener()
             await self._warm_strategy_history()
             await self._subscribe_realtime_candlesticks()
         if self.engine.settings.volatility_filter_enabled:
@@ -134,19 +135,36 @@ class TradingService:
 
         if self.engine.position is not None:
             quote = await self.engine.market.latest_quote(self.engine.position.symbol)
-            self.option_tick_symbol = quote.symbol
-            self.option_tick_buffer.append(
-                {
-                    "timestamp": quote.timestamp,
-                    "last": str(quote.last),
-                    "bid": str(quote.bid) if quote.bid is not None else None,
-                    "ask": str(quote.ask) if quote.ask is not None else None,
-                    "volume": quote.volume,
-                    "open_interest": quote.open_interest,
-                    **quote.extra,
-                }
-            )
+            self._record_option_tick(quote)
             await self.engine.on_position_quote(quote, now)
+
+    def _register_realtime_quote_listener(self) -> None:
+        register = getattr(self.engine.market, "add_quote_listener", None)
+        if not callable(register):
+            return
+        register(self._on_realtime_quote)
+        self._log.info("registered real-time option stop listener")
+
+    async def _on_realtime_quote(self, quote) -> None:
+        position = self.engine.position
+        if position is None or quote.symbol != position.symbol:
+            return
+        self._record_option_tick(quote)
+        await self.engine.on_position_quote(quote, datetime.now(timezone.utc))
+
+    def _record_option_tick(self, quote) -> None:
+        self.option_tick_symbol = quote.symbol
+        self.option_tick_buffer.append(
+            {
+                "timestamp": quote.timestamp,
+                "last": str(quote.last),
+                "bid": str(quote.bid) if quote.bid is not None else None,
+                "ask": str(quote.ask) if quote.ask is not None else None,
+                "volume": quote.volume,
+                "open_interest": quote.open_interest,
+                **quote.extra,
+            }
+        )
 
     async def _warm_strategy_history(self) -> None:
         now = datetime.now(timezone.utc).astimezone(NY_TZ)

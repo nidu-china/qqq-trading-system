@@ -253,6 +253,9 @@ class TradingEngine:
                     "first_target_taken", position.first_target_taken
                 )
             )
+            position.trend_runner = bool(
+                signal.indicators.get("trend_runner", False)
+            )
             position.entry_intent_id = signal.intent_id
             self.trading_date = datetime.now(timezone.utc).astimezone(NY_TZ).date()
             await self.journal.trade_signal_status(signal.intent_id, "executed")
@@ -326,24 +329,33 @@ class TradingEngine:
                 self.trades_today = 0
                 self.cooldown_until = None
 
+            set_volatility_context = getattr(
+                self.strategy, "set_volatility_context", None
+            )
+            if callable(set_volatility_context):
+                set_volatility_context(volatility_bars or [], bars[-1].end)
             signal = self.strategy.evaluate(bars)
             if self.position is not None:
                 bar_decision = self.strategy.bar_exit_decision(self.position)
                 quote = await self.market.latest_quote(self.position.symbol)
                 if quote.bid is not None:
                     previous_highest = self.position.highest_bid
+                    previous_trend_runner = self.position.trend_runner
                     price_decision = self.risk.exit_decision(
                         self.position,
                         quote.bid,
                         decision_at,
                     )
-                    if self.position.highest_bid != previous_highest:
+                    if (
+                        self.position.highest_bid != previous_highest
+                        or self.position.trend_runner != previous_trend_runner
+                    ):
                         await self._persist_position_metadata(self.position)
                     decision = price_decision
-                    if (
-                        price_decision is None
-                        or price_decision.reason is not ExitReason.FORCED_CLOSE
-                    ):
+                    if price_decision is None or price_decision.reason not in {
+                        ExitReason.FORCED_CLOSE,
+                        ExitReason.STOP_LOSS,
+                    }:
                         decision = bar_decision or price_decision
                     if decision is not None:
                         await self._exit_position(decision, quote, decision_at)
@@ -370,7 +382,10 @@ class TradingEngine:
                 await self.journal.signal(signal, False, "signal_expired")
                 return
             if self.trades_today >= RULES.timed_max_trades_per_day:
-                self.log.warning("signal rejected | max_trades_per_day | trades=%d", self.trades_today)
+                self.log.warning(
+                    "signal rejected | max_trades_per_day | trades=%d",
+                    self.trades_today,
+                )
                 await self.journal.signal(signal, False, "max_trades_per_day")
                 return
             if self.cooldown_until is not None and decision_at < self.cooldown_until:
@@ -501,6 +516,9 @@ class TradingEngine:
             self.position_mae = Decimal(0)
             self.position_mfe = Decimal(0)
             self.trades_today += 1
+            record_entry = getattr(self.strategy, "record_entry", None)
+            if callable(record_entry):
+                record_entry(signal.direction, filled.submitted_at)
             self.realized_pnl -= (
                 RULES.fee_per_contract * filled.filled_quantity
             )
@@ -520,12 +538,17 @@ class TradingEngine:
             self.position_mae = min(self.position_mae, move)
             self.position_mfe = max(self.position_mfe, move)
             previous_highest = self.position.highest_bid
+            previous_trend_runner = self.position.trend_runner
             decision = self.risk.exit_decision(
                 self.position,
                 quote.bid,
                 decision_at,
+                allow_stop_loss=False,
             )
-            if self.position.highest_bid != previous_highest:
+            if (
+                self.position.highest_bid != previous_highest
+                or self.position.trend_runner != previous_trend_runner
+            ):
                 await self._persist_position_metadata(self.position)
             if decision is not None:
                 await self._exit_position(decision, quote, decision_at)
@@ -558,9 +581,39 @@ class TradingEngine:
                 "entry_price": str(position.entry_price),
                 "strategy": position.strategy_name or "",
                 "market_state": position.market_state.value,
+                "execution_style": (
+                    "market" if decision.reason is ExitReason.STOP_LOSS else "limit"
+                ),
+                "trigger_bid": str(quote.bid),
+                "stop_price": (
+                    str(position.stop_price)
+                    if position.stop_price is not None
+                    else None
+                ),
             },
         )
-        filled = await self.executor.exit(request, self.market.latest_quote)
+        if decision.reason is ExitReason.STOP_LOSS:
+            hard_stop_price = position.stop_price or (
+                position.entry_price
+                * (Decimal(1) - RULES.option_stop_loss_pct)
+            )
+            await self.journal.event(
+                "hard_stop_triggered",
+                "one-minute close confirmed stop; submitting emergency market exit",
+                {
+                    "symbol": position.symbol,
+                    "quantity": quantity,
+                    "stop_price": str(hard_stop_price),
+                    "trigger_bid": str(quote.bid),
+                    "triggered_at": decision_at.isoformat(),
+                },
+            )
+            filled = await self.executor.emergency_exit(
+                request,
+                self.market.latest_quote,
+            )
+        else:
+            filled = await self.executor.exit(request, self.market.latest_quote)
         successful = filled is not None and filled.filled_quantity > 0
         await self.journal.trade_signal_status(
             request.intent_id, "executed" if successful else "failed"
@@ -574,6 +627,32 @@ class TradingEngine:
             (filled.average_price - position.entry_price) * Decimal(100) * sold
         )
         pnl = gross_pnl - fees
+        if decision.reason is ExitReason.STOP_LOSS:
+            stop_price = position.stop_price or (
+                position.entry_price
+                * (Decimal(1) - RULES.option_stop_loss_pct)
+            )
+            penetration = max(Decimal(0), stop_price - filled.average_price)
+            await self.journal.event(
+                "hard_stop_filled",
+                "emergency market exit filled",
+                {
+                    "symbol": position.symbol,
+                    "quantity": sold,
+                    "stop_price": str(stop_price),
+                    "trigger_bid": str(quote.bid),
+                    "fill_price": str(filled.average_price),
+                    "penetration": str(penetration),
+                    "penetration_pct": str(
+                        penetration / position.entry_price
+                    ),
+                },
+            )
+        record_profitable_exit = getattr(
+            self.strategy, "record_profitable_exit", None
+        )
+        if pnl > 0 and callable(record_profitable_exit):
+            record_profitable_exit(position.direction, decision_at)
         self.realized_pnl += gross_pnl - RULES.fee_per_contract * sold
         summary = TradeSummary(
             symbol=position.symbol,
@@ -609,6 +688,11 @@ class TradingEngine:
             }
         )
         position.quantity -= sold
+        if (
+            decision.reason is ExitReason.TRAILING_STOP
+            and position.quantity > 0
+        ):
+            position.trend_runner = True
         if decision.reason in {
             ExitReason.TAKE_PROFIT_1,
             ExitReason.BOLLINGER_MIDDLE,
@@ -645,6 +729,7 @@ class TradingEngine:
             "highest_bid": (
                 str(position.highest_bid) if position.highest_bid is not None else None
             ),
+            "trend_runner": position.trend_runner,
             "midday_reduced": position.midday_reduced,
             "range_middle_taken": position.range_middle_taken,
             "first_target_taken": position.first_target_taken,

@@ -68,6 +68,59 @@ async def test_repricing_only_submits_unfilled_remainder():
     ]
 
 
+@pytest.mark.asyncio
+async def test_hard_stop_uses_market_order_without_limit_repricing():
+    class EmergencyBroker:
+        def __init__(self):
+            self.market_requests = []
+            self.limit_requests = []
+
+        async def submit_market(self, request):
+            self.market_requests.append(request)
+            return BrokerOrder(
+                "market-1",
+                request.intent_id,
+                request.symbol,
+                request.side,
+                request.quantity,
+                request.quantity,
+                Decimal("0.89"),
+                "filled",
+                datetime.now(timezone.utc),
+            )
+
+        async def submit_limit(self, request):
+            self.limit_requests.append(request)
+            raise AssertionError("hard stop must not start with a limit order")
+
+        async def order(self, order_id):
+            raise AssertionError("filled market order does not need polling")
+
+        async def cancel_order(self, order_id):
+            raise AssertionError("filled market order does not need cancellation")
+
+    broker = EmergencyBroker()
+    executor = OrderExecutor(broker, MemoryJournal(), make_settings())
+    request = OrderRequest(
+        "OPT.US",
+        OrderSide.SELL,
+        3,
+        Decimal("0.90"),
+        reason="stop_loss",
+    )
+
+    async def quote_supplier(symbol):
+        raise AssertionError("filled market order does not need another quote")
+
+    filled = await executor.emergency_exit(request, quote_supplier)
+
+    assert filled is not None
+    assert filled.filled_quantity == 3
+    assert filled.average_price == Decimal("0.89")
+    assert broker.market_requests == [request]
+    assert not broker.limit_requests
+
+
 class FakeQuoteContext:
     def __init__(self):
         self.candlestick_args = None
@@ -156,6 +209,56 @@ async def test_longbridge_adapter_matches_v4_positional_signatures():
     assert order.filled_quantity == 1
     assert len(session.trade.submit_args) == 16
     assert session.trade.submit_args[-1] == str(request.intent_id)
+
+    market_request = OrderRequest(
+        "QQQ260715C100000.US",
+        OrderSide.SELL,
+        1,
+        Decimal("0.75"),
+        reason="stop_loss",
+    )
+    await broker.submit_market(market_request)
+    from longbridge.openapi import OrderType
+
+    assert session.trade.submit_args[1] == OrderType.MO
+    assert session.trade.submit_args[5] is None
+    assert session.trade.submit_args[-1] == str(market_request.intent_id)
+
+
+@pytest.mark.asyncio
+async def test_longbridge_pushes_executable_option_bid_to_listener():
+    settings = make_settings()
+    session = LongbridgeSession(settings)
+    session.quote = FakeQuoteContext()
+    session.trade = FakeTradeContext()
+    market = LongbridgeMarketData(session)
+    await market.connect()
+    received = []
+    delivered = asyncio.Event()
+
+    async def listener(quote):
+        received.append(quote)
+        delivered.set()
+
+    market.add_quote_listener(listener)
+    await market.subscribe(["QQQ260715C100000.US"])
+    now = datetime.now(timezone.utc)
+    session.quote.quote_callback(
+        "QQQ260715C100000.US",
+        SimpleNamespace(last_done=Decimal("0.90"), timestamp=now, volume=100),
+    )
+    session.quote.depth_callback(
+        "QQQ260715C100000.US",
+        SimpleNamespace(
+            bids=[SimpleNamespace(price=Decimal("0.88"))],
+            asks=[SimpleNamespace(price=Decimal("0.91"))],
+        ),
+    )
+    await asyncio.wait_for(delivered.wait(), timeout=1)
+
+    assert len(received) == 1
+    assert received[0].bid == Decimal("0.88")
+    assert received[0].ask == Decimal("0.91")
 
 
 @pytest.mark.asyncio

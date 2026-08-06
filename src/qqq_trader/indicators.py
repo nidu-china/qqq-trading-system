@@ -215,6 +215,7 @@ class MarketContext:
     adx_val: Decimal = ZERO
     atr_val: Decimal = ZERO
     rvol_val: Decimal = Decimal("1.0")
+    rvol_prev: Decimal = Decimal("1.0")
     prev_day_high: Decimal = ZERO
     prev_day_low: Decimal = ZERO
     prev_close: Decimal = ZERO

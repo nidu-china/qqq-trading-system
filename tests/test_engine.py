@@ -7,11 +7,13 @@ from conftest import make_settings
 from qqq_trader.adapters.paper import PaperBroker
 from qqq_trader.domain import (
     Bar,
+    BrokerOrder,
     Direction,
     MarketState,
     OrderRequest,
     OrderSide,
     Position,
+    Quote,
     Signal,
     SystemState,
     TradeSignal,
@@ -29,6 +31,12 @@ class UnusedMarket:
 
     async def subscribe(self, symbols):
         return None
+
+    async def latest_quote(self, symbol):
+        quote = getattr(self, "quote", None)
+        if quote is None:
+            raise AssertionError("market quote was not expected")
+        return quote
 
 
 class FixedSignalStrategy:
@@ -170,3 +178,70 @@ async def test_position_strategy_metadata_survives_startup_recovery():
     assert engine.position.midday_reduced
     assert engine.position.range_middle_taken
     assert engine.position.stop_price == Decimal("1.00")
+
+
+@pytest.mark.asyncio
+async def test_engine_waits_for_completed_bar_before_emergency_stop_exit():
+    class RecordingExecutor:
+        def __init__(self):
+            self.emergency_requests = []
+
+        async def emergency_exit(self, request, quote_supplier):
+            self.emergency_requests.append(request)
+            return BrokerOrder(
+                "market-stop",
+                request.intent_id,
+                request.symbol,
+                request.side,
+                request.quantity,
+                request.quantity,
+                Decimal("0.73"),
+                "filled",
+                datetime.now(timezone.utc),
+            )
+
+        async def exit(self, request, quote_supplier):
+            raise AssertionError("hard stop must not use ordinary limit exit")
+
+    now = datetime.now(timezone.utc)
+    market = UnusedMarket()
+    engine = TradingEngine(
+        make_settings(volatility_filter_enabled=False),
+        market,
+        PaperBroker(),
+        MemoryJournal(),
+    )
+    engine.position = Position(
+        "QQQ260715C00500000.US",
+        Direction.CALL,
+        2,
+        Decimal("1.00"),
+        now - timedelta(minutes=1),
+        stop_price=Decimal("0.75"),
+    )
+    engine.state = SystemState.OPEN
+    executor = RecordingExecutor()
+    engine.executor = executor
+
+    quote = Quote(
+        engine.position.symbol,
+        now,
+        Decimal("0.74"),
+        Decimal("0.74"),
+        Decimal("0.76"),
+    )
+    market.quote = quote
+
+    await engine.on_position_quote(quote, now)
+
+    assert not executor.emergency_requests
+    assert engine.position is not None
+
+    engine.strategy = FixedSignalStrategy(
+        Signal(Direction.CALL, now, Decimal("500"), strategy="test")
+    )
+    await engine.on_completed_bars([_bar(now)], now=now)
+
+    assert len(executor.emergency_requests) == 1
+    assert executor.emergency_requests[0].reason == "stop_loss"
+    assert engine.position is None

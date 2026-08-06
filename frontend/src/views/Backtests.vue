@@ -14,7 +14,7 @@ const form=reactive({
   config_version:undefined as number|undefined,
 })
 const completeDates=computed(()=>availability.value.filter(x=>x.bars).map(x=>x.date))
-const chartRef=ref<HTMLElement>(), dateKey=(d:Date)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+const chartRef=ref<HTMLElement>(), equityChartRef=ref<HTMLElement>(), dateKey=(d:Date)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 let timer:number
 
 const showParams = ref(false)
@@ -53,6 +53,11 @@ const flattenedTrades = computed(() => {
           leg_price: leg.price,
           leg_pnl: leg.pnl,
           leg_reason: leg.reason,
+          leg_stop_price: leg.stop_price,
+          leg_trigger_bid: leg.trigger_bid,
+          leg_fill_bid: leg.fill_bid,
+          leg_stop_penetration: leg.stop_penetration,
+          leg_stop_penetration_pct: leg.stop_penetration_pct,
         })
       }
     } else {
@@ -138,6 +143,22 @@ chart.setOption({
   ],
   dataZoom:[{type:'inside',xAxisIndex:[0,1,2],start:0,end:100}]
 },true)},{deep:true})
+
+watch(()=>selected.value?.result?.equity_curve,async curve=>{
+  if(!curve?.length)return
+  await nextTick()
+  if(!equityChartRef.value)return
+  const chart=getInstanceByDom(equityChartRef.value)||init(equityChartRef.value)
+  const fmt=(v:string)=>new Date(v).toLocaleString('en-US',{timeZone:'America/New_York',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false})
+  chart.setOption({
+    grid:{left:70,right:20,top:24,bottom:55},
+    tooltip:{trigger:'axis'},
+    xAxis:{type:'category',data:curve.map((x:any)=>fmt(x.time)),axisLabel:{color:'#7890ad',fontSize:9,rotate:30}},
+    yAxis:{type:'value',scale:true,axisLabel:{color:'#7890ad',formatter:'${value}'},splitLine:{lineStyle:{color:'#1a2a3d'}}},
+    series:[{name:'盘中权益',type:'line',data:curve.map((x:any)=>Number(x.equity)),showSymbol:false,lineStyle:{color:'#2dd4bf',width:1.5},areaStyle:{color:'rgba(45,212,191,0.08)'}}],
+    dataZoom:[{type:'inside',start:0,end:100}],
+  },true)
+},{deep:true})
 
 const EXIT_REASON_LABELS: Record<string, string> = {
   stop_loss: '止损',
@@ -329,12 +350,21 @@ function visibleStrategyKeys(settings: Record<string, any>): string[] {
             <label>最大回撤</label>
             <strong class="negative">{{ money(selected.result.max_drawdown) }}</strong>
           </div>
+          <div class="metric-card" v-if="selected.result.realized_max_drawdown !== undefined">
+            <label>已实现最大回撤</label>
+            <strong class="negative">{{ money(selected.result.realized_max_drawdown) }}</strong>
+          </div>
         </div>
 
         <!-- QQQ 走势 + 买卖点 -->
         <div v-if="selected.result.price_series?.length" class="result-section">
           <h3>QQQ 走势与交易点</h3>
           <div ref="chartRef" style="height:560px"></div>
+        </div>
+
+        <div v-if="selected.result.equity_curve?.length" class="result-section">
+          <h3>盘中权益曲线（已实现 + 持仓按 Bid 清算）</h3>
+          <div ref="equityChartRef" style="height:300px"></div>
         </div>
 
         <!-- 信号与数据统计 -->
@@ -418,6 +448,9 @@ function visibleStrategyKeys(settings: Record<string, any>): string[] {
       <el-table-column label="出场价" width="90" align="right"><template #default="s">${{ Number(s.row.leg_price ?? s.row.exit_price).toFixed(2) }}</template></el-table-column>
       <el-table-column label="盈亏" width="100" align="right"><template #default="s"><span :class="Number(s.row.leg_pnl ?? s.row.pnl)>=0?'positive':'negative'">${{ Number(s.row.leg_pnl ?? s.row.pnl).toFixed(2) }}</span></template></el-table-column>
       <el-table-column label="出场原因" width="110"><template #default="s"><el-tag size="small" :type="exitReasonType(s.row.leg_reason ?? s.row.exit_reason)">{{ exitReasonLabel(s.row.leg_reason ?? s.row.exit_reason) }}</el-tag></template></el-table-column>
+      <el-table-column label="止损线" width="90" align="right"><template #default="s"><span v-if="s.row.leg_stop_price != null">${{ Number(s.row.leg_stop_price).toFixed(2) }}</span><span v-else>—</span></template></el-table-column>
+      <el-table-column label="触发 Bid" width="90" align="right"><template #default="s"><span v-if="s.row.leg_trigger_bid != null">${{ Number(s.row.leg_trigger_bid).toFixed(2) }}</span><span v-else>—</span></template></el-table-column>
+      <el-table-column label="止损穿透" width="100" align="right"><template #default="s"><span v-if="s.row.leg_stop_penetration_pct != null" class="negative">{{ percent(s.row.leg_stop_penetration_pct) }}</span><span v-else>—</span></template></el-table-column>
     </el-table>
   </div>
 </template>
