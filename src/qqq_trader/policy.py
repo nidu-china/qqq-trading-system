@@ -43,7 +43,7 @@ class StrategyRules:
 
     cooldown_minutes: int = 3
     max_trades_per_day: int = 5
-    signal_ttl_seconds: int = 60
+    signal_ttl_seconds: int = 90
     entry_reprices: int = 2
     order_timeout_seconds: int = 6
 

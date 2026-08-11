@@ -561,8 +561,24 @@ class LongbridgeBroker:
         await self.session.trade.cancel_order(order_id)
 
     async def order(self, order_id: str) -> BrokerOrder:
-        row = await self.session.trade.order_detail(order_id)
-        return self._broker_order(row, self._intent_by_order.get(order_id))
+        _RATE_LIMIT_CODE = 429002
+        _MAX_RETRIES = 3
+        for attempt in range(_MAX_RETRIES + 1):
+            try:
+                row = await self.session.trade.order_detail(order_id)
+                return self._broker_order(row, self._intent_by_order.get(order_id))
+            except Exception as exc:
+                if getattr(exc, "code", None) == _RATE_LIMIT_CODE and attempt < _MAX_RETRIES:
+                    wait = float(attempt + 1)
+                    self._log.warning(
+                        "order_detail rate limited (429002); retry %d/%d in %.0fs",
+                        attempt + 1,
+                        _MAX_RETRIES,
+                        wait,
+                    )
+                    await asyncio.sleep(wait)
+                    continue
+                raise
 
     async def positions(self) -> list[Position]:
         response = await self.session.trade.stock_positions()

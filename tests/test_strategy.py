@@ -231,8 +231,10 @@ def test_trend_runner_exits_on_boll_middle_or_macd_reversal():
     assert decision.reason is ExitReason.BOLLINGER_MIDDLE
 
     engine.last_context.current_close = Decimal("100.1")
+    engine.last_context.current_open = Decimal("100.2")
     engine.last_context.macd_hist = Decimal("-0.1")
     engine.last_context.macd_hist_prev = Decimal("0.05")
+    engine.last_context.rvol_val = Decimal("1.2")
     decision = engine.bar_exit_decision(position)
     assert decision is not None
     assert decision.reason is ExitReason.DIRECTION_REVERSAL
@@ -605,9 +607,20 @@ def _set_timed_reversal_context(
     bars: list[Bar],
     boll_values: list[Decimal],
     macd_values: list[Decimal],
+    *,
+    rvol: Decimal = Decimal("1.2"),
+    rvol_prev: Decimal = Decimal("1.0"),
 ) -> None:
     engine.last_context = MarketContext(
-        bar_time=__import__("datetime").time(10, 5)
+        current_open=bars[-1].open,
+        current_close=bars[-1].close,
+        boll_middle=boll_values[-1],
+        macd_hist=macd_values[-1],
+        macd_hist_prev=macd_values[-2],
+        rvol_val=rvol,
+        rvol_prev=rvol_prev,
+        bar_time=__import__("datetime").time(10, 5),
+        bar_end=bars[-1].end,
     )
     engine._last_today_1m = bars
     engine._last_boll_middle_by_end = {
@@ -618,7 +631,7 @@ def _set_timed_reversal_context(
     }
 
 
-def test_timed_call_reversal_can_confirm_on_third_bar():
+def test_timed_call_macd_zero_cross_exits_without_boll_confirmation():
     engine = StrategyEngine(
         make_settings()
     )
@@ -634,13 +647,13 @@ def test_timed_call_reversal_can_confirm_on_third_bar():
             Decimal("100.5") - Decimal(index) / Decimal("10"),
             1000,
         )
-        for index in range(3)
+        for index in range(2)
     ]
     _set_timed_reversal_context(
         engine,
         bars,
-        [Decimal("101"), Decimal("100.8"), Decimal("100.6")],
-        [Decimal("0.2"), Decimal("0.05"), Decimal("-0.1")],
+        [Decimal("100"), Decimal("100")],
+        [Decimal("0.05"), Decimal("-0.1")],
     )
     position = Position(
         "QQQ260715C00500000.US",
@@ -655,7 +668,7 @@ def test_timed_call_reversal_can_confirm_on_third_bar():
     assert decision.reason is ExitReason.DIRECTION_REVERSAL
 
 
-def test_timed_reversal_requires_boll_and_macd_confirmation():
+def test_single_macd_histogram_contraction_is_warning_only():
     engine = StrategyEngine(
         make_settings()
     )
@@ -671,7 +684,7 @@ def test_timed_reversal_requires_boll_and_macd_confirmation():
             Decimal("100.5"),
             1000,
         )
-        for index in range(5)
+        for index in range(2)
     ]
     position = Position(
         "QQQ260715C00500000.US",
@@ -684,14 +697,8 @@ def test_timed_reversal_requires_boll_and_macd_confirmation():
     _set_timed_reversal_context(
         engine,
         bars,
-        [Decimal("101")] * 5,
-        [
-            Decimal("0.4"),
-            Decimal("0.3"),
-            Decimal("0.2"),
-            Decimal("0.1"),
-            Decimal("0.05"),
-        ],
+        [Decimal("100")] * 2,
+        [Decimal("0.4"), Decimal("0.05")],
     )
     assert engine.bar_exit_decision(position) is None
 
@@ -712,13 +719,13 @@ def test_timed_put_reversal_is_symmetric():
             Decimal("100.5") + Decimal(index) / Decimal("10"),
             1000,
         )
-        for index in range(3)
+        for index in range(2)
     ]
     _set_timed_reversal_context(
         engine,
         bars,
-        [Decimal("100"), Decimal("100.2"), Decimal("100.4")],
-        [Decimal("-0.2"), Decimal("-0.05"), Decimal("0.1")],
+        [Decimal("101"), Decimal("101")],
+        [Decimal("-0.05"), Decimal("0.1")],
     )
     position = Position(
         "QQQ260715P00500000.US",
@@ -731,3 +738,123 @@ def test_timed_put_reversal_is_symmetric():
     decision = engine.bar_exit_decision(position)
     assert decision is not None
     assert decision.reason is ExitReason.DIRECTION_REVERSAL
+
+
+def test_timed_boll_middle_reversal_is_independent_of_macd():
+    engine = StrategyEngine(make_settings())
+    start = datetime(2026, 7, 15, 14, 0, tzinfo=timezone.utc)
+    bars = [
+        Bar(
+            "QQQ.US",
+            start + timedelta(minutes=index),
+            start + timedelta(minutes=index + 1),
+            Decimal("100.8"),
+            Decimal("100.9"),
+            Decimal("100.4"),
+            Decimal("100.5"),
+            1000,
+        )
+        for index in range(2)
+    ]
+    _set_timed_reversal_context(
+        engine,
+        bars,
+        [Decimal("101"), Decimal("101")],
+        [Decimal("0.2"), Decimal("0.1")],
+    )
+    position = Position(
+        "QQQ260715C00500000.US",
+        Direction.CALL,
+        3,
+        Decimal("1"),
+        start - timedelta(seconds=1),
+        strategy_name="timed_boll_macd_signal",
+    )
+    decision = engine.bar_exit_decision(position)
+    assert decision is not None
+    assert decision.reason is ExitReason.BOLLINGER_MIDDLE
+
+
+def test_macd_reversal_waits_for_volume_then_exits():
+    engine = StrategyEngine(make_settings())
+    start = datetime(2026, 7, 15, 14, 0, tzinfo=timezone.utc)
+    bars = [
+        Bar(
+            "QQQ.US",
+            start + timedelta(minutes=index),
+            start + timedelta(minutes=index + 1),
+            Decimal("100"),
+            Decimal("100.6"),
+            Decimal("99.9"),
+            Decimal("100.5"),
+            1000,
+        )
+        for index in range(2)
+    ]
+    position = Position(
+        "QQQ260715P00500000.US",
+        Direction.PUT,
+        3,
+        Decimal("1"),
+        start - timedelta(seconds=1),
+        strategy_name="timed_boll_macd_signal",
+    )
+    _set_timed_reversal_context(
+        engine,
+        bars,
+        [Decimal("101"), Decimal("101")],
+        [Decimal("-0.05"), Decimal("0.1")],
+        rvol=Decimal("0.9"),
+        rvol_prev=Decimal("1.1"),
+    )
+    assert engine.bar_exit_decision(position) is None
+    assert position.macd_reversal_pending
+
+    engine.last_context.macd_hist_prev = Decimal("0.1")
+    engine.last_context.macd_hist = Decimal("0.2")
+    engine.last_context.rvol_prev = Decimal("0.9")
+    engine.last_context.rvol_val = Decimal("1.01")
+    engine.last_context.bar_end = bars[-1].end + timedelta(minutes=1)
+    decision = engine.bar_exit_decision(position)
+    assert decision is not None
+    assert decision.reason is ExitReason.DIRECTION_REVERSAL
+    assert not position.macd_reversal_pending
+
+
+def test_macd_reversal_pending_is_cancelled_when_macd_recovers():
+    engine = StrategyEngine(make_settings())
+    start = datetime(2026, 7, 15, 14, 0, tzinfo=timezone.utc)
+    bars = [
+        Bar(
+            "QQQ.US",
+            start + timedelta(minutes=index),
+            start + timedelta(minutes=index + 1),
+            Decimal("100"),
+            Decimal("100.1"),
+            Decimal("99.4"),
+            Decimal("99.5"),
+            1000,
+        )
+        for index in range(2)
+    ]
+    position = Position(
+        "QQQ260715C00500000.US",
+        Direction.CALL,
+        3,
+        Decimal("1"),
+        start - timedelta(seconds=1),
+        strategy_name="timed_boll_macd_signal",
+        macd_reversal_pending=True,
+        macd_reversal_pending_at=bars[0].end,
+    )
+    _set_timed_reversal_context(
+        engine,
+        bars,
+        [Decimal("99"), Decimal("99")],
+        [Decimal("-0.1"), Decimal("0.05")],
+        rvol=Decimal("0.8"),
+        rvol_prev=Decimal("0.9"),
+    )
+    assert engine.bar_exit_decision(position) is None
+    assert not position.macd_reversal_pending
+    assert position.macd_reversal_pending_at is None

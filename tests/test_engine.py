@@ -163,6 +163,8 @@ async def test_position_strategy_metadata_survives_startup_recovery():
             "first_target_taken": True,
             "stop_price": "1.00",
             "entry_vwap": "500.1",
+            "macd_reversal_pending": True,
+            "macd_reversal_pending_at": order.submitted_at.isoformat(),
         },
     )
     await journal.trade_signal(signal)
@@ -178,6 +180,8 @@ async def test_position_strategy_metadata_survives_startup_recovery():
     assert engine.position.midday_reduced
     assert engine.position.range_middle_taken
     assert engine.position.stop_price == Decimal("1.00")
+    assert engine.position.macd_reversal_pending
+    assert engine.position.macd_reversal_pending_at == order.submitted_at
 
 
 @pytest.mark.asyncio

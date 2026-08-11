@@ -195,6 +195,8 @@ class Position:
     range_middle_taken: bool = False
     entry_vwap: Decimal | None = None
     entry_intent_id: UUID | None = None
+    macd_reversal_pending: bool = False
+    macd_reversal_pending_at: datetime | None = None
 
     def __post_init__(self) -> None:
         _aware(self.opened_at)

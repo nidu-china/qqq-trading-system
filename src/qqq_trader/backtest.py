@@ -679,7 +679,40 @@ class EventDrivenBacktester:
                 price_decision = self.risk.exit_decision(
                     position, quote.bid, bar.end,
                 )
+                previous_macd_pending = position.macd_reversal_pending
+                previous_macd_pending_at = position.macd_reversal_pending_at
                 bar_decision = self.strategy.bar_exit_decision(position)
+                pending_changed = (
+                    position.macd_reversal_pending != previous_macd_pending
+                    or position.macd_reversal_pending_at
+                    != previous_macd_pending_at
+                )
+                if pending_changed and bar_decision is None:
+                    ctx = self.strategy.last_context
+                    pending = position.macd_reversal_pending
+                    result.signal_records.append(
+                        {
+                            "id": f"macd-warning:{bar.end.isoformat()}",
+                            "action": "sell",
+                            "decision_at": bar.end.isoformat(),
+                            "direction": position.direction.value,
+                            "symbol": position.symbol,
+                            "price": str(quote.bid),
+                            "quantity": position.quantity,
+                            "status": "rejected",
+                            "reason": (
+                                "macd_reversal_pending_volume_confirmation"
+                                if pending
+                                else "macd_reversal_pending_cancelled"
+                            ),
+                            "indicators": {
+                                "macd_hist": str(ctx.macd_hist),
+                                "macd_hist_prev": str(ctx.macd_hist_prev),
+                                "rvol": str(ctx.rvol_val),
+                                "rvol_prev": str(ctx.rvol_prev),
+                            },
+                        }
+                    )
                 decision = price_decision
                 if price_decision is None or price_decision.reason not in {
                     ExitReason.FORCED_CLOSE,

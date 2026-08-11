@@ -25,6 +25,8 @@ from .policy import RULES
 from .volatility import VixFiveMinuteTrend, vix_five_minute_trend
 
 ZERO = Decimal(0)
+REVERSAL_VOLUME_STRONG = Decimal("1.20")
+REVERSAL_VOLUME_BASE = Decimal("1.00")
 
 
 class StrategyEngine:
@@ -584,73 +586,79 @@ class StrategyEngine:
         ):
             return ExitDecision(ExitReason.OPENING_CUTOFF, position.quantity)
 
+        if position.direction is Direction.CALL:
+            macd_reversed = ctx.macd_hist_prev > ZERO and ctx.macd_hist <= ZERO
+            macd_on_reversal_side = ctx.macd_hist <= ZERO
+            reversal_candle = ctx.current_close < ctx.current_open
+        else:
+            macd_reversed = ctx.macd_hist_prev < ZERO and ctx.macd_hist >= ZERO
+            macd_on_reversal_side = ctx.macd_hist >= ZERO
+            reversal_candle = ctx.current_close > ctx.current_open
+        volume_confirmed = (
+            ctx.rvol_val >= REVERSAL_VOLUME_STRONG
+            or (
+                ctx.rvol_val >= REVERSAL_VOLUME_BASE
+                and ctx.rvol_val > ctx.rvol_prev
+            )
+        )
+        if macd_reversed:
+            if reversal_candle and volume_confirmed:
+                position.macd_reversal_pending = False
+                position.macd_reversal_pending_at = None
+                return ExitDecision(ExitReason.DIRECTION_REVERSAL, position.quantity)
+            position.macd_reversal_pending = True
+            position.macd_reversal_pending_at = ctx.bar_end
+        elif position.macd_reversal_pending:
+            if not macd_on_reversal_side:
+                position.macd_reversal_pending = False
+                position.macd_reversal_pending_at = None
+            elif (
+                ctx.bar_end != position.macd_reversal_pending_at
+                and volume_confirmed
+            ):
+                position.macd_reversal_pending = False
+                position.macd_reversal_pending_at = None
+                return ExitDecision(ExitReason.DIRECTION_REVERSAL, position.quantity)
+
         if position.trend_runner:
             if position.direction is Direction.CALL:
                 if ctx.current_close < ctx.boll_middle:
                     return ExitDecision(ExitReason.BOLLINGER_MIDDLE, position.quantity)
-                if ctx.macd_hist <= ZERO and ctx.macd_hist < ctx.macd_hist_prev:
-                    return ExitDecision(ExitReason.DIRECTION_REVERSAL, position.quantity)
             else:
                 if ctx.current_close > ctx.boll_middle:
                     return ExitDecision(ExitReason.BOLLINGER_MIDDLE, position.quantity)
-                if ctx.macd_hist >= ZERO and ctx.macd_hist > ctx.macd_hist_prev:
-                    return ExitDecision(ExitReason.DIRECTION_REVERSAL, position.quantity)
 
         bars_after_entry = [
             bar for bar in self._last_today_1m if bar.end > position.opened_at
         ]
-        if len(bars_after_entry) < RULES.timed_reversal_min_bars:
+        if len(bars_after_entry) < 2:
             return None
 
-        window = bars_after_entry[-RULES.timed_reversal_window :]
+        window = bars_after_entry[-2:]
         boll_values = [
-            self._last_boll_middle_by_end.get(bar.end) for bar in window[-2:]
+            self._last_boll_middle_by_end.get(bar.end) for bar in window
         ]
-        macd_values = [
-            self._last_macd_hist_by_end.get(bar.end) for bar in window[-3:]
-        ]
-        if any(value is None for value in boll_values + macd_values):
+        if any(value is None for value in boll_values):
             return None
 
         if position.direction is Direction.CALL:
-            candle_condition = (
-                sum(bar.close < bar.open for bar in window) >= 3
-            )
-            net_price_condition = window[-1].close < window[0].open
             boll_condition = all(
                 bar.close < middle
                 for bar, middle in zip(
-                    window[-2:], boll_values, strict=True
+                    window, boll_values, strict=True
                 )
             )
-            macd_condition = (
-                macd_values[0] > macd_values[1] > macd_values[2]
-                and macd_values[2] <= ZERO
-            )
         else:
-            candle_condition = (
-                sum(bar.close > bar.open for bar in window) >= 3
-            )
-            net_price_condition = window[-1].close > window[0].open
             boll_condition = all(
                 bar.close > middle
                 for bar, middle in zip(
-                    window[-2:], boll_values, strict=True
+                    window, boll_values, strict=True
                 )
             )
-            macd_condition = (
-                macd_values[0] < macd_values[1] < macd_values[2]
-                and macd_values[2] >= ZERO
-            )
 
-        reversed_direction = (
-            boll_condition
-            and macd_condition
-            and (candle_condition or net_price_condition)
-        )
-        if reversed_direction:
+        if boll_condition:
             return ExitDecision(
-                ExitReason.DIRECTION_REVERSAL,
+                ExitReason.BOLLINGER_MIDDLE,
                 position.quantity,
             )
         return None

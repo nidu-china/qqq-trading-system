@@ -197,7 +197,7 @@ class OrderExecutor:
         deadline = asyncio.get_running_loop().time() + RULES.order_timeout_seconds
         current = order
         while asyncio.get_running_loop().time() < deadline:
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(1.0)
             current = await self.broker.order(order.order_id)
             await self.journal.broker_order(current)
             if current.status.lower() in TERMINAL_STATUSES:

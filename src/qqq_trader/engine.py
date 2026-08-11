@@ -256,6 +256,13 @@ class TradingEngine:
             position.trend_runner = bool(
                 signal.indicators.get("trend_runner", False)
             )
+            position.macd_reversal_pending = bool(
+                signal.indicators.get("macd_reversal_pending", False)
+            )
+            pending_at = signal.indicators.get("macd_reversal_pending_at")
+            position.macd_reversal_pending_at = (
+                datetime.fromisoformat(str(pending_at)) if pending_at else None
+            )
             position.entry_intent_id = signal.intent_id
             self.trading_date = datetime.now(timezone.utc).astimezone(NY_TZ).date()
             await self.journal.trade_signal_status(signal.intent_id, "executed")
@@ -336,7 +343,42 @@ class TradingEngine:
                 set_volatility_context(volatility_bars or [], bars[-1].end)
             signal = self.strategy.evaluate(bars)
             if self.position is not None:
+                previous_macd_pending = self.position.macd_reversal_pending
+                previous_macd_pending_at = self.position.macd_reversal_pending_at
                 bar_decision = self.strategy.bar_exit_decision(self.position)
+                if (
+                    self.position.macd_reversal_pending != previous_macd_pending
+                    or self.position.macd_reversal_pending_at
+                    != previous_macd_pending_at
+                ):
+                    await self._persist_position_metadata(self.position)
+                    if bar_decision is None:
+                        pending = self.position.macd_reversal_pending
+                        await self.journal.event(
+                            (
+                                "macd_reversal_pending"
+                                if pending
+                                else "macd_reversal_cancelled"
+                            ),
+                            (
+                                "MACD reversal is waiting for volume confirmation"
+                                if pending
+                                else "MACD reversal warning was cancelled"
+                            ),
+                            {
+                                "symbol": self.position.symbol,
+                                "direction": self.position.direction.value,
+                                "bar_end": bars[-1].end.isoformat(),
+                                "macd_hist": str(self.strategy.last_context.macd_hist),
+                                "macd_hist_prev": str(
+                                    self.strategy.last_context.macd_hist_prev
+                                ),
+                                "rvol": str(self.strategy.last_context.rvol_val),
+                                "rvol_prev": str(
+                                    self.strategy.last_context.rvol_prev
+                                ),
+                            },
+                        )
                 quote = await self.market.latest_quote(self.position.symbol)
                 if quote.bid is not None:
                     previous_highest = self.position.highest_bid
@@ -738,6 +780,12 @@ class TradingEngine:
             ),
             "entry_vwap": (
                 str(position.entry_vwap) if position.entry_vwap is not None else None
+            ),
+            "macd_reversal_pending": position.macd_reversal_pending,
+            "macd_reversal_pending_at": (
+                position.macd_reversal_pending_at.isoformat()
+                if position.macd_reversal_pending_at is not None
+                else None
             ),
             "initial_quantity": position.initial_quantity,
             "opened_at": position.opened_at.isoformat(),
