@@ -66,6 +66,7 @@ class ExitReason(StrEnum):
     BOLLINGER_UPPER = "bollinger_upper"
     OPENING_CUTOFF = "opening_cutoff"
     FIVE_BAR_STOP = "five_bar_stop"
+    TREND_EMA_EXIT = "trend_ema_exit"
 
 
 def _aware(value: datetime) -> None:

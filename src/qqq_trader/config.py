@@ -32,6 +32,7 @@ class Settings(BaseSettings):
 
     app_name: str = "qqq-0dte-trader"
     trading_mode: TradingMode = TradingMode.PAPER
+    strategy_mode: str = "boll_macd"
     paper_starting_equity: Decimal = Decimal("10000")
     account_id: str = ""
     underlying_symbol: str = "QQQ.US"

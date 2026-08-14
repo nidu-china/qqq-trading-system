@@ -665,5 +665,18 @@ class StrategyEngine:
 
 
 def strategy_from_settings(settings) -> StrategyEngine:
-    """Return the project's single production strategy."""
+    """Return the strategy selected by ``settings.strategy_mode``.
+
+    Supported modes:
+      * ``boll_macd`` (default) — BOLL/MACD oscillation strategy
+      * ``trend`` — Opening Range Breakout trend-following strategy
+      * ``hybrid`` — Trend ORB on trending days, BOLL/MACD on oscillation days
+    """
+    mode = getattr(settings, "strategy_mode", "boll_macd")
+    if mode == "trend":
+        from .trend_strategy import TrendFollowingEngine
+        return TrendFollowingEngine(settings)  # type: ignore[return-value]
+    if mode == "hybrid":
+        from .hybrid_strategy import HybridEngine
+        return HybridEngine(settings)  # type: ignore[return-value]
     return StrategyEngine(settings)

@@ -97,6 +97,22 @@ class StrategyRules:
     strike_offset: Decimal = Decimal("2")
     option_candidate_count: int = 5
 
+    # Trend-following (ORB) strategy
+    trend_or_start: time = time(9, 35)
+    trend_or_end: time = time(9, 40)
+    trend_entry_start: time = time(9, 40)
+    trend_entry_end: time = time(11, 30)
+    trend_max_trades: int = 2
+    trend_ema_fast: int = 9
+    trend_ema_slow: int = 21
+    trend_volume_breakout: Decimal = Decimal("1.5")
+    trend_max_vwap_crosses: int = 3
+    trend_breakout_confirm_bars: int = 3
+    trend_ema_exit_bars: int = 2
+
+    # Hybrid strategy: fallback to BOLL/MACD if no ORB breakout by this time
+    hybrid_fallback_time: time = time(10, 0)
+
     synthetic_min_price: Decimal = Decimal("0.01")
     synthetic_iv_floor: Decimal = Decimal("0.08")
     synthetic_iv_cap: Decimal = Decimal("1.50")

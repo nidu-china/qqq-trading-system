@@ -57,6 +57,120 @@ data/market/
 
 没有 `candidate_option_quotes` 时回测会自动使用合成期权，并将 `option_data_complete` 标记为 `false`。
 
+## CLI 命令参考
+
+> **Windows** 请将 `qqq-trader` 替换为 `.\.venv\Scripts\qqq-trader.exe`，路径分隔符改为 `\`。
+
+### backfill — 拉取历史 K 线
+
+在启动交易引擎或运行离线回测前，需先用此命令将历史数据从 Longbridge 下载并存入本地 Parquet 文件。
+
+```bash
+# 拉取 QQQ 1m/5m K 线 + VIX 5m/日线（最常用，运行回测前必须先执行）
+qqq-trader backfill --start 2026-07-01 --end 2026-08-06
+
+# 只拉 QQQ K 线，跳过 VIX
+qqq-trader backfill --start 2026-07-01 --end 2026-08-06 --no-include-volatility
+
+# 单独补拉 VIX（--no-include-volatility 防止递归重复拉 QQQ）
+qqq-trader backfill --start 2026-07-01 --end 2026-08-06 \
+  --symbol .VIX.US --no-include-volatility
+
+# PowerShell
+.\.venv\Scripts\qqq-trader.exe backfill --start 2026-07-01 --end 2026-08-06
+```
+
+拉取后数据写入（路径由 `.env` 中 `DATA_DIR` 决定）：
+
+```
+{DATA_DIR}/bars/symbol=QQQ.US/date=YYYY-MM-DD/1m.parquet
+{DATA_DIR}/bars/symbol=QQQ.US/date=YYYY-MM-DD/5m.parquet
+{DATA_DIR}/bars/symbol=.VIX.US/date=YYYY-MM-DD/5m.parquet
+{DATA_DIR}/bars/symbol=.VIX.US/date=YYYY-MM-DD/day.parquet
+```
+
+### backtest — 命令行回测
+
+对已下载的 K 线数据进行离线回测，结果以 JSON 输出到标准输出。Web 界面的回测任务队列使用同一套引擎，但提供图表和交易明细。
+
+```bash
+# 最小用法：只有 K 线，使用合成期权定价
+qqq-trader backtest \
+  --bars data/market/bars \
+  --starting-equity 10000
+
+# 加入 VIX 过滤（推荐，否则 VIX 门控信号全部被拒绝）
+qqq-trader backtest \
+  --bars data/market/bars \
+  --volatility-bars data/market/bars \
+  --volatility-daily-bars data/market/bars \
+  --starting-equity 10000
+
+# 使用真实期权报价（需要 candidate_option_quotes 目录）
+qqq-trader backtest \
+  --bars data/market/bars \
+  --option-frames data/market/candidate_option_quotes \
+  --volatility-bars data/market/bars \
+  --volatility-daily-bars data/market/bars \
+  --starting-equity 10000
+
+# PowerShell（反引号续行，路径用 Windows 格式）
+.\.venv\Scripts\qqq-trader.exe backtest `
+  --bars data\market\bars `
+  --volatility-bars data\market\bars `
+  --volatility-daily-bars data\market\bars `
+  --starting-equity 10000
+```
+
+`--bars` / `--volatility-bars` / `--volatility-daily-bars` 接受目录时会递归合并所有日期的 Parquet 文件；也可以传单个 `.parquet` 文件只回测特定日期。
+
+输出示例（JSON 到 stdout）：
+
+```json
+{
+  "starting_equity": "10000",
+  "ending_equity": "10850.00",
+  "net_pnl": "850.00",
+  "return_rate": "0.085",
+  "signals": 12,
+  "trades": 5,
+  "win_rate": "0.60",
+  "profit_factor": "2.30",
+  "max_drawdown": "-220.00",
+  "rejected": { "signal_expired": 2, "stale_quote": 1 },
+  "option_data_complete": false,
+  "volatility_data_complete": true,
+  "volatility_regimes": { "normal": 8, "elevated": 2, "unavailable": 2 },
+  "warning": ["No option Bid/Ask frames supplied; Greeks synthetic pricing is used."]
+}
+```
+
+### trade — 启动交易引擎
+
+同时启动交易服务和 Web API 界面，二者共用同一进程。
+
+```bash
+qqq-trader trade                              # Linux
+.\.venv\Scripts\qqq-trader.exe trade          # Windows
+```
+
+### report — 重新生成日报
+
+从 MySQL 读取交易记录，结合本地 K 线重新生成指定日期的 HTML/Markdown/JSON/SVG 日报。
+
+```bash
+qqq-trader report --trading-date 2026-08-06
+```
+
+### reconcile — 对账检查
+
+查询券商当前持仓并与引擎状态对比，判断是否可以安全启动。通常在服务异常退出后重启前执行。
+
+```bash
+qqq-trader reconcile
+# 返回码 0 = 安全，返回码 2 = 有未处理持仓或状态不一致
+```
+
 ## 本地运行（Windows）
 
 要求 Python 3.12+、Node.js 和 MySQL。Windows PowerShell 示例：
@@ -135,10 +249,7 @@ cd ..
 ```bash
 source .venv/bin/activate
 
-# 只启动 Web 界面（K 线、回测、信号查看）
-qqq-trader api
-
-# 启动完整交易引擎 + Web 界面
+# 启动交易引擎 + Web 界面（两者共用同一进程）
 qqq-trader trade
 ```
 

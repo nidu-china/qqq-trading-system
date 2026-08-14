@@ -106,6 +106,22 @@ def vwap(bars: Sequence[Bar]) -> Decimal:
     return weighted / Decimal(total_volume)
 
 
+def vwap_series(bars: Sequence[Bar]) -> list[Decimal]:
+    """Return cumulative intraday VWAP at each bar."""
+    result: list[Decimal] = []
+    cumulative_volume = 0
+    cumulative_vw = ZERO
+    for bar in bars:
+        typical = (bar.high + bar.low + bar.close) / Decimal(3)
+        cumulative_volume += bar.volume
+        cumulative_vw += typical * Decimal(bar.volume)
+        if cumulative_volume > 0:
+            result.append(cumulative_vw / Decimal(cumulative_volume))
+        else:
+            result.append(bar.close)
+    return result
+
+
 def rsi(values: Sequence[Decimal], period: int = 14) -> Decimal:
     """Return Wilder RSI."""
     if period < 1 or len(values) < period + 1:

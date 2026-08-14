@@ -165,7 +165,7 @@ class RiskEngine:
         if (
             local_time >= rules.reduce_at
             and not position.midday_reduced
-            and not (position.strategy_name or "").startswith("timed_")
+            and not (position.strategy_name or "").startswith(("timed_", "trend_"))
         ):
             position.midday_reduced = True
             if position.quantity > 1:
