@@ -14,20 +14,6 @@ type Field = {
 }
 
 const groups: Record<string, Field[]> = {
-  '1 分钟指标': [
-    { key: 'bollinger_period', label: 'BOLL 周期', min: 2 },
-    { key: 'bollinger_stddev', label: 'BOLL 标准差', step: 0.1, min: 0.1 },
-    { key: 'rsi_period', label: 'RSI 周期', min: 2 },
-    { key: 'rsi_overbought', label: 'RSI 超买线', min: 50, max: 100 },
-    { key: 'rsi_oversold', label: 'RSI 超卖线', min: 0, max: 50 },
-    { key: 'ema_fast_period', label: 'EMA 快线', min: 2 },
-    { key: 'ema_slow_period', label: 'EMA 慢线', min: 3 },
-    { key: 'macd_1m_fast', label: 'MACD 快线', min: 1 },
-    { key: 'macd_1m_slow', label: 'MACD 慢线', min: 2 },
-    { key: 'macd_1m_signal', label: 'MACD 信号线', min: 1 },
-    { key: 'adx_period', label: 'ADX 周期', min: 2 },
-    { key: 'atr_period', label: 'ATR 周期', min: 2 },
-  ],
   'VIX 波动率过滤': [
     { key: 'volatility_filter_enabled', label: '启用 VIX 过滤', kind: 'bool' },
     { key: 'volatility_symbol', label: '波动率标的', kind: 'text' },
@@ -44,7 +30,7 @@ const groups: Record<string, Field[]> = {
   ],
 }
 
-const active = ref('1 分钟指标')
+const active = ref('VIX 波动率过滤')
 const version = ref(0)
 const values = reactive<Record<string, any>>({})
 const original = ref<Record<string, any>>({})
@@ -93,7 +79,7 @@ onMounted(load)
       <div>
         <h2>运行参数 v{{ version }}</h2>
         <span v-if="state.pending_version" class="negative">引擎仍运行 v{{ state.engine_version }}，v{{ state.pending_version }} 待平仓</span>
-        <span v-else>仅技术指标和 VIX 参数可调整；交易与风控规则来自 STRATEGY.md</span>
+        <span v-else>VIX 波动率过滤参数可在线调整；策略与风控参数通过 .env 配置</span>
       </div>
       <div>
         <el-button @click="Object.assign(values, original)">撤销</el-button>

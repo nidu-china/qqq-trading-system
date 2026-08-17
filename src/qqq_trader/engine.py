@@ -244,7 +244,6 @@ class TradingEngine:
                 position.stop_price = Decimal(str(signal.indicators["stop_price"]))
             if signal.indicators.get("entry_vwap"):
                 position.entry_vwap = Decimal(str(signal.indicators["entry_vwap"]))
-            position.midday_reduced = bool(signal.indicators.get("midday_reduced", False))
             position.range_middle_taken = bool(
                 signal.indicators.get("range_middle_taken", False)
             )
@@ -742,8 +741,6 @@ class TradingEngine:
             position.first_target_taken = True
             if decision.reason is ExitReason.BOLLINGER_MIDDLE:
                 position.range_middle_taken = True
-        if decision.reason is ExitReason.MIDDAY_REDUCE:
-            position.midday_reduced = True
         if decision.new_stop is not None:
             position.stop_price = decision.new_stop
         if position.quantity > 0:
@@ -772,7 +769,6 @@ class TradingEngine:
                 str(position.highest_bid) if position.highest_bid is not None else None
             ),
             "trend_runner": position.trend_runner,
-            "midday_reduced": position.midday_reduced,
             "range_middle_taken": position.range_middle_taken,
             "first_target_taken": position.first_target_taken,
             "stop_price": (

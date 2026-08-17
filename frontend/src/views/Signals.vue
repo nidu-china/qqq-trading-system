@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { api, localTime, etTime, money } from '../api'
+import { useLabels } from '../composables/useLabels'
+
+const { loadLabels, signalReasonLabel } = useLabels()
 
 const loading = ref(false)
 const liveSignals = ref<any[]>([]), liveTotal = ref(0)
@@ -44,7 +47,7 @@ function loadBacktest() {
 
 function open(row: any) { detail.value = row; drawer.value = true }
 
-onMounted(async () => { await loadJobs(); await loadLive(); timer = window.setInterval(loadLive, 15000) })
+onMounted(async () => { await Promise.all([loadJobs(), loadLive(), loadLabels()]); timer = window.setInterval(loadLive, 15000) })
 onBeforeUnmount(() => clearInterval(timer))
 
 const STATUS_MAP: Record<string, { text: string; type: string }> = {
@@ -79,7 +82,7 @@ const STATUS_MAP: Record<string, { text: string; type: string }> = {
         <el-table-column label="方向" width="65"><template #default="s"><el-tag :type="s.row.direction==='call'?'success':'danger'" size="small">{{ s.row.direction==='call'?'Call':'Put' }}</el-tag></template></el-table-column>
         <el-table-column label="状态" width="80"><template #default="s"><el-tag :type="(STATUS_MAP[s.row.status]?.type as any)||'info'" size="small">{{ STATUS_MAP[s.row.status]?.text||s.row.status }}</el-tag></template></el-table-column>
         <el-table-column label="价格" width="80" align="right"><template #default="s">{{ s.row.price ? '$'+Number(s.row.price).toFixed(2) : '—' }}</template></el-table-column>
-        <el-table-column label="原因" min-width="160"><template #default="s"><span class="reason-text">{{ s.row.reason||'—' }}</span></template></el-table-column>
+        <el-table-column label="原因" min-width="160"><template #default="s"><span class="reason-text">{{ s.row.reason ? signalReasonLabel(s.row.reason, s.row.status) : '—' }}</span></template></el-table-column>
       </el-table>
       <div style="display:flex;justify-content:flex-end;margin-top:12px">
         <el-pagination v-model:current-page="liveFilter.page" v-model:page-size="liveFilter.page_size" :total="liveTotal" :page-sizes="[50,100]" layout="total, prev, pager, next" size="small" @change="loadLive"/>
@@ -110,7 +113,7 @@ const STATUS_MAP: Record<string, { text: string; type: string }> = {
         <el-table-column label="方向" width="65"><template #default="s"><el-tag :type="s.row.direction==='call'?'success':'danger'" size="small">{{ s.row.direction==='call'?'Call':'Put' }}</el-tag></template></el-table-column>
         <el-table-column label="状态" width="80"><template #default="s"><el-tag :type="(STATUS_MAP[s.row.status]?.type as any)||'info'" size="small">{{ STATUS_MAP[s.row.status]?.text||s.row.status }}</el-tag></template></el-table-column>
         <el-table-column label="价格" width="80" align="right"><template #default="s">{{ s.row.price ? '$'+Number(s.row.price).toFixed(2) : '—' }}</template></el-table-column>
-        <el-table-column label="原因" min-width="160"><template #default="s"><span class="reason-text">{{ s.row.reason||'—' }}</span></template></el-table-column>
+        <el-table-column label="原因" min-width="160"><template #default="s"><span class="reason-text">{{ s.row.reason ? signalReasonLabel(s.row.reason, s.row.status) : '—' }}</span></template></el-table-column>
       </el-table>
       <div v-if="!selectedJob" class="empty">选择一个已完成的回测任务</div>
       <div v-else-if="!backtestSignals.length" class="empty">该回测无匹配信号</div>
@@ -126,7 +129,7 @@ const STATUS_MAP: Record<string, { text: string; type: string }> = {
       <div class="detail-row"><label>合约</label><b>{{ detail.symbol || '—' }}</b></div>
       <div class="detail-row"><label>价格</label><b>{{ detail.price ? money(detail.price) : '—' }}</b></div>
       <div class="detail-row"><label>数量</label><b>{{ detail.quantity ?? '—' }}</b></div>
-      <div class="detail-row"><label>原因</label><b>{{ detail.reason || '—' }}</b></div>
+      <div class="detail-row"><label>原因</label><b>{{ detail.reason ? signalReasonLabel(detail.reason, detail.status) : '—' }}</b></div>
     </div>
     <div v-if="detail?.indicators" class="detail-section">
       <h4>指标快照</h4>

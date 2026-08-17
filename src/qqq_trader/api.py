@@ -37,6 +37,7 @@ class BacktestCreate(BaseModel):
     end_date: date
     starting_equity: Decimal = Field(default=Decimal("100000"), gt=0)
     config_version: int | None = Field(default=None, ge=1)
+    strategy_mode: str | None = Field(default=None)
     params: dict[str, Any] | None = Field(default=None)
 
 
@@ -381,6 +382,16 @@ def create_app(
             for row in await journal.config_versions()
         ]
 
+    @app.get("/api/v1/labels")
+    async def labels() -> dict[str, dict[str, str]]:
+        from .labels import all_labels
+        return all_labels()
+
+    @app.get("/api/v1/strategy-params")
+    async def get_strategy_params() -> dict[str, Any]:
+        from .labels import strategy_params
+        return strategy_params()
+
     @app.get("/api/v1/market-data/availability")
     async def availability() -> list[dict[str, Any]]:
         return backtests.availability() if backtests is not None else []
@@ -412,13 +423,14 @@ def create_app(
             bars = regular_session_bars(bars)
 
         closes = [b.close for b in bars]
-        ema_fast_period = settings.ema_fast_period
-        ema_slow_period = settings.ema_slow_period
-        macd_fast = settings.macd_1m_fast
-        macd_slow = settings.macd_1m_slow
-        macd_sig = settings.macd_1m_signal
-        boll_period = settings.bollinger_period
-        boll_std = settings.bollinger_stddev
+        rules = settings.rules
+        ema_fast_period = rules.trend_ema_fast
+        ema_slow_period = rules.trend_ema_slow
+        macd_fast = rules.timed_macd_fast
+        macd_slow = rules.timed_macd_slow
+        macd_sig = rules.timed_macd_signal
+        boll_period = rules.timed_boll_period
+        boll_std = rules.timed_boll_stddev
 
         ema9_vals = ema_series(closes, ema_fast_period) if len(closes) >= ema_fast_period else []
         ema20_vals = ema_series(closes, ema_slow_period) if len(closes) >= ema_slow_period else []

@@ -105,13 +105,13 @@ async def test_configuration_is_staged_until_an_open_position_is_flat():
         Decimal("1"),
         datetime.now(timezone.utc),
     )
-    changed = make_settings(bollinger_stddev="2.5")
+    changed = make_settings(timed_boll_stddev="2.5")
 
     applied = await engine.apply_settings(changed, 2)
 
     assert not applied
     assert engine.pending_config_version == 2
-    assert engine.settings.bollinger_stddev == Decimal("2")
+    assert engine.settings.timed_boll_stddev == Decimal("2")
 
 
 @pytest.mark.asyncio
@@ -158,7 +158,6 @@ async def test_position_strategy_metadata_survives_startup_recovery():
             "market_state": "range",
             "spot": "500",
             "highest_bid": "1.80",
-            "midday_reduced": True,
             "range_middle_taken": True,
             "first_target_taken": True,
             "stop_price": "1.00",
@@ -177,7 +176,6 @@ async def test_position_strategy_metadata_survives_startup_recovery():
     assert engine.position is not None
     assert engine.position.market_state is MarketState.RANGE
     assert engine.position.highest_bid == Decimal("1.80")
-    assert engine.position.midday_reduced
     assert engine.position.range_middle_taken
     assert engine.position.stop_price == Decimal("1.00")
     assert engine.position.macd_reversal_pending

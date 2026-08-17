@@ -126,12 +126,6 @@ def test_option_stop_targets_trailing_stale_midday_and_forced_close():
     stale.opened_at = NOW - timedelta(minutes=21)
     assert risk.exit_decision(stale, Decimal("0.99"), NOW).reason is ExitReason.STALE_POSITION
 
-    midday = _position(5)
-    midday_at = datetime(2026, 7, 15, 15, 30, tzinfo=timezone.utc)  # 11:30 ET
-    decision = risk.exit_decision(midday, Decimal("1.01"), midday_at)
-    assert decision is not None and decision.reason is ExitReason.MIDDAY_REDUCE
-    assert decision.quantity == 3
-
     forced_at = datetime(2026, 7, 15, 17, 55, tzinfo=timezone.utc)  # 13:55 ET
     assert (
         risk.exit_decision(_position(), Decimal("1.01"), forced_at).reason

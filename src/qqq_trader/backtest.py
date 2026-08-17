@@ -608,8 +608,6 @@ class EventDrivenBacktester:
                 position.range_middle_taken |= (
                     decision.reason is ExitReason.BOLLINGER_MIDDLE
                 )
-            if decision.reason is ExitReason.MIDDAY_REDUCE:
-                position.midday_reduced = True
             if decision.new_stop is not None:
                 position.stop_price = decision.new_stop
             if position.quantity <= 0:

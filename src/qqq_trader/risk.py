@@ -162,16 +162,4 @@ class RiskEngine:
         if (now - position.opened_at).total_seconds() >= rules.stale_minutes * 60:
             if executable_bid < position.entry_price:
                 return ExitDecision(ExitReason.STALE_POSITION, position.quantity)
-        if (
-            local_time >= rules.reduce_at
-            and not position.midday_reduced
-            and not (position.strategy_name or "").startswith(("timed_", "trend_"))
-        ):
-            position.midday_reduced = True
-            if position.quantity > 1:
-                return ExitDecision(
-                    ExitReason.MIDDAY_REDUCE,
-                    (position.quantity + 1) // 2,
-                    position.entry_price,
-                )
         return None

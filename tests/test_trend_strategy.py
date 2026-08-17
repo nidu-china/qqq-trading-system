@@ -32,7 +32,7 @@ def _bar(minute_offset: int, open_: float, high: float, low: float,
 def _trending_up_bars(count: int = 40) -> list[Bar]:
     """Generate bars for a bullish trending day.
 
-    9:30-9:40: OR builds in 490-491 range (steady, OR uses bars from 9:35)
+    9:30-9:40: OR builds in 490-491 range (steady, OR uses bars from 9:30)
     9:40+: price breaks above OR high and trends up consistently
     """
     bars: list[Bar] = []
@@ -216,8 +216,8 @@ class TestTrendFollowingEngine:
         engine = strategy_from_settings(settings)
         assert isinstance(engine, TrendFollowingEngine)
 
-    def test_strategy_from_settings_returns_boll_macd_by_default(self):
-        settings = make_settings()
+    def test_strategy_from_settings_returns_boll_macd_when_configured(self):
+        settings = make_settings(strategy_mode="boll_macd")
         from qqq_trader.strategy import strategy_from_settings, StrategyEngine
         engine = strategy_from_settings(settings)
         assert isinstance(engine, StrategyEngine)
@@ -246,20 +246,3 @@ class TestTrendFollowingEngine:
                 signal = result
         assert signal is None
 
-    def test_midday_reduce_skipped_for_trend_strategy(self):
-        """RiskEngine should skip midday reduce for trend_ prefixed strategies."""
-        from qqq_trader.risk import RiskEngine
-
-        settings = make_settings()
-        risk = RiskEngine(settings)
-        position = Position(
-            symbol="QQQ260811C492000.US",
-            direction=Direction.CALL,
-            quantity=10,
-            entry_price=Decimal("2.50"),
-            opened_at=datetime(2026, 8, 11, 13, 50, tzinfo=timezone.utc),
-            strategy_name="trend_orb_breakout",
-        )
-        now = datetime(2026, 8, 11, 15, 35, tzinfo=timezone.utc)
-        decision = risk.exit_decision(position, Decimal("2.60"), now)
-        assert decision is None or decision.reason is not ExitReason.MIDDAY_REDUCE

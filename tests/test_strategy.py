@@ -58,7 +58,7 @@ def test_five_minute_aggregator_emits_only_completed_buckets():
 
 
 def test_strategy_factory_and_opening_cutoff():
-    settings = make_settings(volatility_filter_enabled=False)
+    settings = make_settings(strategy_mode="boll_macd", volatility_filter_enabled=False)
     engine = strategy_from_settings(settings)
     assert isinstance(engine, StrategyEngine)
     engine.last_context = MarketContext(

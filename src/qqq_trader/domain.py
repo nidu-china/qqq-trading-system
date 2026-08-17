@@ -55,7 +55,6 @@ class ExitReason(StrEnum):
     TAKE_PROFIT_2 = "take_profit_2"
     TRAILING_STOP = "trailing_stop"
     STALE_POSITION = "stale_position"
-    MIDDAY_REDUCE = "midday_reduce"
     VWAP_CROSS = "vwap_cross"
     DAILY_LOSS = "daily_loss"
     FORCED_CLOSE = "forced_close"
@@ -192,7 +191,6 @@ class Position:
     entry_spot: Decimal | None = None
     highest_bid: Decimal | None = None
     trend_runner: bool = False
-    midday_reduced: bool = False
     range_middle_taken: bool = False
     entry_vwap: Decimal | None = None
     entry_intent_id: UUID | None = None

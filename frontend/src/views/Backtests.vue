@@ -18,24 +18,41 @@ const chartRef=ref<HTMLElement>(), equityChartRef=ref<HTMLElement>(), dateKey=(d
 let timer:number
 
 const showParams = ref(false)
-const params = reactive<Record<string, any>>({
-  bollinger_period: 20, bollinger_stddev: 2,
-  rsi_period: 14, rsi_overbought: 70, rsi_oversold: 30,
-  ema_fast_period: 9, ema_slow_period: 20,
-  macd_1m_fast: 5, macd_1m_slow: 10, macd_1m_signal: 3,
-  adx_period: 14, atr_period: 14,
-  volatility_filter_enabled: true,
-  volatility_symbol: 'VIX',
-  volatility_lookback_days: 20,
-  volatility_max_staleness_minutes: 3,
-  volatility_risk_off_percentile: 0.8,
-  volatility_recovery_percentile: 0.6,
-  volatility_rise_5m: 0.08,
-  volatility_rise_15m: 0.12,
-  volatility_fall_5m: -0.05,
-  volatility_fall_15m: -0.08,
-  volatility_shock_5m: 0.15,
-  volatility_shock_15m: 0.25,
+const strategyMode = ref('')
+const strategyParamsMeta = ref<Record<string, any>>({})
+const params = reactive<Record<string, any>>({})
+
+async function loadStrategyParams() {
+  try {
+    const res = await api.get('/strategy-params')
+    strategyParamsMeta.value = res.data
+    resetParamsDefaults()
+  } catch {}
+}
+
+function resetParamsDefaults() {
+  const meta = strategyParamsMeta.value
+  for (const group of Object.values(meta) as any[]) {
+    for (const p of (group.params || [])) {
+      if (params[p.key] === undefined && p.default !== undefined) {
+        params[p.key] = p.default
+      }
+    }
+  }
+}
+
+const activeStrategyGroups = computed(() => {
+  const meta = strategyParamsMeta.value
+  const groups: { name: string; label: string; params: any[] }[] = []
+  if (meta.shared) groups.push({ name: 'shared', label: meta.shared.label, params: meta.shared.params })
+  const mode = strategyMode.value
+  if (mode && meta[mode]) {
+    groups.push({ name: mode, label: meta[mode].label, params: meta[mode].params })
+  } else {
+    if (meta.boll_macd) groups.push({ name: 'boll_macd', label: meta.boll_macd.label, params: meta.boll_macd.params })
+    if (meta.trend) groups.push({ name: 'trend', label: meta.trend.label, params: meta.trend.params })
+  }
+  return groups
 })
 
 const flattenedTrades = computed(() => {
@@ -71,7 +88,7 @@ async function loadConfig() {
   try {
     const res = await api.get('/config')
     const vals = res.data.values || {}
-    Object.keys(params).forEach(k => { if (vals[k] !== undefined) params[k] = vals[k] })
+    Object.keys(vals).forEach(k => { params[k] = vals[k] })
   } catch {}
 }
 
@@ -86,6 +103,9 @@ async function submit(){
       starting_equity: form.starting_equity,
       config_version: form.config_version,
     }
+    if (strategyMode.value) {
+      payload.strategy_mode = strategyMode.value
+    }
     if (showParams.value) {
       payload.params = { ...params }
     }
@@ -96,7 +116,7 @@ async function submit(){
 }
 async function cancel(job:any){await api.delete(`/backtests/${job.id}`);await load()}
 async function deleteJob(job:any){await api.delete(`/backtests/${job.id}`);if(selected.value?.id===job.id)selected.value=undefined;await load()}
-onMounted(async()=>{await load();await loadConfig();timer=window.setInterval(()=>{if(jobs.value.some(j=>j.status==='queued'||j.status==='running'))load()},2500)});onBeforeUnmount(()=>clearInterval(timer))
+onMounted(async()=>{await Promise.all([load(),loadConfig(),loadLabels(),loadStrategyParams()]);timer=window.setInterval(()=>{if(jobs.value.some(j=>j.status==='queued'||j.status==='running'))load()},2500)});onBeforeUnmount(()=>clearInterval(timer))
 watch(()=>selected.value?.result,async res=>{if(!res?.price_series?.length)return;await nextTick();if(!chartRef.value)return;const chart=getInstanceByDom(chartRef.value)||init(chartRef.value);
 const fmt=(v:string)=>new Date(v).toLocaleString('en-US',{timeZone:'America/New_York',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false})
 const ps=res.price_series
@@ -160,101 +180,21 @@ watch(()=>selected.value?.result?.equity_curve,async curve=>{
   },true)
 },{deep:true})
 
-const EXIT_REASON_LABELS: Record<string, string> = {
-  stop_loss: '止损',
-  take_profit_1: '止盈1',
-  take_profit_2: '止盈2',
-  trailing_stop: '移动止盈',
-  structure_stop: '结构止损',
-  forced_close: '尾盘清仓',
-  stale_position: '超时平仓',
-  midday_reduce: '午间减仓',
-  daily_loss: '日亏损限制',
-  vwap_cross: 'VWAP穿越',
-  bollinger_middle: 'BOLL中轨',
-  bollinger_upper: 'BOLL上轨',
-  state_invalidation: '状态失效',
-  opening_cutoff: '开盘截止',
-}
-function exitReasonLabel(key: string): string {
-  return EXIT_REASON_LABELS[key] || key.replace(/_/g, ' ')
-}
-function exitReasonType(key: string): string {
-  if (key === 'take_profit_1' || key === 'take_profit_2' || key === 'trailing_stop') return 'success'
-  if (key === 'stop_loss' || key === 'structure_stop' || key === 'daily_loss') return 'danger'
-  return 'info'
-}
+import { useLabels } from '../composables/useLabels'
+const { loadLabels, exitReasonLabel, exitReasonType, rejectLabel, regimeLabel } = useLabels()
 
-const REJECT_LABELS: Record<string, string> = {
-  volatility_unavailable_stale_intraday_data: 'VIX 盘中数据过期',
-  volatility_unavailable_missing_intraday_data: 'VIX 盘中数据缺失',
-  volatility_unavailable_insufficient_daily_history: 'VIX 日线历史不足',
-  volatility_unavailable_insufficient_intraday_history: 'VIX 盘中历史不足',
-  volatility_risk_off: '波动率风险偏高',
-  volatility_shock: '波动率剧烈冲击',
-  missing_option_frame: '期权报价缺失',
-  relative_spread_too_wide: '期权价差过大',
-  absolute_spread_too_wide: '期权绝对价差过大',
-  stale_quote: '报价过时',
-}
-function rejectLabel(key: string): string {
-  return REJECT_LABELS[key] || key.replace(/_/g, ' ')
-}
-const REGIME_LABELS: Record<string, string> = {
-  normal: '正常',
-  elevated: '偏高',
-  risk_off: '风险关闭',
-  unavailable: '数据不可用',
-}
-function regimeLabel(key: string): string {
-  return REGIME_LABELS[key] || key
-}
-
-const PARAM_LABELS: Record<string, string> = {
-  bollinger_period: 'BOLL 周期',
-  bollinger_stddev: 'BOLL 标准差',
-  rsi_period: 'RSI 周期',
-  rsi_overbought: 'RSI 超买线',
-  rsi_oversold: 'RSI 超卖线',
-  ema_fast_period: 'EMA 快线周期',
-  ema_slow_period: 'EMA 慢线周期',
-  macd_1m_fast: '1分钟 MACD 快线',
-  macd_1m_slow: '1分钟 MACD 慢线',
-  macd_1m_signal: '1分钟 MACD 信号线',
-  adx_period: 'ADX 周期',
-  atr_period: 'ATR 周期',
-  volatility_filter_enabled: 'VIX 过滤',
-  volatility_symbol: 'VIX 标的',
-  volatility_lookback_days: 'VIX 回看天数',
-  volatility_max_staleness_minutes: 'VIX 最大滞后',
-  volatility_risk_off_percentile: 'Risk-off 分位',
-  volatility_recovery_percentile: 'Recovery 分位',
-  volatility_rise_5m: 'VIX 5分钟上涨',
-  volatility_rise_15m: 'VIX 15分钟上涨',
-  volatility_fall_5m: 'VIX 5分钟回落',
-  volatility_fall_15m: 'VIX 15分钟回落',
-  volatility_shock_5m: 'VIX 5分钟冲击',
-  volatility_shock_15m: 'VIX 15分钟冲击',
-}
 function paramLabel(key: string): string {
-  return PARAM_LABELS[key] || key.replace(/_/g, ' ')
+  const meta = strategyParamsMeta.value
+  for (const group of Object.values(meta) as any[]) {
+    for (const p of (group.params || [])) {
+      if (p.key === key) return p.label
+    }
+  }
+  return key.replace(/_/g, ' ')
 }
 
-const strategyKeys = [
-  'bollinger_period', 'bollinger_stddev',
-  'rsi_period', 'rsi_overbought', 'rsi_oversold',
-  'ema_fast_period', 'ema_slow_period',
-  'macd_1m_fast', 'macd_1m_slow', 'macd_1m_signal',
-  'adx_period', 'atr_period',
-  'volatility_filter_enabled', 'volatility_symbol',
-  'volatility_lookback_days', 'volatility_max_staleness_minutes',
-  'volatility_risk_off_percentile', 'volatility_recovery_percentile',
-  'volatility_rise_5m', 'volatility_rise_15m',
-  'volatility_fall_5m', 'volatility_fall_15m',
-  'volatility_shock_5m', 'volatility_shock_15m',
-]
 function visibleStrategyKeys(settings: Record<string, any>): string[] {
-  return strategyKeys.filter(key => settings[key] !== undefined)
+  return Object.keys(settings).filter(key => settings[key] !== undefined)
 }
 </script>
 <template>
@@ -263,6 +203,11 @@ function visibleStrategyKeys(settings: Record<string, any>): string[] {
     <div class="toolbar">
       <el-date-picker v-model="form.dates" type="daterange" value-format="YYYY-MM-DD" :disabled-date="(d: Date)=>!completeDates.includes(dateKey(d))" start-placeholder="开始日期" end-placeholder="结束日期"/>
       <el-input v-model="form.starting_equity" placeholder="初始权益" style="width:150px"><template #prepend>$</template></el-input>
+      <el-select v-model="strategyMode" clearable placeholder="当前策略" style="width:160px">
+        <el-option label="BOLL/MACD" value="boll_macd"/>
+        <el-option label="Trend ORB" value="trend"/>
+        <el-option label="Hybrid" value="hybrid"/>
+      </el-select>
       <el-select v-model="form.config_version" clearable placeholder="当前环境参数" style="width:180px"><el-option v-for="v in versions" :key="v.version" :label="`参数版本 v${v.version}`" :value="v.version"/></el-select>
       <el-button :type="showParams?'warning':'default'" @click="showParams=!showParams">{{ showParams ? '收起参数' : '自定义参数' }}</el-button>
       <el-button type="primary" :loading="submitting" @click="submit">开始回测</el-button>
@@ -271,33 +216,17 @@ function visibleStrategyKeys(settings: Record<string, any>): string[] {
     <!-- 参数配置面板 -->
     <el-collapse-transition>
       <div v-show="showParams" class="params-panel">
-        <div class="params-group">
-          <h4>1 分钟指标</h4>
-          <div class="param-row">
-            <label>BOLL 周期</label><el-input-number v-model="params.bollinger_period" :min="2" :max="100" controls-position="right" size="small"/>
-            <label>BOLL 标准差</label><el-input-number v-model="params.bollinger_stddev" :min="0.1" :max="5" :step="0.1" controls-position="right" size="small"/>
-            <label>RSI 周期</label><el-input-number v-model="params.rsi_period" :min="2" :max="50" controls-position="right" size="small"/>
-            <label>RSI 超买/超卖</label><span><el-input-number v-model="params.rsi_overbought" :min="50" :max="100" size="small"/><el-input-number v-model="params.rsi_oversold" :min="0" :max="50" size="small"/></span>
-          </div>
-          <div class="param-row">
-            <label>EMA 快/慢</label><span><el-input-number v-model="params.ema_fast_period" :min="2" :max="50" size="small"/><el-input-number v-model="params.ema_slow_period" :min="3" :max="100" size="small"/></span>
-            <label>MACD 快/慢/信号</label><span><el-input-number v-model="params.macd_1m_fast" :min="1" :max="30" size="small"/><el-input-number v-model="params.macd_1m_slow" :min="2" :max="60" size="small"/><el-input-number v-model="params.macd_1m_signal" :min="1" :max="30" size="small"/></span>
-            <label>ADX 周期</label><el-input-number v-model="params.adx_period" :min="2" :max="50" controls-position="right" size="small"/>
-            <label>ATR 周期</label><el-input-number v-model="params.atr_period" :min="2" :max="50" controls-position="right" size="small"/>
-          </div>
-        </div>
-        <div class="params-group">
-          <h4>VIX 波动率过滤</h4>
-          <div class="param-row">
-            <label>启用过滤</label><el-switch v-model="params.volatility_filter_enabled" size="small"/>
-            <label>标的</label><el-input v-model="params.volatility_symbol" size="small"/>
-            <label>回看天数</label><el-input-number v-model="params.volatility_lookback_days" :min="2" :max="252" controls-position="right" size="small"/>
-            <label>最大滞后分钟</label><el-input-number v-model="params.volatility_max_staleness_minutes" :min="1" :max="60" controls-position="right" size="small"/>
-          </div>
-          <div class="param-row">
-            <label>Risk-off / Recovery 分位</label><span><el-input-number v-model="params.volatility_risk_off_percentile" :step="0.01" size="small"/><el-input-number v-model="params.volatility_recovery_percentile" :step="0.01" size="small"/></span>
-            <label>5分钟涨/跌/冲击</label><span><el-input-number v-model="params.volatility_rise_5m" :step="0.01" size="small"/><el-input-number v-model="params.volatility_fall_5m" :step="0.01" size="small"/><el-input-number v-model="params.volatility_shock_5m" :step="0.01" size="small"/></span>
-            <label>15分钟涨/跌/冲击</label><span><el-input-number v-model="params.volatility_rise_15m" :step="0.01" size="small"/><el-input-number v-model="params.volatility_fall_15m" :step="0.01" size="small"/><el-input-number v-model="params.volatility_shock_15m" :step="0.01" size="small"/></span>
+        <div v-for="group in activeStrategyGroups" :key="group.name" class="params-group">
+          <h4>{{ group.label }}</h4>
+          <div class="param-grid">
+            <div v-for="p in group.params" :key="p.key" class="param-cell">
+              <label>{{ p.label }}</label>
+              <el-switch v-if="p.type === 'bool'" v-model="params[p.key]" size="small"/>
+              <el-input v-else-if="p.type === 'text'" v-model="params[p.key]" size="small" style="width:120px"/>
+              <el-time-picker v-else-if="p.type === 'time'" v-model="params[p.key]" size="small" style="width:120px" format="HH:mm:ss" value-format="HH:mm:ss"/>
+              <el-input-number v-else-if="p.type === 'int'" v-model="params[p.key]" :min="p.min" :max="p.max" :step="1" controls-position="right" size="small" style="width:110px"/>
+              <el-input-number v-else v-model="params[p.key]" :min="p.min" :max="p.max" :step="p.step || 0.01" controls-position="right" size="small" style="width:110px"/>
+            </div>
           </div>
         </div>
       </div>
@@ -530,10 +459,9 @@ function visibleStrategyKeys(settings: Record<string, any>): string[] {
   background:#091523;
   border:1px solid #1a2a3d;
   border-radius:8px;
-  display:grid;
-  grid-template-columns:repeat(3,1fr);
-  gap:16px;
 }
+.params-group{margin-bottom:16px}
+.params-group:last-child{margin-bottom:0}
 .params-group h4{
   font-size:12px;
   color:#7890ad;
@@ -542,27 +470,27 @@ function visibleStrategyKeys(settings: Record<string, any>): string[] {
   border-bottom:1px solid #172a40;
   padding-bottom:6px;
 }
-.param-row{
+.param-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:8px;
+}
+.param-cell{
   display:flex;
   align-items:center;
-  gap:8px;
-  margin-bottom:8px;
-  flex-wrap:wrap;
+  justify-content:space-between;
+  gap:6px;
+  padding:6px 8px;
+  background:#0a1625;
+  border:1px solid #172a40;
+  border-radius:6px;
 }
-.param-row label{
+.param-cell label{
   font-size:11px;
   color:#68809b;
   white-space:nowrap;
-  min-width:55px;
 }
-.param-row .el-input-number{width:100px}
-.param-row .el-time-picker{width:100px}
-.param-hint{margin:4px 0 0;font-size:11px;line-height:1.5;color:#607b9a}
+@media(max-width:1400px){.param-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:900px){.param-grid{grid-template-columns:repeat(2,1fr)}}
 
-@media(max-width:1400px){
-  .params-panel{grid-template-columns:repeat(2,1fr)}
-}
-@media(max-width:900px){
-  .params-panel{grid-template-columns:1fr}
-}
 </style>

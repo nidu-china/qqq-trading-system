@@ -5,18 +5,6 @@ from typing import Any
 from .config import Settings
 
 EDITABLE_FIELDS = (
-    "bollinger_period",
-    "bollinger_stddev",
-    "rsi_period",
-    "rsi_overbought",
-    "rsi_oversold",
-    "ema_fast_period",
-    "ema_slow_period",
-    "macd_1m_fast",
-    "macd_1m_slow",
-    "macd_1m_signal",
-    "adx_period",
-    "atr_period",
     "volatility_filter_enabled",
     "volatility_symbol",
     "volatility_lookback_days",
@@ -31,8 +19,6 @@ EDITABLE_FIELDS = (
     "volatility_shock_15m",
 )
 LEGACY_IGNORED_FIELDS = {
-    "entry_start",
-    "entry_end",
     "forced_close",
     "cooldown_minutes",
     "max_trades_per_day",
@@ -63,7 +49,6 @@ LEGACY_IGNORED_FIELDS = {
     "tp1_r",
     "tp2_r",
     "stale_minutes",
-    "reduce_at",
     "max_premium_fraction",
     "max_contracts",
     "fee_per_contract",

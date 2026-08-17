@@ -10,13 +10,37 @@ from uuid import uuid4
 
 from .backtest import EventDrivenBacktester, load_option_frames
 from .config import Settings
-from .configuration import editable_values, with_editable_values
 from .domain import TradingMode
 from .indicators import bollinger_bands, macd_histogram
 from .persistence import MySQLJournal, ParquetMarketStore
 from .policy import RULES
 from .reporting import generate_price_chart
 from .risk import ContractSelector, RiskEngine
+
+
+_SETTINGS_SUMMARY_KEYS = (
+    "strategy_mode",
+    "volatility_filter_enabled", "volatility_symbol",
+    "volatility_lookback_days", "volatility_max_staleness_minutes",
+    "volatility_risk_off_percentile", "volatility_recovery_percentile",
+    "volatility_rise_5m", "volatility_rise_15m",
+    "volatility_fall_5m", "volatility_fall_15m",
+    "volatility_shock_5m", "volatility_shock_15m",
+    "max_premium_fraction", "max_contracts", "max_trades_per_day",
+    "cooldown_minutes", "option_stop_loss_pct",
+    "tp1_profit_pct", "tp2_profit_pct", "stale_minutes",
+    "timed_boll_period", "timed_boll_stddev",
+    "timed_macd_fast", "timed_macd_slow", "timed_macd_signal",
+    "timed_rsi_period", "timed_volume_ratio",
+    "trend_or_start", "trend_or_end", "trend_entry_end",
+    "trend_ema_fast", "trend_ema_slow",
+    "trend_breakout_confirm_bars", "trend_max_vwap_crosses",
+)
+
+
+def _backtest_settings_summary(settings: Settings) -> dict[str, Any]:
+    dumped = settings.model_dump(mode="json")
+    return {k: dumped[k] for k in _SETTINGS_SUMMARY_KEYS if k in dumped}
 
 
 class BacktestCancelled(Exception):
@@ -175,6 +199,9 @@ class BacktestService:
                 if custom_params:
                     base = run_request.get("_config_values", {})
                     run_request["_config_values"] = {**base, **custom_params}
+                strategy_mode = run_request.pop("strategy_mode", None)
+                if strategy_mode:
+                    run_request["_strategy_mode"] = strategy_mode
                 cancel_event = threading.Event()
                 self._cancel_events[job_id] = cancel_event
                 try:
@@ -208,10 +235,14 @@ class BacktestService:
         log = logging.getLogger(__name__)
         start = date.fromisoformat(request["start_date"])
         end = date.fromisoformat(request["end_date"])
-        values: dict[str, Any] = request.get("_config_values", {})
-        settings = with_editable_values(
-            self.settings.model_copy(update={"trading_mode": TradingMode.REPLAY}), values
-        )
+        overrides: dict[str, Any] = request.get("_config_values", {})
+        overrides["trading_mode"] = TradingMode.REPLAY
+        strategy_mode = request.get("_strategy_mode")
+        if strategy_mode:
+            overrides["strategy_mode"] = strategy_mode
+        base = self.settings.model_dump()
+        base.update(overrides)
+        settings = Settings.model_validate(base)
         log.info("backtest starting | %s to %s", start, end)
         bars = []
         frames = {}
@@ -412,7 +443,7 @@ class BacktestService:
                 "rsi": RULES.timed_rsi_period,
                 "volume_lookback": RULES.timed_volume_lookback,
             },
-            "settings_used": editable_values(settings),
+            "settings_used": _backtest_settings_summary(settings),
         }
 
     @staticmethod

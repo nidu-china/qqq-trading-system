@@ -30,50 +30,38 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    app_name: str = "qqq-0dte-trader"
-    trading_mode: TradingMode = TradingMode.PAPER
-    strategy_mode: str = "boll_macd"
-    paper_starting_equity: Decimal = Decimal("10000")
-    account_id: str = ""
-    underlying_symbol: str = "QQQ.US"
-    database_url: str = "mysql+asyncmy://qqq:qqq@mysql:3306/qqq?charset=utf8mb4"
-    data_dir: Path = Path("/data/market")
-    report_dir: Path = Path("/data/reports")
-    log_dir: Path = Path("logs")
+    # 应用与运行模式（必须在 .env 显式配置）
+    trading_mode: TradingMode
+    strategy_mode: str
+    paper_starting_equity: Decimal
+    account_id: str
+    underlying_symbol: str
+    database_url: str
+    data_dir: Path
+    report_dir: Path
+    log_dir: Path
 
-    longbridge_app_key: SecretStr = SecretStr("")
-    longbridge_app_secret: SecretStr = SecretStr("")
-    longbridge_access_token: SecretStr = SecretStr("")
-    longbridge_request_timeout_seconds: Decimal = Decimal("60")
+    # Longbridge API（必须在 .env 显式配置）
+    longbridge_app_key: SecretStr
+    longbridge_app_secret: SecretStr
+    longbridge_access_token: SecretStr
+    longbridge_request_timeout_seconds: Decimal
 
-    report_at: time = time(16, 15)
+    report_at: time
 
-    # The only online-editable strategy values are technical indicators.
-    bollinger_period: int = 20
-    bollinger_stddev: Decimal = Decimal("2")
-    rsi_period: int = 14
-    rsi_overbought: Decimal = Decimal("70")
-    rsi_oversold: Decimal = Decimal("30")
-    ema_fast_period: int = 9
-    ema_slow_period: int = 20
-    macd_1m_fast: int = 5
-    macd_1m_slow: int = 10
-    macd_1m_signal: int = 3
-    adx_period: int = 14
-    atr_period: int = 14
-
-    volatility_filter_enabled: bool = True
-    volatility_symbol: str = ".VIX.US"
-    volatility_lookback_days: int = 20
-    volatility_max_staleness_minutes: int = 10
-    volatility_risk_off_percentile: Decimal = Decimal("0.80")
-    volatility_recovery_percentile: Decimal = Decimal("0.65")
-    volatility_rise_5m: Decimal = Decimal("0.02")
-    volatility_rise_15m: Decimal = Decimal("0.03")
-    volatility_fall_5m: Decimal = Decimal("-0.02")
-    volatility_fall_15m: Decimal = Decimal("-0.03")
-    volatility_shock_5m: Decimal = Decimal("0.08")
-    volatility_shock_15m: Decimal = Decimal("0.12")
+    # VIX 波动率过滤（必须在 .env 显式配置）
+    volatility_filter_enabled: bool
+    volatility_symbol: str
+    volatility_lookback_days: int
+    volatility_max_staleness_minutes: int
+    volatility_risk_off_percentile: Decimal
+    volatility_recovery_percentile: Decimal
+    volatility_rise_5m: Decimal
+    volatility_rise_15m: Decimal
+    volatility_fall_5m: Decimal
+    volatility_fall_15m: Decimal
+    volatility_shock_5m: Decimal
+    volatility_shock_15m: Decimal
 
     # 仓位与风控（必须在 .env 显式配置）
     max_premium_fraction: Decimal
@@ -94,41 +82,64 @@ class Settings(BaseSettings):
     max_spread_absolute: Decimal
     min_open_interest: int
     min_option_volume: int
-    target_delta: Decimal
-    strike_offset: Decimal = Decimal("2")
+    strike_offset: Decimal
 
-    # 分时趋势策略（必须在 .env 显式配置）
+    # BOLL/MACD 策略参数（必须在 .env 显式配置，STRATEGY_MODE=boll_macd 专用）
+    timed_opening_start: time
+    timed_opening_last_signal: time
+    timed_opening_flat: time
+    timed_main_start: time
+    timed_main_last_signal: time
+    timed_boll_period: int
+    timed_boll_stddev: Decimal
+    timed_macd_fast: int
+    timed_macd_slow: int
+    timed_macd_signal: int
+    timed_rsi_period: int
+    timed_call_rsi_max: Decimal
+    timed_put_rsi_min: Decimal
+    timed_volume_lookback: int
+    timed_volume_ratio: Decimal
+    timed_vix_volume_adjustment: Decimal
+    timed_vix_trend_min_change: Decimal
+    timed_trend_cross_lookback: int
+    timed_trend_max_crosses: int
+    timed_continuation_max_band_extension: Decimal
+    timed_continuation_fresh_macd_volume_multiplier: Decimal
+    timed_normal_cross2_max_band_extension: Decimal
+    timed_normal_fresh_macd_volume_multiplier: Decimal
+    timed_reversal_min_bars: int
+    timed_reversal_window: int
+
+    # Trend ORB 策略参数（必须在 .env 显式配置，STRATEGY_MODE=trend 专用）
+    trend_or_start: time
+    trend_or_end: time
+    trend_entry_end: time
+    trend_ema_fast: int
+    trend_ema_slow: int
+    trend_breakout_confirm_bars: int
+    trend_max_vwap_crosses: int
+    trend_ema_exit_bars: int
+
+    # API 与运行配置（必须在 .env 显式配置）
     api_host: str
     api_port: int
-    api_token: SecretStr = SecretStr("")
-    log_level: str = "INFO"
-    scheduler_poll_seconds: Decimal = Decimal("1")
+    api_token: SecretStr
+    log_level: str
+    scheduler_poll_seconds: Decimal
 
     @model_validator(mode="after")
     def validate_safety(self) -> Settings:
         if self.longbridge_request_timeout_seconds <= 0:
             raise ValueError("Longbridge request timeout must be positive")
-        periods = (
-            self.bollinger_period,
-            self.rsi_period,
-            self.ema_fast_period,
-            self.ema_slow_period,
-            self.macd_1m_fast,
-            self.macd_1m_slow,
-            self.macd_1m_signal,
-            self.adx_period,
-            self.atr_period,
-        )
-        if min(periods) < 2:
-            raise ValueError("indicator periods must be >= 2")
-        if self.ema_fast_period >= self.ema_slow_period:
-            raise ValueError("ema_fast_period must be less than ema_slow_period")
-        if self.macd_1m_fast >= self.macd_1m_slow:
-            raise ValueError("1-minute MACD fast period must be less than slow period")
-        if self.bollinger_stddev <= 0:
-            raise ValueError("bollinger_stddev must be positive")
-        if not 0 < self.rsi_oversold < self.rsi_overbought < 100:
-            raise ValueError("RSI thresholds must satisfy 0 < oversold < overbought < 100")
+        if self.timed_boll_period < 2:
+            raise ValueError("timed_boll_period must be >= 2")
+        if self.timed_boll_stddev <= 0:
+            raise ValueError("timed_boll_stddev must be positive")
+        if self.timed_macd_fast >= self.timed_macd_slow:
+            raise ValueError("timed_macd_fast must be less than timed_macd_slow")
+        if self.trend_ema_fast >= self.trend_ema_slow:
+            raise ValueError("trend_ema_fast must be less than trend_ema_slow")
         percentiles = (
             self.volatility_recovery_percentile,
             self.volatility_risk_off_percentile,

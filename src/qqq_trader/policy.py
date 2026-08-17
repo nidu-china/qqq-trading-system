@@ -9,9 +9,6 @@ from decimal import Decimal
 class StrategyRules:
     """Non-editable trading rules defined by STRATEGY.md."""
 
-    entry_start: time = time(9, 45)
-    entry_end: time = time(11, 30)
-    reduce_at: time = time(11, 30)
     forced_close: time = time(13, 55)
 
     timed_opening_start: time = time(9, 35)
@@ -93,12 +90,11 @@ class StrategyRules:
     min_open_interest: int = 100
     min_option_volume: int = 10
 
-    target_delta: Decimal = Decimal("0.45")
     strike_offset: Decimal = Decimal("2")
     option_candidate_count: int = 5
 
     # Trend-following (ORB) strategy
-    trend_or_start: time = time(9, 35)
+    trend_or_start: time = time(9, 30)
     trend_or_end: time = time(9, 40)
     trend_entry_start: time = time(9, 40)
     trend_entry_end: time = time(11, 30)
@@ -139,7 +135,26 @@ def rules_from_settings(settings) -> StrategyRules:
         "slippage_quote", "option_stop_loss_pct", "tp1_profit_pct",
         "tp2_profit_pct", "stale_minutes",
         "max_spread_ratio", "max_spread_absolute", "min_open_interest",
-        "min_option_volume", "target_delta", "strike_offset",
+        "min_option_volume", "strike_offset",
+        # BOLL/MACD
+        "timed_opening_start", "timed_opening_last_signal",
+        "timed_opening_flat", "timed_main_start", "timed_main_last_signal",
+        "timed_boll_period", "timed_boll_stddev",
+        "timed_macd_fast", "timed_macd_slow", "timed_macd_signal",
+        "timed_rsi_period", "timed_call_rsi_max", "timed_put_rsi_min",
+        "timed_volume_lookback", "timed_volume_ratio",
+        "timed_vix_volume_adjustment", "timed_vix_trend_min_change",
+        "timed_trend_cross_lookback", "timed_trend_max_crosses",
+        "timed_continuation_max_band_extension",
+        "timed_continuation_fresh_macd_volume_multiplier",
+        "timed_normal_cross2_max_band_extension",
+        "timed_normal_fresh_macd_volume_multiplier",
+        "timed_reversal_min_bars", "timed_reversal_window",
+        # Trend ORB
+        "trend_or_start", "trend_or_end", "trend_entry_end",
+        "trend_ema_fast", "trend_ema_slow",
+        "trend_breakout_confirm_bars", "trend_max_vwap_crosses",
+        "trend_ema_exit_bars",
     )
     for field in _FIELDS:
         value = getattr(settings, field, None)
