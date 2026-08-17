@@ -100,8 +100,13 @@ class VolatilityFilter:
         decision_at: datetime,
         daily_bars: Sequence[Bar] = (),
     ) -> VolatilitySnapshot:
+        sym = self.settings.volatility_symbol
         visible = sorted(
-            (bar for bar in intraday_bars if bar.complete and bar.end <= decision_at),
+            (
+                bar
+                for bar in intraday_bars
+                if bar.complete and bar.end <= decision_at and bar.symbol == sym
+            ),
             key=lambda bar: bar.end,
         )
         if not visible:
@@ -168,9 +173,10 @@ class VolatilityFilter:
 
     def _previous_session_closes(self, bars: Sequence[Bar], decision_at: datetime) -> list[Decimal]:
         decision_date = decision_at.astimezone(NY_TZ).date()
+        sym = self.settings.volatility_symbol
         closes: dict[object, tuple[datetime, Decimal]] = {}
         for bar in bars:
-            if not bar.complete or bar.end > decision_at:
+            if not bar.complete or bar.end > decision_at or bar.symbol != sym:
                 continue
             duration = bar.end - bar.start
             session_timestamp = bar.start if duration >= timedelta(hours=12) else bar.end

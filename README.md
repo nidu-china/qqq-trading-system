@@ -1,32 +1,46 @@
 # QQQ 0DTE 交易系统
 
-基于 QQQ 已收盘 K 线的状态机交易系统。Paper、Live 和 Replay 共用同一套
-分时 BOLL/MACD 策略、VIX 过滤、选约和风控逻辑，详见
+基于 QQQ 已收盘 K 线的状态机交易系统。支持三种策略模式：
+`trend`（Opening Range Breakout 趋势跟踪）、`boll_macd`（分时 BOLL/MACD 做 T）
+和 `hybrid`（自动切换），通过 `.env` 中 `STRATEGY_MODE` 选择。
+Paper、Live 和 Replay 共用同一套策略、VIX 过滤、选约和风控逻辑，详见
 [STRATEGY.md](STRATEGY.md)。
 
 > 0DTE 期权风险极高。本项目不构成投资建议。首次部署必须使用 Paper 模式验证数据、时区、成交与恢复行为。
 
 ## 策略概览
 
-- 09:30–09:35 ET：仅预热指标，绝对不开仓。
-- 09:35–09:42 ET：允许 BOLL/MACD 爆量趋势信号。
-- 09:42–09:45 ET：不再开仓，09:45 清空开盘仓位。
-- 09:45–12:00 ET：允许产生新的 BOLL/MACD 信号。
-- 12:00 ET 后：不再产生新信号，已有趋势底仓继续管理至反转或 13:55。
-- 13:55 ET：强制清空全部仓位。
-- 所有指标和信号都使用已收盘的 1 分钟常规交易时段 K 线。
-- 信号 K 线收盘后立即执行，不等待下一根确认线；信号有效期 60 秒。
-- VIX：NORMAL 双向、RISK_OFF 仅 Put、RECOVERY 仅 Call、SHOCK 禁止开仓；数据不可用时记录警告并放行。
-- VIX最近5分钟趋势会把顺势方向量比门槛降低10%，逆势方向提高10%。
-- 盈利退出后的趋势延续再入场另加质量过滤：量比必须高于前一分钟，价格不得沿交易方向超过 `1.2×BOLL 半带宽`；MACD 刚穿越零轴时，量比还必须超过动态门槛的 1.2 倍。普通首次入场条件不受影响。
+所有策略只使用已收盘的 1 分钟常规交易时段 K 线。信号 K 线收盘后立即执行，
+不等待下一根确认线；信号有效期 60 秒。
 
-入场指标为 BOLL(20,2)、MACD(8,17,9)、RSI(14) 和 20 根均量。
+### Trend ORB（`STRATEGY_MODE=trend`）
+
+- 09:30–09:40 ET：构建开盘区间（OR），不开仓。
+- 09:40–11:30 ET：检测 OR 突破 + EMA/VWAP 对齐，可入场；每日限 1 个方向。
+- 11:30–13:55 ET：不再生成新信号，管理已有仓位。
+- 13:55 ET：强制清空全部仓位。
+- 入场指标：EMA(9)、EMA(21)、VWAP。
+
+### BOLL/MACD（`STRATEGY_MODE=boll_macd`）
+
+- 09:30–09:35 ET：指标预热，绝对不开仓。
+- 09:35–09:42 ET：开盘爆量策略，独立的 BOLL/价格/成交量信号。
+- 09:42–09:45 ET：不再开仓，09:45 清空开盘仓位。
+- 09:45–12:00 ET：主时段 BOLL/MACD 信号。
+- 12:00–13:55 ET：不再开新仓，管理已有趋势底仓至反转或 13:55。
+- 13:55 ET：强制清空全部仓位。
+- 入场指标：BOLL(20,2)、MACD(8,17,9)、RSI(14)、20 根均量。
+
+### 共用规则
+
+- VIX：NORMAL 双向、RISK_OFF 仅 Put、RECOVERY 仅 Call、SHOCK 禁止开仓；数据不可用时记录警告并放行。
+- VIX 最近 5 分钟趋势会把顺势方向量比门槛降低 10%，逆势方向提高 10%（仅 BOLL/MACD）。
 
 固定风控：
 
 - Paper 初始权益 10,000 美元；Live 从 Longbridge 获取实时权益。
 - 单笔权利金不超过权益 50%，最多 10 张，每日最多开仓 5 次，平仓后冷却 3 分钟。
-- 期权价格下跌 25% 止损；QQQ 结构止损含 `0.1×ATR` 缓冲，距离超过 `2×ATR` 拒绝入场。
+- 期权价格下跌 25% 止损。
 - 日内权益亏损达到开盘权益 2% 后清仓并停机。
 - +100% 减半并移止损至成本，+250% 清仓；期权最高浮盈至少达到 25% 后才启动 30% 回吐移动止盈。移动止盈触发时卖出约一半，剩余仓位跟随 BOLL 中轨或 MACD 反转。
 - 持仓满 20 分钟仍亏损则退出。
@@ -187,8 +201,8 @@ python -m venv .venv
 
 ```powershell
 Set-Location frontend
-npm install
-npm run build
+pnpm install
+pnpm run build
 ```
 
 ## Linux 部署
@@ -237,8 +251,8 @@ alembic upgrade head
 
 ```bash
 cd frontend
-npm install
-npm run build
+pnpm install
+pnpm run build
 cd ..
 ```
 
@@ -294,6 +308,7 @@ sudo systemctl restart qqq-trader  # 重启
 ```dotenv
 # 必填 —— 交易模式与账户
 TRADING_MODE=paper          # paper / live
+STRATEGY_MODE=trend         # trend / boll_macd / hybrid
 ACCOUNT_ID=你的账户ID
 
 # 必填 —— API 监听地址（Linux 部署务必设为 0.0.0.0）
@@ -319,13 +334,15 @@ docker compose up --build
 
 ### 美股交易时间参考（夏令时）
 
-| 美东时间 (ET) | 北京时间 (BJT) |
-|---|---|
-| 09:30 开盘 | 21:30 |
-| 11:30 停止新开仓 | 23:30 |
-| 13:55 强制平仓 | 次日 01:55 |
-| 16:00 收盘 | 次日 04:00 |
-| 16:15 生成日报 | 次日 04:15 |
+| 美东时间 (ET) | 北京时间 (BJT) | 说明 |
+|---|---|---|
+| 09:30 开盘 | 21:30 | |
+| 09:40 | 21:40 | Trend ORB：OR 构建结束，开始检测突破 |
+| 11:30 | 23:30 | Trend ORB：停止新开仓 |
+| 12:00 | 00:00 | BOLL/MACD：停止新开仓 |
+| 13:55 强制平仓 | 次日 01:55 | 所有策略 |
+| 16:00 收盘 | 次日 04:00 | |
+| 16:15 生成日报 | 次日 04:15 | |
 
 Live 模式除 Longbridge 凭证外，还必须设置：
 
@@ -336,7 +353,12 @@ ACCOUNT_ID=你的账户ID
 
 ## 配置边界
 
-在线配置页和回测自定义参数只开放技术指标及 VIX 字段。交易时段、仓位、止盈止损、流动性、手续费和执行规则固定在 `STRATEGY.md`，旧配置版本中的 R 风险、百分比追价、固定行权价偏移等字段会被静默忽略。
+所有交易参数**必须**在 `.env` 中显式配置，没有隐含默认值。参考 `.env.example` 获取完整列表。
+
+- **在线配置页**：仅开放 VIX 波动率过滤参数的实时调整。
+- **回测页面**：支持选择策略模式，并动态加载对应策略的全部可调参数进行微调回测。
+- 交易时段、仓位、止盈止损、流动性、手续费和执行规则固定在 `STRATEGY.md` 和 `.env` 中。
+- 枚举标签（退出原因、拒绝原因、VIX 状态）由后端 `/api/v1/labels` 统一提供，前端动态加载。
 
 基础设施环境变量（账户凭证、数据库、目录、Longbridge、API、日志和调度）仍由 `.env` 管理。
 
@@ -348,7 +370,7 @@ Windows：
 .\.venv\Scripts\python.exe -m pytest -q
 .\.venv\Scripts\ruff.exe check src tests
 Set-Location frontend
-npm run build
+pnpm run build
 ```
 
 Linux：
@@ -357,13 +379,16 @@ Linux：
 source .venv/bin/activate
 pytest -q
 ruff check src tests
-cd frontend && npm run build
+cd frontend && pnpm run build
 ```
 
 主要测试文件：
 
-- `tests/test_strategy.py`：指标、OR、完整1分钟K线、即时信号和状态分类。
+- `tests/test_strategy.py`：BOLL/MACD 指标、完整 1 分钟 K 线、即时信号和状态分类。
+- `tests/test_trend_strategy.py`：Trend ORB 策略：OR 构建、突破确认、EMA/VWAP 退出。
+- `tests/test_hybrid_strategy.py`：Hybrid 模式自动切换逻辑。
 - `tests/test_risk.py`：选约、流动性、仓位、日亏损和所有固定退出规则。
 - `tests/test_backtest.py`：合成报价、聚合退出、13:55 强平和取消回测。
 - `tests/test_volatility.py`：VIX 五种状态及方向许可。
 - `tests/test_execution_adapter.py`：订单追价、成交与适配器行为。
+- `tests/test_configuration.py`：配置加载、校验和跨字段验证。
