@@ -1,13 +1,12 @@
 """Hybrid strategy: Trend ORB on trending days, BOLL/MACD on oscillation days.
 
-Day classification flow (OR builds in background, never blocks signals):
-  1. Before OR end (9:40): BOLL/MACD opening signals pass through normally.
-     OR range is built in the background by the Trend engine.
-  2. After OR end, before fallback (9:40-10:00): Wait for ORB breakout.
-     - Breakout confirmed → commit to Trend mode for the rest of the day.
-     - Choppy detected (VWAP crosses) → switch to BOLL/MACD mode.
-     - During this period, BOLL/MACD signals still pass through.
-  3. At fallback time (10:00): No breakout → commit to BOLL/MACD mode.
+Day classification flow:
+  1. Before fallback time (10:00): Only Trend ORB signals are allowed.
+     BOLL/MACD evaluates in background to warm up indicators, but its
+     signals are suppressed.  Trend ORB builds the OR, waits for breakout.
+     - Breakout confirmed -> commit to Trend mode for the rest of the day.
+     - Choppy detected (VWAP crosses) -> switch to BOLL/MACD mode early.
+  2. At fallback time (10:00): No breakout -> commit to BOLL/MACD mode.
 
 Exit logic follows whichever strategy produced the position's signal.
 """
@@ -27,11 +26,12 @@ from .volatility import VixFiveMinuteTrend
 
 
 class HybridEngine:
-    """Dispatches between TrendFollowingEngine and StrategyEngine per day.
+    """Dispatches between TrendFollowingEngine and StrategyEngine.
 
-    Before the day mode is decided, BOLL/MACD signals pass through so
-    opening-window profits are not lost.  Once a trend breakout is confirmed,
-    the engine switches to Trend mode and only emits Trend signals.
+    Day classification flow:
+      1. Before fallback (10:00): Only Trend ORB signals allowed.
+      2. At fallback / choppy: Switch to BOLL/MACD.
+      3. On Trend breakout: Lock to Trend mode.
     """
 
     def __init__(self, settings) -> None:
@@ -114,16 +114,12 @@ class HybridEngine:
                 self.last_signal_bar = boll_signal.bar_end
             return boll_signal
 
-        if boll_signal is not None:
-            self._sync_state(self.boll_macd)
-            self.last_signal_bar = boll_signal.bar_end
-            return boll_signal
-
-        self._sync_state(self.boll_macd if self.boll_macd.last_context else self.trend)
+        self._sync_state(self.trend if self.trend.last_context else self.boll_macd)
         return None
 
     def bar_exit_decision(self, position: Position) -> ExitDecision | None:
-        if (position.strategy_name or "").startswith("trend_"):
+        strategy = position.strategy_name or ""
+        if strategy.startswith("trend_"):
             return self.trend.bar_exit_decision(position)
         return self.boll_macd.bar_exit_decision(position)
 

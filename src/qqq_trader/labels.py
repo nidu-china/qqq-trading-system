@@ -60,7 +60,6 @@ REGIME_LABELS: dict[str, str] = {
     "unavailable": "数据不可用",
 }
 
-
 def all_labels() -> dict[str, dict[str, str]]:
     return {
         "exit_reasons": EXIT_REASON_LABELS,

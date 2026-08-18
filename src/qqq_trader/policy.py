@@ -71,7 +71,6 @@ class StrategyRules:
     require_directional_macd: bool = True
     min_macd_hist_atr: Decimal = Decimal("0.1")
     range_adx_max: Decimal = Decimal("18")
-    breakout_volume_ratio: Decimal = Decimal("1.2")
 
     max_premium_fraction: Decimal = Decimal("0.50")
     max_contracts: int = 10
@@ -101,13 +100,12 @@ class StrategyRules:
     trend_max_trades: int = 2
     trend_ema_fast: int = 9
     trend_ema_slow: int = 21
-    trend_volume_breakout: Decimal = Decimal("1.5")
     trend_max_vwap_crosses: int = 3
     trend_breakout_confirm_bars: int = 3
     trend_ema_exit_bars: int = 2
 
     # Hybrid strategy: fallback to BOLL/MACD if no ORB breakout by this time
-    hybrid_fallback_time: time = time(10, 0)
+    hybrid_fallback_time: time = time(10, 1)
 
     synthetic_min_price: Decimal = Decimal("0.01")
     synthetic_iv_floor: Decimal = Decimal("0.08")
