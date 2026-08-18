@@ -125,9 +125,14 @@ class TrendFollowingEngine:
         if len(bars) < 2:
             return 0
         vwap_vals = vwap_series(bars)
+        or_end = RULES.trend_or_end
         crosses = 0
         prev_side: bool | None = None
         for bar, v in zip(bars, vwap_vals, strict=True):
+            bar_time = bar.start.astimezone(NY_TZ).time().replace(tzinfo=None)
+            if bar_time < or_end:
+                prev_side = bar.close >= v
+                continue
             side = bar.close >= v
             if prev_side is not None and side != prev_side:
                 crosses += 1
