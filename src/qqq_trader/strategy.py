@@ -348,6 +348,17 @@ class StrategyEngine:
             RULES.timed_macd_slow,
             RULES.timed_macd_signal,
         )
+        macd_min_len = RULES.timed_macd_slow + RULES.timed_macd_signal - 1
+        prev2_hist = (
+            macd_histogram(
+                closes[:-2],
+                RULES.timed_macd_fast,
+                RULES.timed_macd_slow,
+                RULES.timed_macd_signal,
+            )[2]
+            if len(closes) > macd_min_len + 2
+            else ZERO
+        )
         volume_ratio = self._relative_volume(
             visible,
             today,
@@ -378,6 +389,7 @@ class StrategyEngine:
             macd_signal=macd_signal,
             macd_hist=macd_hist,
             macd_hist_prev=previous_hist,
+            macd_hist_prev2=prev2_hist,
             rvol_val=volume_ratio,
             rvol_prev=previous_volume_ratio,
             day_high=max(bar.high for bar in today),
@@ -475,6 +487,7 @@ class StrategyEngine:
             and ctx.boll_middle > ctx.boll_middle_prev > ctx.boll_middle_prev2
             and ctx.macd_hist > 0
             and ctx.macd_hist > ctx.macd_hist_prev
+            and (ctx.macd_hist_prev <= ZERO or ctx.macd_hist_prev > ctx.macd_hist_prev2)
             and ctx.rvol_val > call_volume
             and ctx.rsi_val < call_rsi
             and self._continuation_confirmed(
@@ -500,6 +513,7 @@ class StrategyEngine:
             and ctx.boll_middle < ctx.boll_middle_prev < ctx.boll_middle_prev2
             and ctx.macd_hist < 0
             and ctx.macd_hist < ctx.macd_hist_prev
+            and (ctx.macd_hist_prev >= ZERO or ctx.macd_hist_prev < ctx.macd_hist_prev2)
             and ctx.rvol_val > put_volume
             and ctx.rsi_val > put_rsi
             and self._continuation_confirmed(
@@ -557,13 +571,13 @@ class StrategyEngine:
         current_time = ctx.bar_time
         signal: Signal | None = None
 
-        if current_time < RULES.timed_opening_start:
+        if current_time < RULES.phase_collect_end:
             ctx.market_state = MarketState.OBSERVATION
         elif current_time < RULES.timed_opening_last_signal:
             signal = self._opening_signal(ctx, spot)
         elif current_time < RULES.timed_opening_flat:
             ctx.market_state = MarketState.UNKNOWN
-        elif current_time < RULES.timed_main_last_signal:
+        elif current_time < RULES.phase_main_end:
             signal = self._entry_signal(ctx, "timed_boll_macd_signal", spot)
         else:
             ctx.market_state = MarketState.UNKNOWN

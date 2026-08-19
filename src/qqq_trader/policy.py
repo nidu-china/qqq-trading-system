@@ -11,11 +11,15 @@ class StrategyRules:
 
     forced_close: time = time(13, 55)
 
-    timed_opening_start: time = time(9, 40)
+    # 统一时间窗口
+    phase_collect_start: time = time(9, 30)
+    phase_collect_end: time = time(9, 40)
+    phase_opening_end: time = time(10, 0)
+    phase_main_end: time = time(12, 0)
+
+    # BOLL/MACD 开盘子窗口
     timed_opening_last_signal: time = time(9, 45)
     timed_opening_flat: time = time(9, 55)
-    timed_main_start: time = time(10, 0)
-    timed_main_last_signal: time = time(12, 0)
     timed_max_trades_per_day: int = 5
     timed_boll_period: int = 20
     timed_boll_stddev: Decimal = Decimal("2")
@@ -93,9 +97,6 @@ class StrategyRules:
     option_candidate_count: int = 5
 
     # Trend-following (ORB) strategy
-    trend_or_start: time = time(9, 30)
-    trend_or_end: time = time(9, 40)
-    trend_entry_start: time = time(9, 40)
     trend_entry_end: time = time(11, 30)
     trend_max_trades: int = 2
     trend_ema_fast: int = 9
@@ -153,6 +154,10 @@ def rules_from_settings(settings) -> StrategyRules:
     """Build StrategyRules overriding configurable fields from Settings."""
     overrides = {}
     _FIELDS = (
+        # 统一时间窗口
+        "phase_collect_start", "phase_collect_end",
+        "phase_opening_end", "phase_main_end",
+        # 风控
         "max_premium_fraction", "max_contracts", "max_trades_per_day",
         "cooldown_minutes", "fee_per_contract",
         "slippage_quote", "option_stop_loss_pct", "tp1_profit_pct",
@@ -160,8 +165,7 @@ def rules_from_settings(settings) -> StrategyRules:
         "max_spread_ratio", "max_spread_absolute", "min_open_interest",
         "min_option_volume", "strike_offset",
         # BOLL/MACD
-        "timed_opening_start", "timed_opening_last_signal",
-        "timed_opening_flat", "timed_main_start", "timed_main_last_signal",
+        "timed_opening_last_signal", "timed_opening_flat",
         "timed_boll_period", "timed_boll_stddev",
         "timed_macd_fast", "timed_macd_slow", "timed_macd_signal",
         "timed_rsi_period", "timed_call_rsi_max", "timed_put_rsi_min",
@@ -174,7 +178,7 @@ def rules_from_settings(settings) -> StrategyRules:
         "timed_normal_fresh_macd_volume_multiplier",
         "timed_reversal_min_bars", "timed_reversal_window",
         # Trend ORB
-        "trend_or_start", "trend_or_end", "trend_entry_end",
+        "trend_entry_end",
         "trend_ema_fast", "trend_ema_slow",
         "trend_breakout_confirm_bars", "trend_max_vwap_crosses",
         "trend_ema_exit_bars",

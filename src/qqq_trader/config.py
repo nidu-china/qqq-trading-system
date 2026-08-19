@@ -84,12 +84,15 @@ class Settings(BaseSettings):
     min_option_volume: int
     strike_offset: Decimal
 
-    # BOLL/MACD 策略参数（必须在 .env 显式配置，STRATEGY_MODE=boll_macd 专用）
-    timed_opening_start: time
+    # 交易时间窗口（所有策略共用）
+    phase_collect_start: time = time(9, 30)
+    phase_collect_end: time = time(9, 40)
+    phase_opening_end: time = time(10, 0)
+    phase_main_end: time = time(12, 0)
+
+    # BOLL/MACD 策略参数（STRATEGY_MODE=boll_macd 专用）
     timed_opening_last_signal: time
     timed_opening_flat: time
-    timed_main_start: time
-    timed_main_last_signal: time
     timed_boll_period: int
     timed_boll_stddev: Decimal
     timed_macd_fast: int
@@ -111,9 +114,7 @@ class Settings(BaseSettings):
     timed_reversal_min_bars: int
     timed_reversal_window: int
 
-    # Trend ORB 策略参数（必须在 .env 显式配置，STRATEGY_MODE=trend 专用）
-    trend_or_start: time
-    trend_or_end: time
+    # Trend ORB 策略参数（STRATEGY_MODE=trend 专用）
     trend_entry_end: time
     trend_ema_fast: int
     trend_ema_slow: int

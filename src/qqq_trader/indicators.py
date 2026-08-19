@@ -228,6 +228,7 @@ class MarketContext:
     macd_signal: Decimal = ZERO
     macd_hist: Decimal = ZERO
     macd_hist_prev: Decimal = ZERO
+    macd_hist_prev2: Decimal = ZERO
     adx_val: Decimal = ZERO
     atr_val: Decimal = ZERO
     rvol_val: Decimal = Decimal("1.0")

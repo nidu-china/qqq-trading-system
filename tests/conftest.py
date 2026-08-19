@@ -62,12 +62,14 @@ _TRADING_DEFAULTS = {
     "min_open_interest": 100,
     "min_option_volume": 10,
     "strike_offset": "2",
+    # 统一时间窗口
+    "phase_collect_start": "09:30:00",
+    "phase_collect_end": "09:40:00",
+    "phase_opening_end": "10:00:00",
+    "phase_main_end": "12:00:00",
     # BOLL/MACD
-    "timed_opening_start": "09:35:00",
-    "timed_opening_last_signal": "09:42:00",
-    "timed_opening_flat": "09:45:00",
-    "timed_main_start": "09:45:00",
-    "timed_main_last_signal": "12:00:00",
+    "timed_opening_last_signal": "09:45:00",
+    "timed_opening_flat": "09:55:00",
     "timed_boll_period": 20,
     "timed_boll_stddev": "2",
     "timed_macd_fast": 8,
@@ -89,8 +91,6 @@ _TRADING_DEFAULTS = {
     "timed_reversal_min_bars": 3,
     "timed_reversal_window": 5,
     # Trend ORB
-    "trend_or_start": "09:30:00",
-    "trend_or_end": "09:40:00",
     "trend_entry_end": "11:30:00",
     "trend_ema_fast": 9,
     "trend_ema_slow": 21,

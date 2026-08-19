@@ -102,14 +102,14 @@ class TrendFollowingEngine:
         pass
 
     def _or_bars(self, today: list[Bar]) -> list[Bar]:
-        """OR bars: from trend_or_start to trend_or_end, skipping early open bars."""
+        """OR bars: from phase_collect_start to phase_collect_end."""
         return [
             b
             for b in today
             if b.start.astimezone(NY_TZ).time().replace(tzinfo=None)
-            >= RULES.trend_or_start
+            >= RULES.phase_collect_start
             and b.end.astimezone(NY_TZ).time().replace(tzinfo=None)
-            <= RULES.trend_or_end
+            <= RULES.phase_collect_end
         ]
 
     def _build_opening_range(self, today: list[Bar]) -> None:
@@ -125,7 +125,7 @@ class TrendFollowingEngine:
         if len(bars) < 2:
             return 0
         vwap_vals = vwap_series(bars)
-        or_end = RULES.trend_or_end
+        or_end = RULES.phase_collect_end
         crosses = 0
         prev_side: bool | None = None
         for bar, v in zip(bars, vwap_vals, strict=True):
@@ -315,7 +315,7 @@ class TrendFollowingEngine:
         ctx = self._build_context(today, current, current_time)
         self.last_context = ctx
 
-        if current_time <= RULES.trend_or_end:
+        if current_time <= RULES.phase_collect_end:
             self._build_opening_range(today)
             ctx.market_state = MarketState.OBSERVATION
             self.last_state = ctx.market_state

@@ -410,9 +410,9 @@ class TradingEngine:
             )
             local_time = decision_at.astimezone(NY_TZ).time().replace(tzinfo=None)
             if not (
-                RULES.timed_opening_start
+                RULES.phase_collect_end
                 <= local_time
-                < RULES.timed_main_last_signal
+                < RULES.phase_main_end
             ):
                 self.log.warning("signal rejected | outside_entry_window | time=%s", local_time)
                 await self.journal.signal(signal, False, "outside_entry_window")

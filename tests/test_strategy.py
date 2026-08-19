@@ -63,7 +63,7 @@ def test_strategy_factory_and_opening_cutoff():
     assert isinstance(engine, StrategyEngine)
     engine.last_context = MarketContext(
         current_close=Decimal("100"),
-        bar_time=__import__("datetime").time(9, 45),
+        bar_time=__import__("datetime").time(9, 55),
     )
     position = Position(
         "QQQ260715P00500000.US",
@@ -79,7 +79,7 @@ def test_strategy_factory_and_opening_cutoff():
 
 
 def test_main_entry_window_runs_until_noon():
-    assert RULES.timed_main_last_signal == __import__("datetime").time(12, 0)
+    assert RULES.phase_main_end == __import__("datetime").time(12, 0)
 
 
 def test_profitable_exit_resets_crosses_after_five_stable_closes():

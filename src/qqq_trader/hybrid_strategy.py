@@ -46,10 +46,8 @@ from .volatility import VixFiveMinuteTrend
 
 ZERO = Decimal(0)
 
-# ── Time boundaries ──
-ACCUMULATION_END = time(9, 40)       # OR 积累结束
-DUAL_SIGNAL_END = time(10, 0)        # 双信号窗口结束
-MODE_DECISION_TIME = time(10, 1)     # 模式判定时刻
+# ── Time boundaries (derived from RULES at call site) ──
+EARLY_CLASSIFY_START = time(9, 50)   # 提前分类开始
 
 # ── Day classification parameters ──
 OR_CONFIRM_BARS = 3
@@ -133,10 +131,10 @@ class HybridEngine:
     # ════════════════════════════════════════════════════════════════════
 
     def _build_or(self, today: list[Bar]) -> None:
-        """Build Opening Range from 9:30-9:39 bars."""
+        """Build Opening Range from phase_collect bars."""
         or_bars = [
             b for b in today
-            if b.start.astimezone(NY_TZ).time().replace(tzinfo=None) < ACCUMULATION_END
+            if b.start.astimezone(NY_TZ).time().replace(tzinfo=None) < RULES.phase_collect_end
         ]
         if not or_bars:
             return
@@ -152,7 +150,7 @@ class HybridEngine:
             return 0, 0
         for bar in reversed(today):
             t = bar.start.astimezone(NY_TZ).time().replace(tzinfo=None)
-            if t < ACCUMULATION_END:
+            if t < RULES.phase_collect_end:
                 break
             if bar.close > self._or_high:
                 above += 1
@@ -160,7 +158,7 @@ class HybridEngine:
                 break
         for bar in reversed(today):
             t = bar.start.astimezone(NY_TZ).time().replace(tzinfo=None)
-            if t < ACCUMULATION_END:
+            if t < RULES.phase_collect_end:
                 break
             if bar.close < self._or_low:
                 below += 1
@@ -334,18 +332,23 @@ class HybridEngine:
         self._today_bars = today
 
         # ── Phase 1: Accumulation (9:30-9:39) — no signals ──
-        if current_time < ACCUMULATION_END:
+        if current_time < RULES.phase_collect_end:
             self._sync_state(
                 self.boll_macd if self.boll_macd.last_context else self.trend
             )
             return None
 
-        # ── Phase 3: Mode already decided (10:01+) ──
+        # ── Phase 3: Mode already decided ──
         if self._day_mode == "trend":
             self._sync_state(self.trend)
             if trend_signal is not None:
                 self.last_signal_bar = trend_signal.bar_end
-            return trend_signal
+                return trend_signal
+            signal = self._make_deferred_trend_signal()
+            if signal is not None:
+                self.last_signal_bar = signal.bar_end
+                return signal
+            return None
 
         if self._day_mode == "oscillation":
             self._sync_state(self.boll_macd)
@@ -354,13 +357,19 @@ class HybridEngine:
             return boll_signal
 
         # ── Phase 2: Dual-Signal Entry (9:40-10:00) ──
-        if current_time < MODE_DECISION_TIME:
+        if current_time < RULES.phase_opening_end:
             if not self._or_built:
                 self._build_or(today)
 
             self._sync_state(
                 self.boll_macd if self.boll_macd.last_context else self.trend
             )
+
+            # Early classification: from 9:50 try to detect trend early
+            if current_time >= EARLY_CLASSIFY_START and self._day_mode is None:
+                early_mode = self._classify_day()
+                if early_mode == "trend":
+                    self._day_mode = "trend"
 
             # Source A: BOLL/MACD signals (full 9:40-10:00 window)
             # Fill the gap between opening_last_signal and main_start
@@ -369,7 +378,7 @@ class HybridEngine:
                 effective_boll is None
                 and RULES.timed_opening_last_signal
                 <= current_time
-                < RULES.timed_main_start
+                < RULES.phase_opening_end
                 and self.boll_macd.last_context is not None
             ):
                 effective_boll = self.boll_macd._opening_signal(
@@ -395,9 +404,11 @@ class HybridEngine:
 
             return None
 
-        # ── Mode Decision (10:01 — first bar after 10:00) ──
-        mode = self._classify_day()
-        self._day_mode = mode
+        # ── Mode Decision (10:01 — final classification) ──
+        if self._day_mode is None:
+            mode = self._classify_day()
+            self._day_mode = mode
+        mode = self._day_mode
 
         if mode == "trend":
             self._sync_state(self.trend)

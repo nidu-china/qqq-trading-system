@@ -99,6 +99,10 @@ STRATEGY_PARAMS: dict[str, dict[str, Any]] = {
     "shared": {
         "label": "共用参数",
         "params": [
+            _p("phase_collect_start", "信号收集开始", "time"),
+            _p("phase_collect_end", "信号收集结束", "time"),
+            _p("phase_opening_end", "开盘窗口结束", "time"),
+            _p("phase_main_end", "主窗口结束", "time"),
             _p("max_premium_fraction", "最大权利金比例", step=0.05, min=0.01, max=0.5),
             _p("max_contracts", "最大合约数", "int", min=1, max=50),
             _p("max_trades_per_day", "每日最大交易次数", "int", min=1, max=20),
@@ -112,11 +116,8 @@ STRATEGY_PARAMS: dict[str, dict[str, Any]] = {
     "boll_macd": {
         "label": "BOLL/MACD 策略",
         "params": [
-            _p("timed_opening_start", "开盘爆量起始", "time"),
             _p("timed_opening_last_signal", "开盘爆量截止", "time"),
             _p("timed_opening_flat", "开盘强平时间", "time"),
-            _p("timed_main_start", "主时段开始", "time"),
-            _p("timed_main_last_signal", "主时段截止", "time"),
             _p("timed_boll_period", "BOLL 周期", "int", min=2, max=100),
             _p("timed_boll_stddev", "BOLL 标准差", step=0.1, min=0.1, max=5),
             _p("timed_macd_fast", "MACD 快线", "int", min=1, max=30),
@@ -142,8 +143,6 @@ STRATEGY_PARAMS: dict[str, dict[str, Any]] = {
     "trend": {
         "label": "Trend ORB 策略",
         "params": [
-            _p("trend_or_start", "OR 窗口开始", "time"),
-            _p("trend_or_end", "OR 窗口结束", "time"),
             _p("trend_entry_end", "入场截止", "time"),
             _p("trend_ema_fast", "EMA 快线周期", "int", min=2, max=50),
             _p("trend_ema_slow", "EMA 慢线周期", "int", min=3, max=100),

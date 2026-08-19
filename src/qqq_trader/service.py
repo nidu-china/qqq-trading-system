@@ -295,7 +295,7 @@ class TradingService:
     async def _capture_candidate_options(self, now, local, bars_5m) -> None:
         local_time = local.time().replace(tzinfo=None)
         if not (
-            RULES.timed_opening_start <= local_time <= RULES.forced_close
+            RULES.phase_collect_end <= local_time <= RULES.forced_close
         ):
             return
         try:
