@@ -46,9 +46,6 @@ from .volatility import VixFiveMinuteTrend
 
 ZERO = Decimal(0)
 
-# ── Time boundaries (derived from RULES at call site) ──
-EARLY_CLASSIFY_START = time(9, 50)   # 提前分类开始
-
 # ── Day classification parameters ──
 OR_CONFIRM_BARS = 3
 OR_MIN_EXTENSION_PCT = Decimal("0.20")
@@ -344,10 +341,6 @@ class HybridEngine:
             if trend_signal is not None:
                 self.last_signal_bar = trend_signal.bar_end
                 return trend_signal
-            signal = self._make_deferred_trend_signal()
-            if signal is not None:
-                self.last_signal_bar = signal.bar_end
-                return signal
             return None
 
         if self._day_mode == "oscillation":
@@ -364,12 +357,6 @@ class HybridEngine:
             self._sync_state(
                 self.boll_macd if self.boll_macd.last_context else self.trend
             )
-
-            # Early classification: from 9:50 try to detect trend early
-            if current_time >= EARLY_CLASSIFY_START and self._day_mode is None:
-                early_mode = self._classify_day()
-                if early_mode == "trend":
-                    self._day_mode = "trend"
 
             # Source A: BOLL/MACD signals (full 9:40-10:00 window)
             # Fill the gap between opening_last_signal and main_start
