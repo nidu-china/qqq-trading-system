@@ -27,8 +27,9 @@ start = date(2026, 7, 1)
 qqq_bars = [b for b in bars if b.symbol == "QQQ.US"]
 period_bars = [b for b in qqq_bars if b.start.date() >= start]
 warmup_bars = [b for b in qqq_bars if b.start.date() < start]
-vol = [b for b in vol_5m if b.start.date() >= date(2026, 5, 1)]
-vol_d = [b for b in vol_daily if b.start.date() >= date(2026, 5, 1)]
+VIX = ".VIX.US"
+vol = [b for b in vol_5m if b.symbol == VIX and b.start.date() >= date(2026, 5, 1)]
+vol_d = [b for b in vol_daily if b.symbol == VIX and b.start.date() >= date(2026, 5, 1)]
 
 trading_dates = sorted(set(b.start.astimezone(ET).date() for b in period_bars))
 
