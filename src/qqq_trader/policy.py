@@ -121,7 +121,32 @@ class StrategyRules:
     synthetic_max_spread: Decimal = Decimal("0.05")
     synthetic_spread_ratio: Decimal = Decimal("0.005")
 
-RULES = StrategyRules()
+class _RulesProxy:
+    """Mutable proxy so `from .policy import RULES` stays valid after init."""
+
+    __slots__ = ("_inner",)
+
+    def __init__(self, inner: StrategyRules) -> None:
+        object.__setattr__(self, "_inner", inner)
+
+    def __getattr__(self, name: str):
+        return getattr(self._inner, name)
+
+    def _replace(self, new: StrategyRules) -> None:
+        object.__setattr__(self, "_inner", new)
+
+
+RULES: _RulesProxy = _RulesProxy(StrategyRules())
+
+
+def init_rules(settings) -> None:
+    """Patch RULES with values loaded from Settings (.env).
+
+    Call once at startup (backtest/live) before strategy evaluation.
+    Because RULES is a proxy object, all existing references (via
+    `from .policy import RULES`) will see the updated values.
+    """
+    RULES._replace(rules_from_settings(settings))
 
 
 def rules_from_settings(settings) -> StrategyRules:

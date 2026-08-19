@@ -86,29 +86,28 @@ class TestHybridEngine:
         signal = None
         for i in range(len(bars)):
             result = engine.evaluate(bars[: i + 1])
-            if result is not None:
+            if result is not None and signal is None:
                 signal = result
-                break
         assert signal is not None
         assert signal.direction is Direction.CALL
         assert signal.strategy == "trend_orb_breakout"
         assert engine.day_mode == "trend"
 
-    def test_choppy_day_selects_boll_macd_mode(self):
+    def test_choppy_day_selects_oscillation_mode(self):
         settings = make_settings()
         engine = HybridEngine(settings)
-        bars = _choppy_bars(25)
+        bars = _choppy_bars(35)
         for i in range(len(bars)):
             engine.evaluate(bars[: i + 1])
-        assert engine.day_mode == "boll_macd"
+        assert engine.day_mode == "oscillation"
 
-    def test_fallback_time_selects_boll_macd(self):
+    def test_fallback_time_selects_oscillation(self):
         settings = make_settings()
         engine = HybridEngine(settings)
         bars = _flat_then_trending(35)
         for i in range(len(bars)):
             engine.evaluate(bars[: i + 1])
-        assert engine.day_mode == "boll_macd"
+        assert engine.day_mode == "oscillation"
 
     def test_trend_mode_uses_trend_exit(self):
         settings = make_settings()

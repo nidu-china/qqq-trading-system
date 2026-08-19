@@ -670,8 +670,11 @@ def strategy_from_settings(settings) -> StrategyEngine:
     Supported modes:
       * ``boll_macd`` (default) — BOLL/MACD oscillation strategy
       * ``trend`` — Opening Range Breakout trend-following strategy
-      * ``hybrid`` — Trend ORB on trending days, BOLL/MACD on oscillation days
+      * ``hybrid`` — Dual-engine hybrid strategy (BOLL/MACD + Trend)
     """
+    from .policy import init_rules
+    init_rules(settings)
+
     mode = getattr(settings, "strategy_mode", "boll_macd")
     if mode == "trend":
         from .trend_strategy import TrendFollowingEngine
