@@ -52,8 +52,9 @@ DUAL_SIGNAL_END = time(10, 0)        # 双信号窗口结束
 MODE_DECISION_TIME = time(10, 1)     # 模式判定时刻
 
 # ── Day classification parameters ──
-OR_CONFIRM_BARS = 2
+OR_CONFIRM_BARS = 3
 OR_MIN_EXTENSION_PCT = Decimal("0.20")
+OR_MIN_WIDTH_PCT = Decimal("0.0015")  # OR must be >= 0.15% of price to qualify
 
 
 class HybridEngine:
@@ -198,6 +199,10 @@ class HybridEngine:
 
         or_range = self._or_high - self._or_low
         if or_range <= ZERO:
+            return None
+
+        or_mid = (self._or_high + self._or_low) / 2
+        if or_mid > ZERO and or_range / or_mid < OR_MIN_WIDTH_PCT:
             return None
 
         # CALL: sustained above OR + EMA + VWAP + MACD all aligned
