@@ -29,6 +29,8 @@ _SETTINGS_SUMMARY_KEYS = (
     "max_premium_fraction", "max_contracts", "max_trades_per_day",
     "cooldown_minutes", "option_stop_loss_pct",
     "tp1_profit_pct", "tp2_profit_pct", "stale_minutes",
+    "timed_opening_start", "timed_opening_last_signal",
+    "timed_opening_flat", "timed_main_start", "timed_main_last_signal",
     "timed_boll_period", "timed_boll_stddev",
     "timed_macd_fast", "timed_macd_slow", "timed_macd_signal",
     "timed_rsi_period", "timed_volume_ratio",
