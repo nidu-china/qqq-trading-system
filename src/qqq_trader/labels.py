@@ -106,10 +106,10 @@ STRATEGY_PARAMS: dict[str, dict[str, Any]] = {
     "boll_macd": {
         "label": "BOLL/MACD 策略",
         "params": [
-            _p("timed_opening_start", "开盘爆量起始", "time", "09:35:00"),
-            _p("timed_opening_last_signal", "开盘爆量截止", "time", "09:42:00"),
-            _p("timed_opening_flat", "开盘强平时间", "time", "09:45:00"),
-            _p("timed_main_start", "主时段开始", "time", "09:45:00"),
+            _p("timed_opening_start", "开盘爆量起始", "time", "09:40:00"),
+            _p("timed_opening_last_signal", "开盘爆量截止", "time", "09:45:00"),
+            _p("timed_opening_flat", "开盘强平时间", "time", "09:55:00"),
+            _p("timed_main_start", "主时段开始", "time", "10:00:00"),
             _p("timed_main_last_signal", "主时段截止", "time", "12:00:00"),
             _p("timed_boll_period", "BOLL 周期", "int", 20, min=2, max=100),
             _p("timed_boll_stddev", "BOLL 标准差", default="2", step=0.1, min=0.1, max=5),

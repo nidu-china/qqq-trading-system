@@ -11,10 +11,10 @@ class StrategyRules:
 
     forced_close: time = time(13, 55)
 
-    timed_opening_start: time = time(9, 35)
-    timed_opening_last_signal: time = time(9, 42)
-    timed_opening_flat: time = time(9, 45)
-    timed_main_start: time = time(9, 45)
+    timed_opening_start: time = time(9, 40)
+    timed_opening_last_signal: time = time(9, 45)
+    timed_opening_flat: time = time(9, 55)
+    timed_main_start: time = time(10, 0)
     timed_main_last_signal: time = time(12, 0)
     timed_max_trades_per_day: int = 5
     timed_boll_period: int = 20
