@@ -382,10 +382,12 @@ class TradingEngine:
                 if quote.bid is not None:
                     previous_highest = self.position.highest_bid
                     previous_trend_runner = self.position.trend_runner
+                    local_t = decision_at.astimezone(NY_TZ).time().replace(tzinfo=None)
                     price_decision = self.risk.exit_decision(
                         self.position,
                         quote.bid,
                         decision_at,
+                        allow_trailing_stop=local_t >= RULES.phase_opening_end,
                     )
                     if (
                         self.position.highest_bid != previous_highest
@@ -580,11 +582,13 @@ class TradingEngine:
             self.position_mfe = max(self.position_mfe, move)
             previous_highest = self.position.highest_bid
             previous_trend_runner = self.position.trend_runner
+            local_t = decision_at.astimezone(NY_TZ).time().replace(tzinfo=None)
             decision = self.risk.exit_decision(
                 self.position,
                 quote.bid,
                 decision_at,
                 allow_stop_loss=False,
+                allow_trailing_stop=local_t >= RULES.phase_opening_end,
             )
             if (
                 self.position.highest_bid != previous_highest

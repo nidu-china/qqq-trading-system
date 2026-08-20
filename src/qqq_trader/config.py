@@ -75,6 +75,8 @@ class Settings(BaseSettings):
     option_stop_loss_pct: Decimal
     tp1_profit_pct: Decimal
     tp2_profit_pct: Decimal
+    trailing_activation_profit_pct: Decimal = Decimal("0.25")
+    trailing_giveback_pct: Decimal = Decimal("0.30")
     stale_minutes: int
 
     # 期权流动性（必须在 .env 显式配置）

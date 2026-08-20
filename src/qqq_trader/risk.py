@@ -119,6 +119,7 @@ class RiskEngine:
         now: datetime,
         *,
         allow_stop_loss: bool = True,
+        allow_trailing_stop: bool = True,
     ) -> ExitDecision | None:
         rules = self.rules
         from .config import NY_TZ
@@ -147,7 +148,7 @@ class RiskEngine:
         maximum_profit_pct = (
             position.highest_bid - position.entry_price
         ) / position.entry_price
-        if maximum_profit_pct >= rules.trailing_activation_profit_pct:
+        if allow_trailing_stop and maximum_profit_pct >= rules.trailing_activation_profit_pct:
             trailing_price = position.entry_price + (
                 Decimal(1) - rules.trailing_giveback_pct
             ) * (position.highest_bid - position.entry_price)

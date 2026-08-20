@@ -674,8 +674,10 @@ class EventDrivenBacktester:
                 if quote.bid is None:
                     record_equity(bar.end)
                     continue
+                bar_local_time = bar.end.astimezone(NY_TZ).time().replace(tzinfo=None)
                 price_decision = self.risk.exit_decision(
                     position, quote.bid, bar.end,
+                    allow_trailing_stop=bar_local_time >= RULES.phase_opening_end,
                 )
                 previous_macd_pending = position.macd_reversal_pending
                 previous_macd_pending_at = position.macd_reversal_pending_at

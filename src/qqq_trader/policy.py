@@ -161,7 +161,8 @@ def rules_from_settings(settings) -> StrategyRules:
         "max_premium_fraction", "max_contracts", "max_trades_per_day",
         "cooldown_minutes", "fee_per_contract",
         "slippage_quote", "option_stop_loss_pct", "tp1_profit_pct",
-        "tp2_profit_pct", "stale_minutes",
+        "tp2_profit_pct", "trailing_activation_profit_pct",
+        "trailing_giveback_pct", "stale_minutes",
         "max_spread_ratio", "max_spread_absolute", "min_open_interest",
         "min_option_volume", "strike_offset",
         # BOLL/MACD

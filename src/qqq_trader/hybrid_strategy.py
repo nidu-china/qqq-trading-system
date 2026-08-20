@@ -405,13 +405,23 @@ class HybridEngine:
                     effective_boll = None
 
             if effective_boll is not None:
-                # VIX filter: rising > 3% intraday blocks CALL entries
+                # Filter A: VIX rising > 3% intraday blocks CALL entries
                 if (
                     effective_boll.direction is Direction.CALL
                     and self._vix_intraday_change >= VIX_INTRADAY_RISE_THRESHOLD
                 ):
                     effective_boll = None
-
+                # Filter B: VWAP consistency — CALL needs price > VWAP, PUT needs price < VWAP
+                if effective_boll is not None:
+                    current_vwap = vwap(today)
+                    if (
+                        effective_boll.direction is Direction.CALL
+                        and current.close < current_vwap
+                    ) or (
+                        effective_boll.direction is Direction.PUT
+                        and current.close > current_vwap
+                    ):
+                        effective_boll = None
             if effective_boll is not None:
                 self.last_signal_bar = effective_boll.bar_end
                 self.boll_macd.last_signal_bar = effective_boll.bar_end
