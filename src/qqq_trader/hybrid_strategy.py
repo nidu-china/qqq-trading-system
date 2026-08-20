@@ -335,6 +335,13 @@ class HybridEngine:
             )
             return None
 
+        # ── No new signals after main window ends ──
+        if current_time >= RULES.phase_main_end:
+            self._sync_state(
+                self.boll_macd if self.boll_macd.last_context else self.trend
+            )
+            return None
+
         # ── Phase 3: Mode already decided ──
         if self._day_mode == "trend":
             self._sync_state(self.trend)
