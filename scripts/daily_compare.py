@@ -32,7 +32,7 @@ print(f"Bars: {len(period_bars)}, Warmup: {len(warmup_bars)}, Vol5m: {len(vol)},
 print()
 
 results: dict[str, dict] = {}
-for mode in ["trend", "boll_macd", "hybrid"]:
+for mode in ["hybrid"]:
     print(f"Running {mode}...", flush=True)
     s = Settings(trading_mode="replay", strategy_mode=mode)
     tester = EventDrivenBacktester(s, None, ContractSelector(), RiskEngine(s))
@@ -82,58 +82,37 @@ for mode in ["trend", "boll_macd", "hybrid"]:
         "trades": r.trades,
     }
 
-# Print daily comparison table
-header = f"{'Date':<12} | {'Trend ORB':>20} | {'BOLL/MACD':>20} | {'Hybrid':>20}"
+# Print daily results
+header = f"{'Date':<12} | {'Trades':>6} | {'PnL':>10} | {'Cumulative':>12}"
 sep_line = "-" * len(header)
 print()
 print("=" * len(header))
-print(f"{'DAILY RESULTS':^{len(header)}}")
+print(f"{'HYBRID DAILY RESULTS':^{len(header)}}")
 print("=" * len(header))
 print(header)
 print(sep_line)
 
-cumulative = {m: Decimal(0) for m in ["trend", "boll_macd", "hybrid"]}
-
+cumulative = Decimal(0)
 for d in trading_dates:
-    parts = []
-    for mode in ["trend", "boll_macd", "hybrid"]:
-        dd = results[mode]["daily"].get(d, {"trades": 0, "pnl": Decimal(0)})
-        trades = dd["trades"]
-        pnl = dd["pnl"]
-        cumulative[mode] += pnl
-        if trades > 0:
-            parts.append(f"{trades}T ${pnl:>+8}")
-        else:
-            parts.append(f"{'--':>12}")
-    print(f"{str(d):<12} | {parts[0]:>20} | {parts[1]:>20} | {parts[2]:>20}")
+    dd = results["hybrid"]["daily"].get(d, {"trades": 0, "pnl": Decimal(0)})
+    trades = dd["trades"]
+    pnl = dd["pnl"]
+    cumulative += pnl
+    if trades > 0:
+        print(f"{str(d):<12} | {trades:>6} | ${pnl:>+8} | ${cumulative:>+10}")
+    else:
+        print(f"{str(d):<12} | {'--':>6} | {'--':>10} | ${cumulative:>+10}")
 
 print(sep_line)
-print(f"{'TOTAL':<12} | ", end="")
-for i, mode in enumerate(["trend", "boll_macd", "hybrid"]):
-    t = results[mode]["total"]
-    text = f"{t['trades']}T ${t['pnl']:>+8}"
-    end_char = " | " if i < 2 else "\n"
-    print(f"{text:>20}", end=end_char)
-
-print(f"{'WIN RATE':<12} | ", end="")
-for i, mode in enumerate(["trend", "boll_macd", "hybrid"]):
-    t = results[mode]["total"]
-    wr = f"{t['wins']}/{t['trades']} ({t['wins']/t['trades']*100:.0f}%)" if t["trades"] else "N/A"
-    end_char = " | " if i < 2 else "\n"
-    print(f"{wr:>20}", end=end_char)
-
-print(f"{'REJECTED':<12} | ", end="")
-for i, mode in enumerate(["trend", "boll_macd", "hybrid"]):
-    t = results[mode]["total"]
-    rej = sum(t["rejected"].values())
-    end_char = " | " if i < 2 else "\n"
-    print(f"{rej:>20}", end=end_char)
+t = results["hybrid"]["total"]
+wr = f"{t['wins']}/{t['trades']} ({t['wins']/t['trades']*100:.0f}%)" if t["trades"] else "N/A"
+rej = sum(t["rejected"].values())
+print(f"TOTAL: {t['trades']}T  PnL=${t['pnl']:>+8}  Win={wr}  Rejected={rej}")
 
 # Print trade details
-for mode in ["trend", "boll_macd", "hybrid"]:
-    print(f"\n--- {mode.upper()} Trades ---")
-    for i, t in enumerate(results[mode]["trades"]):
-        d = t.direction.value
-        entry = t.entry_at.astimezone(ET).strftime("%m/%d %H:%M")
-        exit_t = t.exit_at.astimezone(ET).strftime("%H:%M")
-        print(f"  #{i+1:2d}: {d:4s} {entry}->{exit_t} PnL=${t.pnl:>+8} exit={t.exit_reason}")
+print(f"\n--- HYBRID Trades ---")
+for i, t in enumerate(results["hybrid"]["trades"]):
+    d = t.direction.value
+    entry = t.entry_at.astimezone(ET).strftime("%m/%d %H:%M")
+    exit_t = t.exit_at.astimezone(ET).strftime("%H:%M")
+    print(f"  #{i+1:2d}: {d:4s} {entry}->{exit_t} PnL=${t.pnl:>+8} exit={t.exit_reason}")

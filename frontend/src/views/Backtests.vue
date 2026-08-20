@@ -125,6 +125,8 @@ const prices=ps.map((x:any)=>x.price)
 const bbUpper=ps.map((x:any)=>x.bb_upper??null)
 const bbLower=ps.map((x:any)=>x.bb_lower??null)
 const bbMid=ps.map((x:any)=>x.bb_middle??null)
+const ema9=ps.map((x:any)=>x.ema9??null)
+const ema21=ps.map((x:any)=>x.ema21??null)
 const macdLine=ps.map((x:any)=>x.macd??null)
 const macdSignal=ps.map((x:any)=>x.macd_signal??null)
 const macdHist=ps.map((x:any)=>x.macd_hist??null)
@@ -138,7 +140,7 @@ chart.setOption({
     {left:60,right:20,top:'72%',height:'18%'},
   ],
   tooltip:{trigger:'axis',axisPointer:{type:'cross'}},
-  legend:{data:['QQQ','布林上轨','布林中轨','布林下轨','买入','卖出','MACD','Signal','Histogram','成交量'],top:0,textStyle:{color:'#7890ad',fontSize:10}},
+  legend:{data:['QQQ','EMA9','EMA21','布林上轨','布林中轨','布林下轨','买入','卖出','MACD','Signal','Histogram','成交量'],top:0,textStyle:{color:'#7890ad',fontSize:10}},
   xAxis:[
     {type:'category',data:times,gridIndex:0,axisLabel:{show:false}},
     {type:'category',data:times,gridIndex:1,axisLabel:{show:false}},
@@ -151,6 +153,8 @@ chart.setOption({
   ],
   series:[
     {name:'QQQ',type:'line',xAxisIndex:0,yAxisIndex:0,data:prices,showSymbol:false,lineStyle:{color:'#3457d5',width:1.5},z:2},
+    {name:'EMA9',type:'line',xAxisIndex:0,yAxisIndex:0,data:ema9,showSymbol:false,lineStyle:{color:'#22c55e',width:1},connectNulls:true,z:1},
+    {name:'EMA21',type:'line',xAxisIndex:0,yAxisIndex:0,data:ema21,showSymbol:false,lineStyle:{color:'#ef4444',width:1},connectNulls:true,z:1},
     {name:'布林上轨',type:'line',xAxisIndex:0,yAxisIndex:0,data:bbUpper,showSymbol:false,lineStyle:{color:'#f59e0b',width:1,type:'dashed'},z:1},
     {name:'布林中轨',type:'line',xAxisIndex:0,yAxisIndex:0,data:bbMid,showSymbol:false,lineStyle:{color:'#7890ad',width:1,type:'dotted'},z:1},
     {name:'布林下轨',type:'line',xAxisIndex:0,yAxisIndex:0,data:bbLower,showSymbol:false,lineStyle:{color:'#f59e0b',width:1,type:'dashed'},z:1},
@@ -159,7 +163,7 @@ chart.setOption({
     {name:'MACD',type:'line',xAxisIndex:1,yAxisIndex:1,data:macdLine,showSymbol:false,lineStyle:{color:'#e6a23c',width:1.5},connectNulls:true},
     {name:'Signal',type:'line',xAxisIndex:1,yAxisIndex:1,data:macdSignal,showSymbol:false,lineStyle:{color:'#409eff',width:1.5},connectNulls:true},
     {name:'Histogram',type:'bar',xAxisIndex:1,yAxisIndex:1,data:macdHist,itemStyle:{color:(p:any)=>{const v=p.data as number|null;if(v==null)return'transparent';return v>=0?'rgba(38,166,91,0.7)':'rgba(220,53,69,0.7)'}}},
-    {name:'成交量',type:'bar',xAxisIndex:2,yAxisIndex:2,data:vol,barWidth:'60%',itemStyle:{color:'rgba(100,130,170,0.5)'}},
+    {name:'成交量',type:'bar',xAxisIndex:2,yAxisIndex:2,data:vol,barWidth:'60%',itemStyle:{color:'rgba(34,197,94,0.5)'}},
   ],
   dataZoom:[{type:'inside',xAxisIndex:[0,1,2],start:0,end:100}]
 },true)},{deep:true})

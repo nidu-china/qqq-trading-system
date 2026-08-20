@@ -330,7 +330,7 @@ function disabledDate(d: Date) {
       <div class="panel-title">
         <div>
           <h2>QQQ K线图</h2>
-          <span>EMA9/21 · VWAP · BOLL(20,2) · MACD(5,10,3)</span>
+          <span>EMA9/21 · VWAP · BOLL(20,2) · MACD(8,17,9)</span>
         </div>
         <div class="kline-stats" v-if="barCount">
           <span>{{ barCount }} 根K线</span>

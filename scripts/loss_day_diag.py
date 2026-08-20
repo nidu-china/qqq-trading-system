@@ -21,9 +21,9 @@ vol_daily = ParquetMarketStore.read_bars_path(store_path, "day")
 
 qqq_bars = [b for b in bars if b.symbol == "QQQ.US"]
 
-LOSS_DAYS = [date(2026, 8, 11), date(2026, 8, 5), date(2026, 8, 12),
-             date(2026, 7, 8), date(2026, 7, 1)]
-
+LOSS_DAYS = [date(2026, 8, 12), date(2026, 7, 10), date(2026, 8, 5),
+             date(2026, 7, 8), date(2026, 7, 23), date(2026, 7, 20),
+             date(2026, 8, 14)]
 for target_day in LOSS_DAYS:
     print(f"\n{'='*80}")
     print(f"  ANALYSIS: {target_day}")

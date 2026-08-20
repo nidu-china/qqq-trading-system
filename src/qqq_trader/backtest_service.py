@@ -11,7 +11,7 @@ from uuid import uuid4
 from .backtest import EventDrivenBacktester, load_option_frames
 from .config import Settings
 from .domain import TradingMode
-from .indicators import bollinger_bands, macd_histogram
+from .indicators import bollinger_bands, ema_series, macd_histogram
 from .persistence import MySQLJournal, ParquetMarketStore
 from .policy import RULES
 from .reporting import generate_price_chart
@@ -369,27 +369,33 @@ class BacktestService:
         from zoneinfo import ZoneInfo
 
         et = ZoneInfo("America/New_York")
-        all_closes: list[Decimal] = []
         full_series: list[dict[str, Any]] = []
-        day_bars: list[Any] = []
+        day_closes: list[Decimal] = []
         current_day = None
+        ema_fast_period = RULES.trend_ema_fast
+        ema_slow_period = RULES.trend_ema_slow
         for b in sorted_bars:
             bar_date = b.start.astimezone(et).date()
             if bar_date != current_day:
                 current_day = bar_date
-                day_bars = []
-            day_bars.append(b)
-            all_closes.append(b.close)
+                day_closes = []
+            day_closes.append(b.close)
             point: dict[str, Any] = {
                 "time": b.end.isoformat(),
                 "price": float(b.close),
                 "volume": b.volume,
             }
+            if len(day_closes) >= ema_fast_period:
+                ema_vals = ema_series(day_closes, ema_fast_period)
+                point["ema9"] = float(ema_vals[-1])
+            if len(day_closes) >= ema_slow_period:
+                ema_vals = ema_series(day_closes, ema_slow_period)
+                point["ema21"] = float(ema_vals[-1])
             boll_period = RULES.timed_boll_period
             boll_stddev = RULES.timed_boll_stddev
-            if len(all_closes) >= boll_period:
+            if len(day_closes) >= boll_period:
                 upper, middle, lower = bollinger_bands(
-                    all_closes,
+                    day_closes,
                     boll_period,
                     boll_stddev,
                 )
@@ -400,9 +406,9 @@ class BacktestService:
             macd_slow_p = RULES.timed_macd_slow
             macd_sig_p = RULES.timed_macd_signal
             macd_required = macd_slow_p + macd_sig_p - 1
-            if len(all_closes) >= macd_required:
+            if len(day_closes) >= macd_required:
                 macd_line, signal_line, histogram = macd_histogram(
-                    all_closes,
+                    day_closes,
                     macd_fast_p,
                     macd_slow_p,
                     macd_sig_p,
