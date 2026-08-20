@@ -72,22 +72,22 @@ class RiskEngine:
         rules = self.rules
         age = Decimal(str((now - quote.timestamp).total_seconds()))
         if age < 0 or age > rules.max_quote_age_seconds:
-            return "stale_quote"
+            return f"stale_quote:age={age:.1f}s,max={rules.max_quote_age_seconds}s"
         if quote.bid is None or quote.ask is None or quote.bid <= 0 or quote.ask <= 0:
-            return "missing_bid_ask"
+            return f"missing_bid_ask:bid={quote.bid},ask={quote.ask}"
         if quote.ask < quote.bid:
-            return "crossed_market"
+            return f"crossed_market:bid={quote.bid},ask={quote.ask}"
         mid = quote.mid
         spread = quote.spread
         assert mid is not None and spread is not None
         if spread > rules.max_spread_absolute:
-            return "absolute_spread_too_wide"
+            return f"absolute_spread_too_wide:spread={spread:.2f},max={rules.max_spread_absolute}"
         if mid <= 0 or spread / mid > rules.max_spread_ratio:
-            return "relative_spread_too_wide"
+            return f"relative_spread_too_wide:spread_pct={spread/mid*100:.1f}%,max={rules.max_spread_ratio*100:.0f}%"
         if quote.open_interest < rules.min_open_interest:
-            return "insufficient_open_interest"
+            return f"insufficient_open_interest:oi={quote.open_interest},min={rules.min_open_interest}"
         if quote.volume < rules.min_option_volume:
-            return "insufficient_volume"
+            return f"insufficient_volume:vol={quote.volume},min={rules.min_option_volume}"
         return None
 
     def position_size(

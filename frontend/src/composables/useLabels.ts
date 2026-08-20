@@ -28,7 +28,15 @@ function exitReasonType(key: string): string {
 }
 
 function rejectLabel(key: string): string {
-  return rejectLabels.value[key] || key.replace(/_/g, ' ')
+  if (rejectLabels.value[key]) return rejectLabels.value[key]
+  const colonIdx = key.indexOf(':')
+  if (colonIdx > 0) {
+    const base = key.substring(0, colonIdx)
+    const details = key.substring(colonIdx + 1)
+    const label = rejectLabels.value[base] || base.replace(/_/g, ' ')
+    return `${label} (${details})`
+  }
+  return key.replace(/_/g, ' ')
 }
 
 function regimeLabel(key: string): string {
