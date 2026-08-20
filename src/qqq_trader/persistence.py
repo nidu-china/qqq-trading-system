@@ -235,11 +235,11 @@ class MySQLJournal:
                     action="buy",
                     direction=signal.direction.value,
                     symbol="",
-                    reference_price=signal.spot,
+                    reference_price=Decimal(0),
                     quantity=0,
                     status="rejected",
                     reason=reason,
-                    indicators=signal.indicators or {},
+                    indicators={**(signal.indicators or {}), "spot": str(signal.spot)},
                 )
             )
 
@@ -693,7 +693,7 @@ class MySQLJournal:
                     "decision_at": _ensure_utc(row.decision_at),
                     "direction": row.direction,
                     "symbol": row.symbol or None,
-                    "price": row.reference_price,
+                    "price": row.reference_price if row.reference_price else None,
                     "quantity": row.quantity if row.quantity > 0 else None,
                     "status": row.status,
                     "reason": row.reason,
