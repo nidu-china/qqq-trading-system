@@ -51,6 +51,9 @@ OR_CONFIRM_BARS = 3
 OR_MIN_EXTENSION_PCT = Decimal("0.20")
 OR_MIN_WIDTH_PCT = Decimal("0.0015")  # OR must be >= 0.15% of price to qualify
 
+# ── Phase 2 risk filters ──
+VIX_INTRADAY_RISE_THRESHOLD = Decimal("0.03")  # Block CALL if VIX rises > 3% from day open
+
 
 class HybridEngine:
     """自适应双引擎策略：BOLL/MACD + Trend 优势互补.
@@ -87,6 +90,7 @@ class HybridEngine:
         self.last_context = None
         self.last_state = MarketState.UNKNOWN
         self.vix_trend = VixFiveMinuteTrend.NEUTRAL
+        self._vix_intraday_change: Decimal = ZERO
 
     def _reset_day(self, trading_day: date) -> None:
         self._current_day = trading_day
@@ -107,6 +111,22 @@ class HybridEngine:
         self.trend.set_volatility_context(volatility_bars, decision_at)
         self.boll_macd.set_volatility_context(volatility_bars, decision_at)
         self.vix_trend = self.trend.vix_trend
+
+        decision_date = decision_at.astimezone(NY_TZ).date()
+        today_vix = sorted(
+            (b for b in volatility_bars
+             if b.complete and b.end <= decision_at
+             and b.end.astimezone(NY_TZ).date() == decision_date),
+            key=lambda b: b.end,
+        )
+        if today_vix:
+            vix_open = today_vix[0].open
+            vix_current = today_vix[-1].close
+            self._vix_intraday_change = (
+                (vix_current - vix_open) / vix_open if vix_open > ZERO else ZERO
+            )
+        else:
+            self._vix_intraday_change = ZERO
 
     def record_entry(self, direction: Direction, entered_at: datetime) -> None:
         self.trend.record_entry(direction, entered_at)
@@ -385,6 +405,14 @@ class HybridEngine:
                     effective_boll = None
 
             if effective_boll is not None:
+                # VIX filter: rising > 3% intraday blocks CALL entries
+                if (
+                    effective_boll.direction is Direction.CALL
+                    and self._vix_intraday_change >= VIX_INTRADAY_RISE_THRESHOLD
+                ):
+                    effective_boll = None
+
+            if effective_boll is not None:
                 self.last_signal_bar = effective_boll.bar_end
                 self.boll_macd.last_signal_bar = effective_boll.bar_end
                 return effective_boll
@@ -392,6 +420,13 @@ class HybridEngine:
             # Source B: Custom OR breakout (EMA + VWAP + MACD confirmation)
             if self._or_built:
                 or_signal = self._or_breakout_signal(today, current, spot)
+                if or_signal is not None:
+                    # VIX filter also applies to OR breakout CALL
+                    if (
+                        or_signal.direction is Direction.CALL
+                        and self._vix_intraday_change >= VIX_INTRADAY_RISE_THRESHOLD
+                    ):
+                        or_signal = None
                 if or_signal is not None:
                     self.last_signal_bar = or_signal.bar_end
                     return or_signal
