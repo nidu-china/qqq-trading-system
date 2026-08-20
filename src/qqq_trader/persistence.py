@@ -429,7 +429,7 @@ class MySQLJournal:
     def _trade_signal(row: TradeSignalRow) -> TradeSignal:
         return TradeSignal(
             intent_id=row.intent_id,
-            decision_at=row.decision_at,
+            decision_at=_ensure_utc(row.decision_at),
             action=OrderSide(row.action),
             direction=Direction(row.direction),
             symbol=row.symbol,

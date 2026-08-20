@@ -214,11 +214,13 @@ class TradingEngine:
             if signal.direction is not position.direction or position.quantity > signal.quantity:
                 return [f"broker position {position.symbol} does not match its persisted signal"]
             opened_at = signal.indicators.get("opened_at")
-            position.opened_at = (
-                datetime.fromisoformat(str(opened_at))
-                if opened_at
-                else signal.decision_at
-            )
+            if opened_at:
+                parsed = datetime.fromisoformat(str(opened_at))
+                if parsed.tzinfo is None:
+                    parsed = parsed.replace(tzinfo=timezone.utc)
+                position.opened_at = parsed
+            else:
+                position.opened_at = signal.decision_at
             position.initial_quantity = int(
                 signal.indicators.get("initial_quantity") or signal.quantity
             )
@@ -259,9 +261,13 @@ class TradingEngine:
                 signal.indicators.get("macd_reversal_pending", False)
             )
             pending_at = signal.indicators.get("macd_reversal_pending_at")
-            position.macd_reversal_pending_at = (
-                datetime.fromisoformat(str(pending_at)) if pending_at else None
-            )
+            if pending_at:
+                parsed_pending = datetime.fromisoformat(str(pending_at))
+                if parsed_pending.tzinfo is None:
+                    parsed_pending = parsed_pending.replace(tzinfo=timezone.utc)
+                position.macd_reversal_pending_at = parsed_pending
+            else:
+                position.macd_reversal_pending_at = None
             position.entry_intent_id = signal.intent_id
             self.trading_date = datetime.now(timezone.utc).astimezone(NY_TZ).date()
             await self.journal.trade_signal_status(signal.intent_id, "executed")
