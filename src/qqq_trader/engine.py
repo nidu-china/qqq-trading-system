@@ -513,11 +513,12 @@ class TradingEngine:
                 signal.direction.value, quantity, quote.ask, contract.symbol,
             )
             await self.journal.signal(signal, True, "accepted")
+            from .execution import tick_price
             request = OrderRequest(
                 symbol=contract.symbol,
                 side=OrderSide.BUY,
                 quantity=quantity,
-                limit_price=quote.ask,
+                limit_price=tick_price(quote.ask - RULES.slippage_quote),
                 reason=f"entry_{signal.strategy}",
             )
             indicators = {

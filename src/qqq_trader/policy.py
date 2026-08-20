@@ -46,7 +46,7 @@ class StrategyRules:
     max_trades_per_day: int = 5
     signal_ttl_seconds: int = 90
     entry_reprices: int = 2
-    order_timeout_seconds: int = 6
+    order_timeout_seconds: int = 5
 
     structure_lookback: int = 10
     structure_break_atr: Decimal = Decimal("0.1")

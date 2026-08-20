@@ -30,7 +30,7 @@ class OrderExecutor:
         self, request: OrderRequest, quote_supplier: QuoteSupplier
     ) -> BrokerOrder | None:
         initial_limit = request.limit_price
-        ceiling = tick_price(initial_limit + RULES.slippage_quote)
+        ceiling = tick_price(initial_limit + 2 * RULES.slippage_quote)
         attempts = RULES.entry_reprices + 1
         current = request
         total_filled = 0
