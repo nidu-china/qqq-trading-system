@@ -87,7 +87,7 @@ class StrategyRules:
 
     fee_per_contract: Decimal = Decimal("1.50")
     slippage_quote: Decimal = Decimal("0.02")
-    max_quote_age_seconds: Decimal = Decimal("2")
+    max_quote_age_seconds: Decimal = Decimal("5")
     max_spread_ratio: Decimal = Decimal("0.10")
     max_spread_absolute: Decimal = Decimal("0.20")
     min_open_interest: int = 100

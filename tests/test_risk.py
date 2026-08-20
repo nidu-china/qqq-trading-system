@@ -57,7 +57,7 @@ def test_liquidity_and_absolute_quote_slippage_rules():
     risk = RiskEngine(make_settings())
     assert risk.quote_problem(_quote("C500"), NOW) is None
     stale = _quote("C500")
-    assert risk.quote_problem(stale, NOW + timedelta(seconds=3)).startswith("stale_quote")
+    assert risk.quote_problem(stale, NOW + timedelta(seconds=6)).startswith("stale_quote")
     wide = Quote("C500", NOW, Decimal("1"), Decimal("0.80"), Decimal("1.20"), 100, 500)
     assert risk.quote_problem(wide, NOW).startswith("absolute_spread_too_wide")
 def test_position_size_obeys_premium_budget_and_contract_cap():
