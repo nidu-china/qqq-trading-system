@@ -64,7 +64,7 @@ async def test_repricing_only_submits_unfilled_remainder():
     assert [request.quantity for request in broker.requests] == [4, 2]
     assert [request.limit_price for request in broker.requests] == [
         Decimal("1"),
-        Decimal("1.04"),
+        Decimal("1.02"),
     ]
 
 

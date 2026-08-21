@@ -57,9 +57,12 @@ class OrderExecutor:
             if attempt == attempts - 1:
                 break
             quote = await quote_supplier(request.symbol)
-            if quote.ask is None:
+            if quote.bid is None:
                 break
-            next_price = min(tick_price(quote.ask), ceiling)
+            next_price = min(
+                tick_price(current.limit_price + RULES.slippage_quote),
+                ceiling,
+            )
             if next_price <= 0 or next_price > ceiling:
                 break
             current = replace(

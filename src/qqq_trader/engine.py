@@ -524,7 +524,7 @@ class TradingEngine:
                 symbol=contract.symbol,
                 side=OrderSide.BUY,
                 quantity=quantity,
-                limit_price=tick_price(quote.ask - RULES.slippage_quote),
+                limit_price=tick_price(quote.bid - RULES.slippage_quote),
                 reason=f"entry_{signal.strategy}",
             )
             indicators = {
