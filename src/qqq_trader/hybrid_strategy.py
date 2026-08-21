@@ -54,6 +54,10 @@ OR_MIN_WIDTH_PCT = Decimal("0.0015")  # OR must be >= 0.15% of price to qualify
 # ── Phase 2 risk filters ──
 VIX_INTRADAY_RISE_THRESHOLD = Decimal("0.03")  # Block CALL if VIX rises > 3% from day open
 
+# ── VWAP chop detection (Phase 3 entry filter) ──
+VWAP_CHOP_WINDOW = 15  # rolling window in bars
+VWAP_CHOP_MAX_CROSSES = 4  # reject signal if crosses >= this value
+
 
 class HybridEngine:
     """自适应双引擎策略：BOLL/MACD + Trend 优势互补.
@@ -92,6 +96,11 @@ class HybridEngine:
         self.vix_trend = VixFiveMinuteTrend.NEUTRAL
         self._vix_intraday_change: Decimal = ZERO
 
+        # VWAP chop tracking (incremental)
+        self._vwap_cum_volume: int = 0
+        self._vwap_cum_vw: Decimal = ZERO
+        self._vwap_sides: list[bool] = []  # True = above VWAP
+
     def _reset_day(self, trading_day: date) -> None:
         self._current_day = trading_day
         self._day_mode = None
@@ -100,6 +109,9 @@ class HybridEngine:
         self._or_built = False
         self._or_signal_fired = False
         self._today_bars = []
+        self._vwap_cum_volume = 0
+        self._vwap_cum_vw = ZERO
+        self._vwap_sides = []
 
     # ────────────────────────────────────────────────────────────────────
     # Lifecycle hooks (called by backtest/risk engine)
@@ -142,6 +154,26 @@ class HybridEngine:
         if source.last_context is not None:
             self.last_context = source.last_context
         self.last_state = source.last_state
+
+    def _update_vwap_tracking(self, bar: Bar) -> None:
+        """Incrementally update cumulative VWAP and track side (above/below)."""
+        typical = (bar.high + bar.low + bar.close) / Decimal(3)
+        self._vwap_cum_volume += bar.volume
+        self._vwap_cum_vw += typical * Decimal(bar.volume)
+        if self._vwap_cum_volume > 0:
+            current_vwap = self._vwap_cum_vw / Decimal(self._vwap_cum_volume)
+        else:
+            current_vwap = bar.close
+        self._vwap_sides.append(bar.close >= current_vwap)
+
+    def _is_vwap_choppy(self) -> bool:
+        """Return True if recent VWAP crosses indicate choppy environment."""
+        n = len(self._vwap_sides)
+        if n < VWAP_CHOP_WINDOW:
+            return False
+        window = self._vwap_sides[-VWAP_CHOP_WINDOW:]
+        crosses = sum(1 for i in range(1, len(window)) if window[i] != window[i - 1])
+        return crosses >= VWAP_CHOP_MAX_CROSSES
 
     # ════════════════════════════════════════════════════════════════════
     # Phase 2B: Custom OR Breakout (EMA + VWAP + MACD confirmation)
@@ -348,6 +380,11 @@ class HybridEngine:
         )
         self._today_bars = today
 
+        # Incrementally update VWAP tracking for new bars only
+        processed = len(self._vwap_sides)
+        for b in today[processed:]:
+            self._update_vwap_tracking(b)
+
         # ── Phase 1: Accumulation (9:30-9:39) — no signals ──
         if current_time < RULES.phase_collect_end:
             self._sync_state(
@@ -365,16 +402,17 @@ class HybridEngine:
         # ── Phase 3: Mode already decided ──
         if self._day_mode == "trend":
             self._sync_state(self.trend)
-            if trend_signal is not None:
+            if trend_signal is not None and not self._is_vwap_choppy():
                 self.last_signal_bar = trend_signal.bar_end
                 return trend_signal
             return None
 
         if self._day_mode == "oscillation":
             self._sync_state(self.boll_macd)
-            if boll_signal is not None:
+            if boll_signal is not None and not self._is_vwap_choppy():
                 self.last_signal_bar = boll_signal.bar_end
-            return boll_signal
+                return boll_signal
+            return None
 
         # ── Phase 2: Dual-Signal Entry (9:40-10:00) ──
         if current_time < RULES.phase_opening_end:
@@ -449,22 +487,25 @@ class HybridEngine:
             self._day_mode = mode
         mode = self._day_mode
 
+        choppy = self._is_vwap_choppy()
+
         if mode == "trend":
             self._sync_state(self.trend)
-            if trend_signal is not None:
+            if trend_signal is not None and not choppy:
                 self.last_signal_bar = trend_signal.bar_end
                 return trend_signal
-            # Generate deferred entry if breakout is live but no fresh signal
-            signal = self._make_deferred_trend_signal()
-            if signal is not None:
-                self.last_signal_bar = signal.bar_end
-                return signal
+            if not choppy:
+                signal = self._make_deferred_trend_signal()
+                if signal is not None:
+                    self.last_signal_bar = signal.bar_end
+                    return signal
             return None
         else:
             self._sync_state(self.boll_macd)
-            if boll_signal is not None:
+            if boll_signal is not None and not choppy:
                 self.last_signal_bar = boll_signal.bar_end
-            return boll_signal
+                return boll_signal
+            return None
 
     def _make_deferred_trend_signal(self) -> Signal | None:
         """Generate a Trend entry when mode is decided as 'trend' at 10:01."""

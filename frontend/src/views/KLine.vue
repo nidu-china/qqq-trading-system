@@ -37,7 +37,7 @@ function isRegularSession(value: string) {
 async function loadDates() {
   try {
     const res = await api.get('/market-data/availability')
-    dates.value = res.data.filter((d: any) => d.bars).map((d: any) => d.date)
+    dates.value = res.data.filter((d: any) => d.bars).map((d: any) => d.date).sort().reverse()
     if (dates.value.length && !selectedDate.value) {
       selectedDate.value = dates.value[0]
     }
@@ -343,10 +343,11 @@ function disabledDate(d: Date) {
           v-model="selectedDate"
           type="date"
           value-format="YYYY-MM-DD"
-          placeholder="选择交易日"
+          placeholder="选择交易日 (ET)"
           :disabled-date="disabledDate"
           style="width: 160px"
         />
+        <span class="tz-hint">美东时间</span>
         <el-select v-model="timeframe" style="width: 100px">
           <el-option label="1 分钟" value="1m" />
           <el-option label="5 分钟" value="5m" />
@@ -380,6 +381,11 @@ function disabledDate(d: Date) {
   gap: 16px;
   font-size: 12px;
   color: #68809b;
+}
+.tz-hint {
+  font-size: 11px;
+  color: #68809b;
+  margin-left: 4px;
 }
 .error-msg {
   padding: 10px 14px;
