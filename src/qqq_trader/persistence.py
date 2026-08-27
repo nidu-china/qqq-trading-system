@@ -127,18 +127,6 @@ class ExecutionRow(Base):
     recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 
 
-class PositionRow(Base):
-    __tablename__ = "positions"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    symbol: Mapped[str] = mapped_column(String(64), index=True)
-    direction: Mapped[str] = mapped_column(String(8))
-    quantity: Mapped[int] = mapped_column(Integer)
-    entry_price: Mapped[Decimal] = mapped_column(Numeric(18, 6))
-    opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    realized_pnl: Mapped[Decimal | None] = mapped_column(Numeric(18, 6), nullable=True)
-
-
 class RiskSnapshotRow(Base):
     __tablename__ = "risk_snapshots"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -166,14 +154,6 @@ class TradeSummaryRow(Base):
     slippage: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
     mae: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
     mfe: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
-
-
-class ReportRunRow(Base):
-    __tablename__ = "report_runs"
-    trading_date: Mapped[date] = mapped_column(primary_key=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    output_path: Mapped[str] = mapped_column(Text)
-    content_hash: Mapped[str] = mapped_column(String(64))
 
 
 class ConfigVersionRow(Base):
