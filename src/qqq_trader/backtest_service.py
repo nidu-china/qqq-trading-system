@@ -278,7 +278,9 @@ class BacktestService:
                 bars.extend(ParquetMarketStore.read_bars(bar_path))
             if option_path.exists():
                 frames.update(load_option_frames(option_path))
-            if (vol_root / "5m.parquet").exists():
+            if (vol_root / "1m.parquet").exists():
+                volatility.extend(ParquetMarketStore.read_bars(vol_root / "1m.parquet"))
+            elif (vol_root / "5m.parquet").exists():
                 volatility.extend(ParquetMarketStore.read_bars(vol_root / "5m.parquet"))
             if (vol_root / "day.parquet").exists():
                 volatility_daily.extend(ParquetMarketStore.read_bars(vol_root / "day.parquet"))
@@ -294,7 +296,9 @@ class BacktestService:
                 / f"symbol={settings.volatility_symbol}"
                 / f"date={vol_cursor.isoformat()}"
             )
-            if (vol_day_root / "5m.parquet").exists():
+            if (vol_day_root / "1m.parquet").exists():
+                volatility.extend(ParquetMarketStore.read_bars(vol_day_root / "1m.parquet"))
+            elif (vol_day_root / "5m.parquet").exists():
                 volatility.extend(ParquetMarketStore.read_bars(vol_day_root / "5m.parquet"))
             if (vol_day_root / "day.parquet").exists():
                 volatility_daily.extend(ParquetMarketStore.read_bars(vol_day_root / "day.parquet"))

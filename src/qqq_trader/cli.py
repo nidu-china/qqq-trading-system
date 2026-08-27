@@ -166,11 +166,14 @@ def backtest(
         ContractSelector(),
         RiskEngine(settings),
     )
+    saved_volatility_1m = (
+        ParquetMarketStore.read_bars_path(volatility_bars, "1m") if volatility_bars else []
+    )
     result = tester.run(
         saved_bars,
         frames,
         Decimal(starting_equity),
-        saved_volatility,
+        saved_volatility_1m or saved_volatility,
         saved_volatility_daily,
     )
     payload = _backtest_metrics(result)

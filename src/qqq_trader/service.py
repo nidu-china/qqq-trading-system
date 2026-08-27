@@ -125,7 +125,7 @@ class TradingService:
                 await self.engine.on_completed_bars(
                     completed_1m,
                     now,
-                    self.volatility_bars_5m,
+                    self.volatility_bars_1m,
                     self.volatility_daily_bars,
                 )
             await self._capture_candidate_options(now, local, completed_1m)

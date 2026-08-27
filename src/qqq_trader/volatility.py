@@ -29,8 +29,18 @@ def vix_five_minute_trend(
     decision_at: datetime,
     max_staleness_minutes: int,
     minimum_change: Decimal = Decimal("0.005"),
+    lookback_bars: int | None = None,
 ) -> VixFiveMinuteTrend:
-    """Classify the latest completed 5-minute VIX candle without look-ahead."""
+    """
+    Classify VIX trend using recent candles without look-ahead.
+    
+    Auto-detects bar period and uses appropriate lookback:
+    - 1-minute bars: uses 5 bars (5-minute window) for higher responsiveness
+    - 5-minute bars: uses 2 bars (10-minute window) for backward compatibility
+    
+    Parameters:
+    - lookback_bars: Override auto-detection with explicit count
+    """
     decision_date = decision_at.astimezone(NY_TZ).date()
     visible = sorted(
         (
@@ -44,14 +54,24 @@ def vix_five_minute_trend(
     )
     if len(visible) < 2:
         return VixFiveMinuteTrend.NEUTRAL
+    
+    bar_period_minutes = int((visible[-1].end - visible[-1].start).total_seconds() / 60)
+    if lookback_bars is None:
+        lookback_bars = 5 if bar_period_minutes == 1 else 2
+    
+    if len(visible) < lookback_bars:
+        return VixFiveMinuteTrend.NEUTRAL
+    
     current = visible[-1]
-    previous = visible[-2]
+    baseline = visible[-lookback_bars]
     if decision_at - current.end > timedelta(minutes=max_staleness_minutes):
         return VixFiveMinuteTrend.NEUTRAL
-    close_change = current.close / previous.close - Decimal(1)
-    if current.close < current.open and close_change <= -minimum_change:
+    close_change = current.close / baseline.close - Decimal(1)
+    is_bearish = sum(1 for bar in visible[-lookback_bars:] if bar.close < bar.open) >= (lookback_bars * 2 // 3)
+    is_bullish = sum(1 for bar in visible[-lookback_bars:] if bar.close > bar.open) >= (lookback_bars * 2 // 3)
+    if is_bearish and close_change <= -minimum_change:
         return VixFiveMinuteTrend.FALLING
-    if current.close > current.open and close_change >= minimum_change:
+    if is_bullish and close_change >= minimum_change:
         return VixFiveMinuteTrend.RISING
     return VixFiveMinuteTrend.NEUTRAL
 

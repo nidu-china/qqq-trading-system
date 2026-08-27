@@ -23,6 +23,7 @@ from .domain import (
     Quote,
     Signal,
 )
+from .market_hours import regular_session_bars
 from .option_pricing import (
     black_scholes_0dte,
     historical_daily_volatility,
@@ -463,7 +464,9 @@ class EventDrivenBacktester:
     ) -> BacktestResult:
         result = BacktestResult(starting_equity, starting_equity)
         available = sorted(
-            (bar for bar in (warmup_bars or []) if bar.complete),
+            regular_session_bars(
+                bar for bar in (warmup_bars or []) if bar.complete
+            ),
             key=lambda item: item.end,
         )
         position: Position | None = None
@@ -619,7 +622,10 @@ class EventDrivenBacktester:
                 last_mark_bid = None
                 cooldown_until = timestamp + timedelta(minutes=RULES.cooldown_minutes)
 
-        ordered = sorted((bar for bar in bars if bar.complete), key=lambda item: item.end)
+        ordered = sorted(
+            regular_session_bars(bar for bar in bars if bar.complete),
+            key=lambda item: item.end,
+        )
         for bar in ordered:
             if cancel_check is not None and cancel_check():
                 cancelled = True
