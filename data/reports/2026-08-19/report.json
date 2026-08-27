@@ -1,0 +1,4246 @@
+{
+  "trading_date": "2026-08-19",
+  "generated_at": "2026-08-19T20:15:00.489481+00:00",
+  "opening_equity": "119623.32",
+  "closing_equity": "119973.32",
+  "metrics": {
+    "gross_pnl": "350.0000",
+    "fees": "150.0000",
+    "net_pnl": "200.0000",
+    "trade_count": 6,
+    "win_rate": "0.5",
+    "profit_factor": "1.377358490566037735849056604",
+    "equity_change": "350.00",
+    "max_mae": "-42.000000",
+    "max_intraday_drawdown": "-530.0000",
+    "average_slippage": "0.000000"
+  },
+  "trades": [
+    {
+      "symbol": "QQQ260819P716000.US",
+      "direction": "put",
+      "quantity": 5,
+      "entry_price": "1.420000",
+      "exit_price": "1.760000",
+      "pnl": "155.0000",
+      "fees": "15.0000",
+      "entry_at": "2026-08-19T13:40:01",
+      "exit_at": "2026-08-19T13:48:27",
+      "exit_reason": "trailing_stop",
+      "slippage": "0.000000",
+      "mae": "-42.000000",
+      "mfe": "46.000000"
+    },
+    {
+      "symbol": "QQQ260819P716000.US",
+      "direction": "put",
+      "quantity": 5,
+      "entry_price": "1.420000",
+      "exit_price": "2.500000",
+      "pnl": "525.0000",
+      "fees": "15.0000",
+      "entry_at": "2026-08-19T13:40:01",
+      "exit_at": "2026-08-19T14:29:00",
+      "exit_reason": "trend_ema_exit",
+      "slippage": "0.000000",
+      "mae": "-42.000000",
+      "mfe": "260.000000"
+    },
+    {
+      "symbol": "QQQ260819P714000.US",
+      "direction": "put",
+      "quantity": 10,
+      "entry_price": "1.070000",
+      "exit_price": "1.150000",
+      "pnl": "50.0000",
+      "fees": "30.0000",
+      "entry_at": "2026-08-19T14:34:01",
+      "exit_at": "2026-08-19T14:35:00",
+      "exit_reason": "trend_ema_exit",
+      "slippage": "0.000000",
+      "mae": "0.000000",
+      "mfe": "25.000000"
+    },
+    {
+      "symbol": "QQQ260819P717000.US",
+      "direction": "put",
+      "quantity": 10,
+      "entry_price": "1.920000",
+      "exit_price": "1.820000",
+      "pnl": "-130.0000",
+      "fees": "30.0000",
+      "entry_at": "2026-08-19T14:38:01",
+      "exit_at": "2026-08-19T14:39:00",
+      "exit_reason": "trend_ema_exit",
+      "slippage": "0.000000",
+      "mae": "-17.000000",
+      "mfe": "0.000000"
+    },
+    {
+      "symbol": "QQQ260819P715000.US",
+      "direction": "put",
+      "quantity": 10,
+      "entry_price": "1.000000",
+      "exit_price": "0.870000",
+      "pnl": "-160.0000",
+      "fees": "30.0000",
+      "entry_at": "2026-08-19T14:42:01",
+      "exit_at": "2026-08-19T14:43:00",
+      "exit_reason": "trend_ema_exit",
+      "slippage": "0.000000",
+      "mae": "-14.000000",
+      "mfe": "11.000000"
+    },
+    {
+      "symbol": "QQQ260819P718000.US",
+      "direction": "put",
+      "quantity": 10,
+      "entry_price": "2.550000",
+      "exit_price": "2.340000",
+      "pnl": "-240.0000",
+      "fees": "30.0000",
+      "entry_at": "2026-08-19T14:50:01",
+      "exit_at": "2026-08-19T14:51:01",
+      "exit_reason": "trend_ema_exit",
+      "slippage": "0.000000",
+      "mae": "-24.000000",
+      "mfe": "4.000000"
+    }
+  ],
+  "rejected_signals": [
+    {
+      "decision_at": "2026-08-19T14:30:00",
+      "reason": "cooldown",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "714.1500123003792983001721191",
+        "ema_slow": "714.1511537360173851650532875",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T14:31:00",
+      "reason": "cooldown",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "714.4020098403034386401376953",
+        "ema_slow": "714.2655943054703501500484432",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T14:32:00",
+      "reason": "cooldown",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "714.6824078722427509121101562",
+        "ema_slow": "714.4054493686094092273167665",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T14:36:00",
+      "reason": "cooldown",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "715.3113862644706307736003200",
+        "ema_slow": "714.8263392996444294975184526",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T14:40:00",
+      "reason": "cooldown",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.1706478139271703648666910",
+        "ema_slow": "715.4236440814455498241366386",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T14:41:00",
+      "reason": "cooldown",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.3565182511417362918933528",
+        "ema_slow": "715.5760400740414089310333078",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T14:44:00",
+      "reason": "cooldown",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.6778013445845689814493966",
+        "ema_slow": "715.9327558783181133967192395",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T14:45:00",
+      "reason": "cooldown",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.7662410756676551851595173",
+        "ema_slow": "716.0406871621073758151993086",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T14:46:00",
+      "reason": "cooldown",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.7989928605341241481276138",
+        "ema_slow": "716.1215337837339780138175533",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T14:47:00",
+      "reason": "stale_quote",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.8671942884272993185020910",
+        "ema_slow": "716.2141216215763436489250485",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T14:49:00",
+      "reason": "insufficient_open_interest",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.8075643445934715638413382",
+        "ema_slow": "716.3008443153523501230785525",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T14:52:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.7217129444318574406867652",
+        "ema_slow": "716.3781775472219009189170192",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T14:53:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.7133703555454859525494122",
+        "ema_slow": "716.4056159520199099262881993",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T14:55:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.1245570275491110096316238",
+        "ema_slow": "716.6567073983635619225522308",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T14:56:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.2216456220392888077052990",
+        "ema_slow": "716.7433703621486926568656644",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T14:57:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.4173164976314310461642392",
+        "ema_slow": "716.8757912383169933244233313",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T14:58:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.5638531981051448369313914",
+        "ema_slow": "716.9916283984699939312939375",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T14:59:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.7352825584841158695451131",
+        "ema_slow": "717.1215712713363581193581250",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:00:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.9062260467872926956360905",
+        "ema_slow": "717.2550647921239619266892045",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:01:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.0449808374298341565088724",
+        "ema_slow": "717.3773316292036017515356405",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:02:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.0939846699438673252070979",
+        "ema_slow": "717.4603014810941834104869459",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:03:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.0931877359550938601656783",
+        "ema_slow": "717.5175468009947121913517690",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:04:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.0585501887640750881325426",
+        "ema_slow": "717.5541334554497383557743355",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:05:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.0248401510112600705060341",
+        "ema_slow": "717.5846667776815803234312141",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:06:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.0008721208090080564048273",
+        "ema_slow": "717.6137879797105275667556492",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:07:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.9816976966472064451238618",
+        "ema_slow": "717.6402617997368432425051356",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:09:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.9350865258542121248792715",
+        "ema_slow": "717.6798031402783828450455666",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:10:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.8860692206833696999034172",
+        "ema_slow": "717.6807301275258025864050605",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:11:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.9108553765466957599227338",
+        "ema_slow": "717.7106637522961841694591459",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:12:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.8850843012373566079381870",
+        "ema_slow": "717.7171488657238037904174054",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:13:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.9780674409898852863505496",
+        "ema_slow": "717.7746807870216398094703685",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:14:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.0504539527919082290804397",
+        "ema_slow": "717.8260734427469452813366986",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:15:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.1223631622335265832643518",
+        "ema_slow": "717.8791576752244957103060896",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:16:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.1128905297868212666114814",
+        "ema_slow": "717.8969615229313597366418996",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:17:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.1843124238294570132891851",
+        "ema_slow": "717.9490559299375997605835451",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:18:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.2574499390635656106313481",
+        "ema_slow": "718.0036872090341816005304955",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:19:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.2719599512508524885050785",
+        "ema_slow": "718.0333520082128923641186323",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:20:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.3315679610006819908040628",
+        "ema_slow": "718.0821381892844476037442112",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:21:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.3552543688005455926432502",
+        "ema_slow": "718.1155801720767705488583738",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:23:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.3811627960323491792916802",
+        "ema_slow": "718.1677108860138599577341932",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:24:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.4049302368258793434333442",
+        "ema_slow": "718.1979189872853272343038120",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:25:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.3449441894607034747466754",
+        "ema_slow": "718.1894718066230247584580109",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:26:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.3119553515685627797973403",
+        "ema_slow": "718.1886107332936588713254645",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:27:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.2735642812548502238378722",
+        "ema_slow": "718.1823733939033262466595132",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:28:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.2128514250038801790702978",
+        "ema_slow": "718.1630667217302965878722847",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:30:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.2530249120024833146049906",
+        "ema_slow": "718.1911295220911542048531278",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:31:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.2254199296019866516839925",
+        "ema_slow": "718.1842086564465038225937525",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:32:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.1753359436815893213471940",
+        "ema_slow": "718.1651896876786398387215932",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:34:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.0754150039562171656622042",
+        "ema_slow": "718.1194956096517684617533828",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:35:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.0203320031649737325297634",
+        "ema_slow": "718.0904505542288804197758025",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:36:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.9628656025319789860238107",
+        "ema_slow": "718.0579550492989821997961841",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:37:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.8652924820255831888190486",
+        "ema_slow": "718.0049591357263474543601674",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:38:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.8602339856204665510552389",
+        "ema_slow": "717.9899628506603158676001522",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:39:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.7921871884963732408441911",
+        "ema_slow": "717.9472389551457416978183202",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:41:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.5606398006376788741402823",
+        "ema_slow": "717.8107346736741666924118349",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:42:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.4705118405101430993122258",
+        "ema_slow": "717.7470315215219697203743954",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:43:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.3954094724081144794497806",
+        "ema_slow": "717.6877559286563361094312685",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:45:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.4998620623411932668478596",
+        "ema_slow": "717.6843437426911868672985690",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:46:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.5908896498729546134782877",
+        "ema_slow": "717.7089488569919880611805173",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:47:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.7027117198983636907826302",
+        "ema_slow": "717.7490444154472618738004703",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:49:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.8829355007349527621008834",
+        "ema_slow": "717.8268135664853403915706366",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:50:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.8453484005879622096807067",
+        "ema_slow": "717.8148305149866730832460333",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:51:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.8182787204703697677445654",
+        "ema_slow": "717.8053004681697028029509394",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:52:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.7606229763762958141956523",
+        "ema_slow": "717.7802731528815480026826722",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:54:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.6917987048808293210852174",
+        "ema_slow": "717.7444819445302049608947705",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:55:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.6234389639046634568681739",
+        "ema_slow": "717.7086199495729136008134277",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:56:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.6337511711237307654945391",
+        "ema_slow": "717.7055635905208305461940252",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:57:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.6590009368989846123956313",
+        "ema_slow": "717.7105123550189368601763865",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T15:59:00",
+      "reason": "max_trades_per_day",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.7221605996153501519332040",
+        "ema_slow": "717.7300928553875511241127161",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:00:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.8117284796922801215465632",
+        "ema_slow": "717.7700844139886828401024692",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:01:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.9113827837538240972372506",
+        "ema_slow": "717.8191676490806207637295175",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:02:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.0511062270030592777898005",
+        "ema_slow": "717.8910614991642006942995614",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:03:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.2028849816024474222318404",
+        "ema_slow": "717.9746013628765460857268740",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:04:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.3119079852819579377854723",
+        "ema_slow": "718.0449103298877691688426127",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:05:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.4315263882255663502283778",
+        "ema_slow": "718.1235548453525174262205570",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:06:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.5212211105804530801827022",
+        "ema_slow": "718.1923225866841067511095973",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:07:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.6329768884643624641461618",
+        "ema_slow": "718.2730205333491879555541794",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:08:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.7513815107714899713169294",
+        "ema_slow": "718.3595641212265345050492540",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:09:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.8031052086171919770535435",
+        "ema_slow": "718.4186946556604859136811400",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:10:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.8884841668937535816428348",
+        "ema_slow": "718.4924496869640781033464909",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:11:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.9417873335150028653142678",
+        "ema_slow": "718.5526815336037073666786281",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:12:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "719.0014298668120022922514142",
+        "ema_slow": "718.6151650305488248787987528",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:13:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "719.0331438934496018338011314",
+        "ema_slow": "718.6646954823171135261806844",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:14:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "719.0305151147596814670409051",
+        "ema_slow": "718.6969958930155577510733495",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:15:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "719.0104120918077451736327241",
+        "ema_slow": "718.7181780845595979555212268",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:16:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "719.0103296734461961389061793",
+        "ema_slow": "718.7447073495996345050192971",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:17:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "719.0362637387569569111249434",
+        "ema_slow": "718.7806430450905768227448155",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:18:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "719.0860109910055655288999547",
+        "ema_slow": "718.8264936773550698388589232",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:19:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "719.1938087928044524231199638",
+        "ema_slow": "718.8990851612318816716899302",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:20:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "719.2550470342435619384959710",
+        "ema_slow": "718.9537137829380742469908456",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:21:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "719.2880376273948495507967768",
+        "ema_slow": "718.9961034390346129518098596",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:22:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "719.2514301019158796406374214",
+        "ema_slow": "719.0060031263951026834635087",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:23:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "719.2231440815327037125099371",
+        "ema_slow": "719.0154573876319115304213715",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:24:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "719.1925152652261629700079497",
+        "ema_slow": "719.0204158069381013912921559",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:25:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "719.1440122121809303760063598",
+        "ema_slow": "719.0140143699437285375383235",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:26:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "719.0312097697447443008050878",
+        "ema_slow": "718.9745585181306623068530214",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:28:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.8861742526366363525152562",
+        "ema_slow": "718.9158748083724481874818359",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:29:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.7509394021093090820122050",
+        "ema_slow": "718.8517043712476801704380326",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:30:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.6607515216874472656097640",
+        "ema_slow": "718.8015494284069819731254842",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:31:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.5706012173499578124878112",
+        "ema_slow": "718.7477722076427108846595311",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:32:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.4904809738799662499902490",
+        "ema_slow": "718.6952474614933735315086646",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:33:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.4263847791039729999921992",
+        "ema_slow": "718.6474976922667032104624224",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:34:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.4071078232831783999937594",
+        "ema_slow": "718.6186342656970029186022022",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:35:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.3876862586265427199950075",
+        "ema_slow": "718.5905766051790935623656384",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:36:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.3061490069012341759960060",
+        "ema_slow": "718.5350696410719032385142167",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:37:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.2349192055209873407968048",
+        "ema_slow": "718.4818814918835483986492879",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:38:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.1909353644167898726374438",
+        "ema_slow": "718.4394377198941349078629890",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:39:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.2207482915334318981099550",
+        "ema_slow": "718.4303979271764862798754445",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:40:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.2205986332267455184879640",
+        "ema_slow": "718.4112708428877147998867677",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:41:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.2324789065813964147903712",
+        "ema_slow": "718.3993371298979225453516070",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:42:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.2739831252651171318322970",
+        "ema_slow": "718.4030337544526568594105518",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:43:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.2689865002120937054658376",
+        "ema_slow": "718.3890306858660516903732289",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:45:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.2553513601357399714981361",
+        "ema_slow": "718.3610170957570675127051478",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:46:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.2002810881085919771985089",
+        "ema_slow": "718.3263791779609704660955889",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:47:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.1722248704868735817588071",
+        "ema_slow": "718.3021628890554276964505354",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:48:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.1677798963894988654070457",
+        "ema_slow": "718.2883298991412979058641231",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:49:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.1242239171115990923256366",
+        "ema_slow": "718.2575726355829980962401119",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:50:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "718.0533791336892792738605093",
+        "ema_slow": "718.2132478505299982693091926",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:51:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.9487033069514234190884074",
+        "ema_slow": "718.1511344095727256993719933",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:52:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.8749626455611387352707259",
+        "ema_slow": "718.0992130996115688176109030",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:53:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.7979701164489109882165807",
+        "ema_slow": "718.0438300905559716523735482",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:54:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.6813760931591287905732646",
+        "ema_slow": "717.9684819005054287748850438",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:56:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.5164006996218424259668894",
+        "ema_slow": "717.8399023971119246073430114",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:57:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.4151205596974739407735115",
+        "ema_slow": "717.7644567246472041884936467",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:58:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.3110964477579791526188092",
+        "ema_slow": "717.6854152042247310804487697",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T16:59:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.2568771582063833220950474",
+        "ema_slow": "717.6267410947497555276806997",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:00:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.2165017265651066576760379",
+        "ema_slow": "717.5747646315906868433460906",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:01:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.2042013812520853261408303",
+        "ema_slow": "717.5366042105369880394055369",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:02:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.1693611050016682609126642",
+        "ema_slow": "717.4905492823063527630959426",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:03:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.1594888840013346087301314",
+        "ema_slow": "717.4568629839148661482690387",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:04:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.1765911072010676869841051",
+        "ema_slow": "717.4376027126498783166082170",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:05:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.1352728857608541495872841",
+        "ema_slow": "717.3950933751362530150983791",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:06:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.1662183086086833196698273",
+        "ema_slow": "717.3855394319420481955439810",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:07:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.1309746468869466557358618",
+        "ema_slow": "717.3495813017654983595854373",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:08:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.0847797175095573245886894",
+        "ema_slow": "717.3087102743322712359867612",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:09:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.0098237740076458596709515",
+        "ema_slow": "717.2542820675747920327152375",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:10:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.9238590192061166877367612",
+        "ema_slow": "717.1929836977952654842865795",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:11:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.9170872153648933501894090",
+        "ema_slow": "717.1654397252684231675332541",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:12:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.8656697722919146801515272",
+        "ema_slow": "717.1194906593349301523029583",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:13:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.8825358178335317441212218",
+        "ema_slow": "717.1040824175772092293663257",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:15:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.8439429234134603162375819",
+        "ema_slow": "717.0473408409729001895589468",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:16:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.8331543387307682529900655",
+        "ema_slow": "717.0239462190662728995990425",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:17:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.8325234709846146023920524",
+        "ema_slow": "717.0063147446057026359991295",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:18:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.8360187767876916819136419",
+        "ema_slow": "716.9921043132779114872719359",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:19:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.7328150214301533455309135",
+        "ema_slow": "716.9310039211617377157017599",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:20:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.6302520171441226764247308",
+        "ema_slow": "716.8663672010561251960925090",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:21:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.5292016137152981411397846",
+        "ema_slow": "716.7989701827782956328113718",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:23:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.3366890327777908103294622",
+        "ema_slow": "716.6591489113870211841416295",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:24:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.2953512262222326482635698",
+        "ema_slow": "716.6110444648972919855832995",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:25:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.2462809809777861186108558",
+        "ema_slow": "716.5600404226339018050757268",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:27:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.2232198278257831159109477",
+        "ema_slow": "716.4927606798627287645253941",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:28:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.2465758622606264927287582",
+        "ema_slow": "716.4788733453297534222958128",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:30:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.3570085518468009553464053",
+        "ema_slow": "716.4919614424212838200791841",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:31:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.3976068414774407642771242",
+        "ema_slow": "716.4981467658375307455265310",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:32:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.3964854731819526114216994",
+        "ema_slow": "716.4884970598523006777513918",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:33:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.3481883785455620891373595",
+        "ema_slow": "716.4581791453202733434103562",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:35:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.2632405622691597370479101",
+        "ema_slow": "716.3989083845622093747193026",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:36:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.2609924498153277896383281",
+        "ema_slow": "716.3855530768747357951993660",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:37:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.3027939598522622317106625",
+        "ema_slow": "716.3932300698861234501812418",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:39:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.2725881343054478282948240",
+        "ema_slow": "716.3630827023852259918853238",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:41:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.2320564059554866101086874",
+        "ema_slow": "716.3273410763514264395746477",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:42:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.2496451247643892880869499",
+        "ema_slow": "716.3266737057740240359769525",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:44:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.3579728798492091443756479",
+        "ema_slow": "716.3652262031190281289065723",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:45:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.3803783038793673155005183",
+        "ema_slow": "716.3747510937445710262787021",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:46:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.4323026431034938524004146",
+        "ema_slow": "716.3988646306768827511624565",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:48:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.4794736915862360655362654",
+        "ema_slow": "716.4280699427081675629441789",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:49:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.5155789532689888524290123",
+        "ema_slow": "716.4491544933710614208583445",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:50:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.5284631626151910819432098",
+        "ema_slow": "716.4610495394282376553257677",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:51:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.5367705300921528655545678",
+        "ema_slow": "716.4709541267529433230234252",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:52:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.6094164240737222924436542",
+        "ema_slow": "716.5099582970481302936576593",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:54:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.7196265114071822671639387",
+        "ema_slow": "716.5793043777257275154195532",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:55:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.7397012091257458137311510",
+        "ema_slow": "716.6011857979324795594723211",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:56:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.7337609673005966509849208",
+        "ema_slow": "716.6110779981204359631566555",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:57:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.7430087738404773207879366",
+        "ema_slow": "716.6264345437458508755969595",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:58:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.7064070190723818566303493",
+        "ema_slow": "716.6203950397689553414517814",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T17:59:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.7003256152579054853042794",
+        "ema_slow": "716.6254500361535957649561649",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:01:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.7470083937650595105947388",
+        "ema_slow": "716.6589669720277650950050950",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:02:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.8746067150120476084757910",
+        "ema_slow": "716.7249699745706955409137227",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:03:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.0176853720096380867806328",
+        "ema_slow": "716.8036090677915414008306570",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:04:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.1081482976077104694245062",
+        "ema_slow": "716.8641900616286740007551427",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:05:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.1045186380861683755396050",
+        "ema_slow": "716.8847182378442490915955843",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:06:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.0396149104689347004316840",
+        "ema_slow": "716.8751983980402264469050766",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:07:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.8956919283751477603453472",
+        "ema_slow": "716.8247258164002058608227969",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:08:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.7203535427001182082762778",
+        "ema_slow": "716.7514780149092780552934517",
+        "vix_5m_trend": "falling",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:10:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.3708262673280756532968178",
+        "ema_slow": "716.5793619957927917812342576",
+        "vix_5m_trend": "falling",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:12:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.2365288110899684181099634",
+        "ema_slow": "716.4764148725560262654828575",
+        "vix_5m_trend": "falling",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:13:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.2552230488719747344879707",
+        "ema_slow": "716.4631044295963875140753250",
+        "vix_5m_trend": "falling",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:14:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.2381784390975797875903766",
+        "ema_slow": "716.4364585723603522855230227",
+        "vix_5m_trend": "rising",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:15:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.2005427512780638300723013",
+        "ema_slow": "716.4013259748730475322936570",
+        "vix_5m_trend": "rising",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:16:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.1514342010224510640578410",
+        "ema_slow": "716.3607508862482250293578700",
+        "vix_5m_trend": "rising",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:17:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.0481473608179608512462728",
+        "ema_slow": "716.2947735329529318448707909",
+        "vix_5m_trend": "rising",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:18:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "715.9165178886543686809970182",
+        "ema_slow": "716.2125213935935744044279917",
+        "vix_5m_trend": "rising",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:19:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "715.8852143109234949447976146",
+        "ema_slow": "716.1713830850850676403890834",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:21:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "715.8745371589910367646704734",
+        "ema_slow": "716.1162670124669980499083334",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:22:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "715.9242297271928294117363787",
+        "ema_slow": "716.1168791022427254999166667",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:23:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "715.9071837817542635293891030",
+        "ema_slow": "716.0916173656752049999242425",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:24:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "715.9037470254034108235112824",
+        "ema_slow": "716.0732885142501863635674932",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:25:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "715.8989976203227286588090259",
+        "ema_slow": "716.0557168311365330577886302",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:27:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "715.9733584770065463416377766",
+        "ema_slow": "716.0643114306913496345360580",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:28:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.0206867816052370733102213",
+        "ema_slow": "716.0775558460830451223055073",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:30:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.1420395402273517269185416",
+        "ema_slow": "716.1244263190768967952938077",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:31:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.3276316321818813815348333",
+        "ema_slow": "716.2103875627971789048125525",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:32:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.4821053057455051052278666",
+        "ema_slow": "716.2912614207247080952841386",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:34:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.6399473956771232673458346",
+        "ema_slow": "716.4014143972931471861852385",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:35:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.7479579165416986138766677",
+        "ema_slow": "716.4721949066301338056229441",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:36:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.7833663332333588911013342",
+        "ema_slow": "716.5133590060273943687481310",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:37:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.7906930665866871128810674",
+        "ema_slow": "716.5412354600249039715892100",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:39:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.7048435626154797522438831",
+        "ema_slow": "716.5439136033263669186687686",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:40:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.6918748500923838017951065",
+        "ema_slow": "716.5526487302966971987897896",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:41:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.7194998800739070414360852",
+        "ema_slow": "716.5778624820879065443543542",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:43:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.7772799232473005065190946",
+        "ema_slow": "716.6307954397420715242597968",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:44:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.8318239385978404052152757",
+        "ema_slow": "716.6689049452200650220543607",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:45:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.8654591508782723241722206",
+        "ema_slow": "716.6990044956546045655039643",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:46:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.8603673207026178593377765",
+        "ema_slow": "716.7118222687769132413672403",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:47:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.8142938565620942874702212",
+        "ema_slow": "716.7043838807062847648793094",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:49:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.7881480681997403439809416",
+        "ema_slow": "716.7106891576084998056853796",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:50:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.8085184545597922751847533",
+        "ema_slow": "716.7269901432804543688048905",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:52:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.8018518109182670561182421",
+        "ema_slow": "716.7384216060169044370288351",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:53:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.7432814487346136448945937",
+        "ema_slow": "716.7175650963790040336625774",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:55:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.7219001271901527327325400",
+        "ema_slow": "716.7110868565115735815393202",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:56:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.7075201017521221861860320",
+        "ema_slow": "716.7055335059196123468539275",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:57:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.6446160814016977489488256",
+        "ema_slow": "716.6771213690178294062308432",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T18:59:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.5781542920970865593272484",
+        "ema_slow": "716.6379515446428342200254903",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:00:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.5425234336776692474617987",
+        "ema_slow": "716.6163195860389402000231730",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:01:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.5820187469421353979694390",
+        "ema_slow": "716.6275632600354001818392482",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:03:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.5568919980429666547004410",
+        "ema_slow": "716.6083167438309092411894614",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:04:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.5365135984343733237603528",
+        "ema_slow": "716.5943788580280993101722376",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:06:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.5257687029979989272066258",
+        "ema_slow": "716.5794866595273548017952377",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:08:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.5340919699187193134122405",
+        "ema_slow": "716.5735426938242601667729237",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:09:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.5872735759349754507297924",
+        "ema_slow": "716.5941297216584183334299306",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:11:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.6860550885983842884670671",
+        "ema_slow": "716.6411402658334035813470501",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:12:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.7028440708787074307736537",
+        "ema_slow": "716.6528547871212759830427728",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:13:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.7192752567029659446189230",
+        "ema_slow": "716.6648679882920690754934298",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:15:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.7180961642898982045561107",
+        "ema_slow": "716.6736925523074951037135784",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:16:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.7404769314319185636448886",
+        "ema_slow": "716.6879023202795410033759804",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:18:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.7777052361164278807327287",
+        "ema_slow": "716.7143407605616041350214714",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:19:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.8261641888931423045861830",
+        "ema_slow": "716.7421279641469128500195195",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:20:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.8969313511145138436689464",
+        "ema_slow": "716.7819345128608298636541086",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:22:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.9512360647132888599481257",
+        "ema_slow": "716.8307723246783717881438914",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:23:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.9509888517706310879585006",
+        "ema_slow": "716.8416112042530652619489922",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:24:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.9787910814165048703668005",
+        "ema_slow": "716.8641920038664229654081747",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:25:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.0110328651332038962934404",
+        "ema_slow": "716.8892654580603845140074315",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:27:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.1206610336852504936278018",
+        "ema_slow": "716.9629466595540367884358938",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:28:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.1465288269482003949022414",
+        "ema_slow": "716.9890424177763970803962671",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:30:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.1183784492468482527374345",
+        "ema_slow": "717.0045061303937165953688158",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:31:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.1607027593974786021899476",
+        "ema_slow": "717.0340964821761059957898325",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:33:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.2734497660143863054015665",
+        "ema_slow": "717.1087987456000875998263078",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:34:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.3167598128115090443212532",
+        "ema_slow": "717.1434534050909887271148253",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:35:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.3614078502492072354570026",
+        "ema_slow": "717.1795030955372624791952957",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:36:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.2831262801993657883656021",
+        "ema_slow": "717.1604573595793295265411779",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:37:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.1775010241594926306924817",
+        "ema_slow": "717.1235975996175722968556163",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:38:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "717.0510008193275941045539854",
+        "ema_slow": "717.0709978178341566335051057",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:39:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.9858006554620752836431883",
+        "ema_slow": "717.0395434707583242122773688",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:40:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.8896405243696602269145506",
+        "ema_slow": "716.9909486097802947384339716",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:42:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.7645699355965825452253124",
+        "ema_slow": "716.9123542229589212714330344",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:43:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.7256559484772660361802499",
+        "ema_slow": "716.8812311117808375194845767",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:45:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.5892198070254502631553599",
+        "ema_slow": "716.7887860427940805946153526",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:46:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.4853758456203602105242879",
+        "ema_slow": "716.7234418570855278132866842",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:47:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.3593006764962881684194303",
+        "ema_slow": "716.6444925973504798302606220",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:49:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.1651524329576244277884354",
+        "ema_slow": "716.5018947085541155621988612",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:50:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "716.0961219463660995422307483",
+        "ema_slow": "716.4399042805037414201807829",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:52:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "715.8595180456743037070276789",
+        "ema_slow": "716.2662845293419350580006470",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:53:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "715.7886144365394429656221431",
+        "ema_slow": "716.1970768448563045981824064",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:54:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "715.7448915492315543724977145",
+        "ema_slow": "716.1400698589602769074385513",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:56:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "715.6639305915081947983985373",
+        "ema_slow": "716.0354296355043610805277284",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:57:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "715.6291444732065558387188298",
+        "ema_slow": "715.9858451231857828004797531",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:58:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "715.6693155785652446709750638",
+        "ema_slow": "715.9716773847143480004361392",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:59:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "715.7234524628521957367800510",
+        "ema_slow": "715.9687976224675890913055811",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:59:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "715.7234524628521957367800510",
+        "ema_slow": "715.9687976224675890913055811",
+        "vix_5m_trend": "neutral",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    },
+    {
+      "decision_at": "2026-08-19T19:59:00",
+      "reason": "outside_entry_window",
+      "indicators": {
+        "or_low": "717.700",
+        "or_high": "721.500",
+        "profile": "trend_following",
+        "ema_fast": "715.7234524628521957367800510",
+        "ema_slow": "715.9687976224675890913055811",
+        "vix_5m_trend": "falling",
+        "indicator_timeframe": "1m",
+        "adaptive_deferred_entry": "true"
+      }
+    }
+  ],
+  "system_events": [
+    {
+      "at": "2026-08-19T07:38:37",
+      "kind": "ready",
+      "message": "startup checks passed",
+      "details": {}
+    },
+    {
+      "at": "2026-08-19T07:38:40",
+      "kind": "candlesticks_subscribed",
+      "message": "subscribed to real-time one-minute candlesticks",
+      "details": {
+        "symbols": [
+          "QQQ.US"
+        ]
+      }
+    },
+    {
+      "at": "2026-08-19T07:38:43",
+      "kind": "volatility_warm_failed",
+      "message": "OpenApiException: (kind=ErrorKind.OpenApi, code=301606, trace_id=) request rate limit",
+      "details": {
+        "symbol": ".VIX.US"
+      }
+    },
+    {
+      "at": "2026-08-19T07:43:15",
+      "kind": "ready",
+      "message": "startup checks passed",
+      "details": {}
+    },
+    {
+      "at": "2026-08-19T07:43:19",
+      "kind": "candlesticks_subscribed",
+      "message": "subscribed to real-time one-minute candlesticks",
+      "details": {
+        "symbols": [
+          "QQQ.US"
+        ]
+      }
+    },
+    {
+      "at": "2026-08-19T07:43:22",
+      "kind": "volatility_warm_failed",
+      "message": "OpenApiException: (kind=ErrorKind.OpenApi, code=301606, trace_id=) request rate limit",
+      "details": {
+        "symbol": ".VIX.US"
+      }
+    },
+    {
+      "at": "2026-08-19T07:58:39",
+      "kind": "ready",
+      "message": "startup checks passed",
+      "details": {}
+    },
+    {
+      "at": "2026-08-19T07:58:42",
+      "kind": "candlesticks_subscribed",
+      "message": "subscribed to real-time one-minute candlesticks",
+      "details": {
+        "symbols": [
+          "QQQ.US"
+        ]
+      }
+    },
+    {
+      "at": "2026-08-19T07:58:45",
+      "kind": "volatility_warm_failed",
+      "message": "OpenApiException: (kind=ErrorKind.OpenApi, code=301606, trace_id=) request rate limit",
+      "details": {
+        "symbol": ".VIX.US"
+      }
+    },
+    {
+      "at": "2026-08-19T08:05:56",
+      "kind": "ready",
+      "message": "startup checks passed",
+      "details": {}
+    },
+    {
+      "at": "2026-08-19T08:05:59",
+      "kind": "candlesticks_subscribed",
+      "message": "subscribed to real-time one-minute candlesticks",
+      "details": {
+        "symbols": [
+          "QQQ.US"
+        ]
+      }
+    },
+    {
+      "at": "2026-08-19T08:06:02",
+      "kind": "volatility_warm_failed",
+      "message": "OpenApiException: (kind=ErrorKind.OpenApi, code=301606, trace_id=) request rate limit",
+      "details": {
+        "symbol": ".VIX.US"
+      }
+    },
+    {
+      "at": "2026-08-19T08:19:26",
+      "kind": "ready",
+      "message": "startup checks passed",
+      "details": {}
+    },
+    {
+      "at": "2026-08-19T08:19:29",
+      "kind": "candlesticks_subscribed",
+      "message": "subscribed to real-time one-minute candlesticks",
+      "details": {
+        "symbols": [
+          "QQQ.US"
+        ]
+      }
+    },
+    {
+      "at": "2026-08-19T08:19:32",
+      "kind": "volatility_warm_failed",
+      "message": "OpenApiException: (kind=ErrorKind.OpenApi, code=301606, trace_id=) request rate limit",
+      "details": {
+        "symbol": ".VIX.US"
+      }
+    },
+    {
+      "at": "2026-08-19T08:20:14",
+      "kind": "ready",
+      "message": "startup checks passed",
+      "details": {}
+    },
+    {
+      "at": "2026-08-19T08:20:20",
+      "kind": "candlesticks_subscribed",
+      "message": "subscribed to real-time one-minute candlesticks",
+      "details": {
+        "symbols": [
+          "QQQ.US"
+        ]
+      }
+    },
+    {
+      "at": "2026-08-19T08:20:25",
+      "kind": "volatility_warm_failed",
+      "message": "OpenApiException: (kind=ErrorKind.OpenApi, code=301606, trace_id=) request rate limit",
+      "details": {
+        "symbol": ".VIX.US"
+      }
+    },
+    {
+      "at": "2026-08-19T08:23:13",
+      "kind": "ready",
+      "message": "startup checks passed",
+      "details": {}
+    },
+    {
+      "at": "2026-08-19T08:23:19",
+      "kind": "candlesticks_subscribed",
+      "message": "subscribed to real-time one-minute candlesticks",
+      "details": {
+        "symbols": [
+          "QQQ.US"
+        ]
+      }
+    },
+    {
+      "at": "2026-08-19T08:23:24",
+      "kind": "volatility_warm_failed",
+      "message": "OpenApiException: (kind=ErrorKind.OpenApi, code=301606, trace_id=) request rate limit",
+      "details": {
+        "symbol": ".VIX.US"
+      }
+    },
+    {
+      "at": "2026-08-19T10:33:19",
+      "kind": "ready",
+      "message": "startup checks passed",
+      "details": {}
+    },
+    {
+      "at": "2026-08-19T10:33:22",
+      "kind": "candlesticks_subscribed",
+      "message": "subscribed to real-time one-minute candlesticks",
+      "details": {
+        "symbols": [
+          "QQQ.US"
+        ]
+      }
+    },
+    {
+      "at": "2026-08-19T10:33:25",
+      "kind": "volatility_warm_failed",
+      "message": "OpenApiException: (kind=ErrorKind.OpenApi, code=301606, trace_id=) request rate limit",
+      "details": {
+        "symbol": ".VIX.US"
+      }
+    },
+    {
+      "at": "2026-08-19T12:19:46",
+      "kind": "ready",
+      "message": "startup checks passed",
+      "details": {}
+    },
+    {
+      "at": "2026-08-19T12:19:50",
+      "kind": "candlesticks_subscribed",
+      "message": "subscribed to real-time one-minute candlesticks",
+      "details": {
+        "symbols": [
+          "QQQ.US"
+        ]
+      }
+    },
+    {
+      "at": "2026-08-19T12:19:52",
+      "kind": "volatility_warm_failed",
+      "message": "OpenApiException: (kind=ErrorKind.OpenApi, code=301606, trace_id=) request rate limit",
+      "details": {
+        "symbol": ".VIX.US"
+      }
+    },
+    {
+      "at": "2026-08-19T13:40:02",
+      "kind": "buy_signal",
+      "message": "buy 10 QQQ260819P716000.US",
+      "details": {
+        "reason": "entry_timed_opening_signal",
+        "direction": "put",
+        "intent_id": "d229d4d8-b397-47ea-9609-98ea75537ec5",
+        "reference_price": "1.42"
+      }
+    },
+    {
+      "at": "2026-08-19T13:48:27",
+      "kind": "sell_signal",
+      "message": "sell 5 QQQ260819P716000.US",
+      "details": {
+        "reason": "trailing_stop",
+        "direction": "put",
+        "intent_id": "a17beffd-c536-4835-ad98-97463903b579",
+        "reference_price": "1.73"
+      }
+    },
+    {
+      "at": "2026-08-19T14:29:01",
+      "kind": "sell_signal",
+      "message": "sell 5 QQQ260819P716000.US",
+      "details": {
+        "reason": "trend_ema_exit",
+        "direction": "put",
+        "intent_id": "eee688bf-6a12-4dea-a2d0-461d01e4d2ff",
+        "reference_price": "2.48"
+      }
+    },
+    {
+      "at": "2026-08-19T14:34:01",
+      "kind": "buy_signal",
+      "message": "buy 10 QQQ260819P714000.US",
+      "details": {
+        "reason": "entry_trend_orb_breakout",
+        "direction": "put",
+        "intent_id": "657032d1-9c7a-46fd-8fcf-802aecca468f",
+        "reference_price": "1.07"
+      }
+    },
+    {
+      "at": "2026-08-19T14:35:00",
+      "kind": "sell_signal",
+      "message": "sell 10 QQQ260819P714000.US",
+      "details": {
+        "reason": "trend_ema_exit",
+        "direction": "put",
+        "intent_id": "31ebdf8e-519a-4e97-9b62-c4dc149c0931",
+        "reference_price": "1.15"
+      }
+    },
+    {
+      "at": "2026-08-19T14:38:01",
+      "kind": "buy_signal",
+      "message": "buy 10 QQQ260819P717000.US",
+      "details": {
+        "reason": "entry_trend_orb_breakout",
+        "direction": "put",
+        "intent_id": "51a07188-13da-463b-be50-a2acc8066c38",
+        "reference_price": "1.93"
+      }
+    },
+    {
+      "at": "2026-08-19T14:39:01",
+      "kind": "sell_signal",
+      "message": "sell 10 QQQ260819P717000.US",
+      "details": {
+        "reason": "trend_ema_exit",
+        "direction": "put",
+        "intent_id": "895e3312-620f-4a50-ba7c-e68cf56943ca",
+        "reference_price": "1.81"
+      }
+    },
+    {
+      "at": "2026-08-19T14:42:01",
+      "kind": "buy_signal",
+      "message": "buy 10 QQQ260819P715000.US",
+      "details": {
+        "reason": "entry_trend_orb_breakout",
+        "direction": "put",
+        "intent_id": "965c1081-631c-4685-ba0d-b9ad1d53d975",
+        "reference_price": "1.00"
+      }
+    },
+    {
+      "at": "2026-08-19T14:43:00",
+      "kind": "sell_signal",
+      "message": "sell 10 QQQ260819P715000.US",
+      "details": {
+        "reason": "trend_ema_exit",
+        "direction": "put",
+        "intent_id": "6c88902b-aa69-40f8-bfa0-cfc48cb9b3a3",
+        "reference_price": "0.86"
+      }
+    },
+    {
+      "at": "2026-08-19T14:50:01",
+      "kind": "buy_signal",
+      "message": "buy 10 QQQ260819P718000.US",
+      "details": {
+        "reason": "entry_trend_orb_breakout",
+        "direction": "put",
+        "intent_id": "f825dc6a-8763-4e93-87ec-915ee87b5b70",
+        "reference_price": "2.55"
+      }
+    },
+    {
+      "at": "2026-08-19T14:51:01",
+      "kind": "sell_signal",
+      "message": "sell 10 QQQ260819P718000.US",
+      "details": {
+        "reason": "trend_ema_exit",
+        "direction": "put",
+        "intent_id": "d8a8bd47-e815-4ec3-9868-452fdea230b1",
+        "reference_price": "2.34"
+      }
+    }
+  ],
+  "comparison_20d": {
+    "trading_days": 4,
+    "trades": 10,
+    "net_pnl": "-1845.0000",
+    "win_rate": "0.3",
+    "average_slippage": "0.000000"
+  },
+  "data_quality": {
+    "one_minute_bars": 1000,
+    "missing_minutes_between_observations": 1994
+  },
+  "option_backtest_complete": true,
+  "suggestions": [
+    "复核被拒绝信号的主要原因，优先改善行情完整性和成交价差。"
+  ]
+}

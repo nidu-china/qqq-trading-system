@@ -1,0 +1,112 @@
+{
+  "trading_date": "2026-08-25",
+  "generated_at": "2026-08-25T20:15:00.942273+00:00",
+  "opening_equity": "119340.08",
+  "closing_equity": "119340.08",
+  "metrics": {
+    "gross_pnl": "0",
+    "fees": "0",
+    "net_pnl": "0",
+    "trade_count": 0,
+    "win_rate": "0",
+    "profit_factor": null,
+    "equity_change": "0.00",
+    "max_mae": "0",
+    "max_intraday_drawdown": "0",
+    "average_slippage": "0"
+  },
+  "trades": [],
+  "rejected_signals": [],
+  "system_events": [
+    {
+      "at": "2026-08-25T10:41:50",
+      "kind": "ready",
+      "message": "startup checks passed",
+      "details": {}
+    },
+    {
+      "at": "2026-08-25T10:41:56",
+      "kind": "candlesticks_subscribed",
+      "message": "subscribed to real-time one-minute candlesticks",
+      "details": {
+        "symbols": [
+          "QQQ.US",
+          ".VIX.US"
+        ]
+      }
+    },
+    {
+      "at": "2026-08-25T10:41:59",
+      "kind": "volatility_warm_failed",
+      "message": "OpenApiException: (kind=ErrorKind.OpenApi, code=301606, trace_id=) request rate limit",
+      "details": {
+        "symbol": ".VIX.US"
+      }
+    },
+    {
+      "at": "2026-08-25T13:26:08",
+      "kind": "ready",
+      "message": "startup checks passed",
+      "details": {}
+    },
+    {
+      "at": "2026-08-25T13:26:14",
+      "kind": "candlesticks_subscribed",
+      "message": "subscribed to real-time one-minute candlesticks",
+      "details": {
+        "symbols": [
+          "QQQ.US",
+          ".VIX.US"
+        ]
+      }
+    },
+    {
+      "at": "2026-08-25T13:26:17",
+      "kind": "volatility_warm_failed",
+      "message": "OpenApiException: (kind=ErrorKind.OpenApi, code=301606, trace_id=) request rate limit",
+      "details": {
+        "symbol": ".VIX.US"
+      }
+    },
+    {
+      "at": "2026-08-25T13:26:31",
+      "kind": "ready",
+      "message": "startup checks passed",
+      "details": {}
+    },
+    {
+      "at": "2026-08-25T13:26:37",
+      "kind": "candlesticks_subscribed",
+      "message": "subscribed to real-time one-minute candlesticks",
+      "details": {
+        "symbols": [
+          "QQQ.US",
+          ".VIX.US"
+        ]
+      }
+    },
+    {
+      "at": "2026-08-25T13:26:39",
+      "kind": "volatility_warm_failed",
+      "message": "OpenApiException: (kind=ErrorKind.OpenApi, code=301606, trace_id=) request rate limit",
+      "details": {
+        "symbol": ".VIX.US"
+      }
+    }
+  ],
+  "comparison_20d": {
+    "trading_days": 8,
+    "trades": 27,
+    "net_pnl": "-2260.0000",
+    "win_rate": "0.4074074074074074074074074074",
+    "average_slippage": "0.000000"
+  },
+  "data_quality": {
+    "one_minute_bars": 1000,
+    "missing_minutes_between_observations": 4874
+  },
+  "option_backtest_complete": true,
+  "suggestions": [
+    "没有发现需要立即调整的规则；继续积累样本，禁止自动改动实盘参数。"
+  ]
+}

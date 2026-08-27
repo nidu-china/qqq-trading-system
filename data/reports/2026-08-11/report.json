@@ -1,0 +1,276 @@
+{
+  "trading_date": "2026-08-11",
+  "generated_at": "2026-08-11T20:15:00.648952+00:00",
+  "opening_equity": "121322.81",
+  "closing_equity": "120932.81",
+  "metrics": {
+    "gross_pnl": "-390.0000",
+    "fees": "60.0000",
+    "net_pnl": "-450.0000",
+    "trade_count": 2,
+    "win_rate": "0",
+    "profit_factor": "0E+4",
+    "equity_change": "-390.00",
+    "max_mae": "-47.000000",
+    "max_intraday_drawdown": "-450.0000",
+    "average_slippage": "0.000000"
+  },
+  "trades": [
+    {
+      "symbol": "QQQ260811P719000.US",
+      "direction": "put",
+      "quantity": 10,
+      "entry_price": "1.530000",
+      "exit_price": "1.140000",
+      "pnl": "-420.0000",
+      "fees": "30.0000",
+      "entry_at": "2026-08-11T13:37:01",
+      "exit_at": "2026-08-11T13:42:00",
+      "exit_reason": "stop_loss",
+      "slippage": "0.000000",
+      "mae": "-47.000000",
+      "mfe": "32.000000"
+    },
+    {
+      "symbol": "QQQ260811P720000.US",
+      "direction": "put",
+      "quantity": 10,
+      "entry_price": "1.170000",
+      "exit_price": "1.170000",
+      "pnl": "-30.0000",
+      "fees": "30.0000",
+      "entry_at": "2026-08-11T15:10:01",
+      "exit_at": "2026-08-11T15:30:02",
+      "exit_reason": "stale_position",
+      "slippage": "0.000000",
+      "mae": "-31.000000",
+      "mfe": "16.000000"
+    }
+  ],
+  "rejected_signals": [
+    {
+      "decision_at": "2026-08-11T14:25:00",
+      "reason": "stale_quote",
+      "indicators": {
+        "rsi": "47.90958426315566657959924583",
+        "profile": "timed_trend",
+        "macd_fast": "8",
+        "macd_hist": "-0.1012157365734678812608854670",
+        "macd_line": "-0.0203160535738277281682127",
+        "macd_slow": "17",
+        "boll_lower": "720.9842080751819357480486685",
+        "boll_upper": "722.1395919248180642519513315",
+        "boll_middle": "721.5619",
+        "boll_period": "20",
+        "boll_stddev": "2",
+        "macd_signal": "0.08089968299964015309267276704",
+        "vix_5m_trend": "neutral",
+        "volume_ratio": "1.775170626090995587320851969",
+        "rsi_threshold": "30",
+        "macd_hist_prev": "-0.0960715203557886062664721338",
+        "previous_close": "721.410",
+        "boll_middle_prev": "721.5734",
+        "boll_middle_prev2": "721.57465",
+        "macd_signal_period": "9",
+        "two_bars_ago_close": "721.160",
+        "boll_band_extension": "0.8168713802752532946170687063",
+        "boll_middle_crosses": "1",
+        "indicator_timeframe": "1m",
+        "normal_cross2_filter": "false",
+        "previous_volume_ratio": "0.6437940853429351569778240579",
+        "volume_ratio_threshold": "1.2",
+        "boll_middle_cross_limit": "2",
+        "normal_fresh_macd_filter": "false",
+        "boll_middle_crosses_reset": "false",
+        "continuation_quality_filter": "false"
+      }
+    },
+    {
+      "decision_at": "2026-08-11T14:53:00",
+      "reason": "stale_quote",
+      "indicators": {
+        "rsi": "64.78129453209892517145888763",
+        "profile": "timed_trend",
+        "macd_fast": "8",
+        "macd_hist": "0.1265966939209722832701626322",
+        "macd_line": "0.2154878103031661199414598",
+        "macd_slow": "17",
+        "boll_lower": "720.7011673944083336278714342",
+        "boll_upper": "722.1993326055916663721285658",
+        "boll_middle": "721.45025",
+        "boll_period": "20",
+        "boll_stddev": "2",
+        "macd_signal": "0.08889111638219383667129716782",
+        "vix_5m_trend": "falling",
+        "volume_ratio": "1.423859554033822571956414688",
+        "rsi_threshold": "70",
+        "macd_hist_prev": "0.1051360193570444045718554902",
+        "previous_close": "722.100",
+        "boll_middle_prev": "721.3949",
+        "boll_middle_prev2": "721.3424",
+        "macd_signal_period": "9",
+        "two_bars_ago_close": "721.580",
+        "boll_band_extension": "1.121037911882521375139776142",
+        "boll_middle_crosses": "2",
+        "indicator_timeframe": "1m",
+        "normal_cross2_filter": "false",
+        "previous_volume_ratio": "1.514106825384555924866661513",
+        "volume_ratio_threshold": "1.080",
+        "boll_middle_cross_limit": "2",
+        "normal_fresh_macd_filter": "false",
+        "boll_middle_crosses_reset": "false",
+        "continuation_quality_filter": "false"
+      }
+    }
+  ],
+  "system_events": [
+    {
+      "at": "2026-08-11T10:45:44",
+      "kind": "ready",
+      "message": "startup checks passed",
+      "details": {}
+    },
+    {
+      "at": "2026-08-11T10:45:48",
+      "kind": "candlesticks_subscribed",
+      "message": "subscribed to real-time one-minute candlesticks",
+      "details": {
+        "symbols": [
+          "QQQ.US"
+        ]
+      }
+    },
+    {
+      "at": "2026-08-11T10:45:50",
+      "kind": "volatility_warm_failed",
+      "message": "OpenApiException: (kind=ErrorKind.OpenApi, code=301606, trace_id=) request rate limit",
+      "details": {
+        "symbol": ".VIX.US"
+      }
+    },
+    {
+      "at": "2026-08-11T10:52:06",
+      "kind": "ready",
+      "message": "startup checks passed",
+      "details": {}
+    },
+    {
+      "at": "2026-08-11T10:52:09",
+      "kind": "candlesticks_subscribed",
+      "message": "subscribed to real-time one-minute candlesticks",
+      "details": {
+        "symbols": [
+          "QQQ.US"
+        ]
+      }
+    },
+    {
+      "at": "2026-08-11T10:52:12",
+      "kind": "volatility_warm_failed",
+      "message": "OpenApiException: (kind=ErrorKind.OpenApi, code=301606, trace_id=) request rate limit",
+      "details": {
+        "symbol": ".VIX.US"
+      }
+    },
+    {
+      "at": "2026-08-11T13:37:01",
+      "kind": "buy_signal",
+      "message": "buy 10 QQQ260811P719000.US",
+      "details": {
+        "reason": "entry_timed_opening_signal",
+        "direction": "put",
+        "intent_id": "9116f644-7969-4c28-9d49-c086ca39d5b8",
+        "reference_price": "1.54"
+      }
+    },
+    {
+      "at": "2026-08-11T13:42:00",
+      "kind": "sell_signal",
+      "message": "sell 10 QQQ260811P719000.US",
+      "details": {
+        "reason": "stop_loss",
+        "direction": "put",
+        "intent_id": "540b0e7a-02ab-4d8c-92df-00d814787f3d",
+        "reference_price": "1.13"
+      }
+    },
+    {
+      "at": "2026-08-11T13:42:00",
+      "kind": "hard_stop_triggered",
+      "message": "one-minute close confirmed stop; submitting emergency market exit",
+      "details": {
+        "symbol": "QQQ260811P719000.US",
+        "quantity": 10,
+        "stop_price": "1.147500",
+        "trigger_bid": "1.13",
+        "triggered_at": "2026-08-11T13:42:00.071622+00:00"
+      }
+    },
+    {
+      "at": "2026-08-11T13:42:02",
+      "kind": "hard_stop_filled",
+      "message": "emergency market exit filled",
+      "details": {
+        "symbol": "QQQ260811P719000.US",
+        "quantity": 10,
+        "fill_price": "1.1400",
+        "stop_price": "1.147500",
+        "penetration": "0.007500",
+        "trigger_bid": "1.13",
+        "penetration_pct": "0.004901960784313725490196078431"
+      }
+    },
+    {
+      "at": "2026-08-11T15:10:01",
+      "kind": "buy_signal",
+      "message": "buy 10 QQQ260811P720000.US",
+      "details": {
+        "reason": "entry_timed_boll_macd_signal",
+        "direction": "put",
+        "intent_id": "c89541a6-7c45-4f3d-be0b-81a73a8f8a9f",
+        "reference_price": "1.19"
+      }
+    },
+    {
+      "at": "2026-08-11T15:21:00",
+      "kind": "macd_reversal_pending",
+      "message": "MACD reversal is waiting for volume confirmation",
+      "details": {
+        "rvol": "0.5292570869875628218760221194",
+        "symbol": "QQQ260811P720000.US",
+        "bar_end": "2026-08-11T15:20:00+00:00",
+        "direction": "put",
+        "macd_hist": "0.0050473241432024795165569196",
+        "rvol_prev": "0.4748803659559709222484169873",
+        "macd_hist_prev": "-0.0216453276766432745884908505"
+      }
+    },
+    {
+      "at": "2026-08-11T15:30:02",
+      "kind": "sell_signal",
+      "message": "sell 10 QQQ260811P720000.US",
+      "details": {
+        "reason": "stale_position",
+        "direction": "put",
+        "intent_id": "573f307e-84cc-456a-b8a9-597c702bb669",
+        "reference_price": "1.16"
+      }
+    }
+  ],
+  "comparison_20d": {
+    "trading_days": 0,
+    "trades": 0,
+    "net_pnl": "0",
+    "win_rate": "0",
+    "average_slippage": "0"
+  },
+  "data_quality": {
+    "one_minute_bars": 1000,
+    "missing_minutes_between_observations": 4874
+  },
+  "option_backtest_complete": true,
+  "suggestions": [
+    "复核被拒绝信号的主要原因，优先改善行情完整性和成交价差。",
+    "当日胜率偏低；在滚动样本验证前不要放宽突破或流动性门槛。"
+  ]
+}

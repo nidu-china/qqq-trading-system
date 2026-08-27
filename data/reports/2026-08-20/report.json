@@ -1,0 +1,513 @@
+{
+  "trading_date": "2026-08-20",
+  "generated_at": "2026-08-20T20:15:00.371419+00:00",
+  "opening_equity": "119311.0700",
+  "closing_equity": "118926.07",
+  "metrics": {
+    "gross_pnl": "-985.0000",
+    "fees": "90.0000",
+    "net_pnl": "-1075.0000",
+    "trade_count": 4,
+    "win_rate": "0.25",
+    "profit_factor": "0.06521739130434782608695652174",
+    "equity_change": "-385.0000",
+    "max_mae": "-60.000000",
+    "max_intraday_drawdown": "-1110.0000",
+    "average_slippage": "0.000000"
+  },
+  "trades": [
+    {
+      "symbol": "QQQ260820P710000.US",
+      "direction": "put",
+      "quantity": 10,
+      "entry_price": "1.660000",
+      "exit_price": "1.200000",
+      "pnl": "-490.0000",
+      "fees": "30.0000",
+      "entry_at": "2026-08-20T13:53:01",
+      "exit_at": "2026-08-20T13:55:00",
+      "exit_reason": "stop_loss",
+      "slippage": "0.000000",
+      "mae": "-47.000000",
+      "mfe": "9.000000"
+    },
+    {
+      "symbol": "QQQ260820C715000.US",
+      "direction": "call",
+      "quantity": 10,
+      "entry_price": "1.140000",
+      "exit_price": "0.550000",
+      "pnl": "-620.0000",
+      "fees": "30.0000",
+      "entry_at": "2026-08-20T14:11:01",
+      "exit_at": "2026-08-20T15:10:30",
+      "exit_reason": "stale_position",
+      "slippage": "0.000000",
+      "mae": "-60.000000",
+      "mfe": "0.000000"
+    },
+    {
+      "symbol": "QQQ260820P710000.US",
+      "direction": "put",
+      "quantity": 5,
+      "entry_price": "0.800000",
+      "exit_price": "0.980000",
+      "pnl": "75.0000",
+      "fees": "15.0000",
+      "entry_at": "2026-08-20T15:21:01",
+      "exit_at": "2026-08-20T15:22:56",
+      "exit_reason": "trailing_stop",
+      "slippage": "0.000000",
+      "mae": "0.000000",
+      "mfe": "23.000000"
+    },
+    {
+      "symbol": "QQQ260820P710000.US",
+      "direction": "put",
+      "quantity": 5,
+      "entry_price": "0.800000",
+      "exit_price": "0.750000",
+      "pnl": "-40.0000",
+      "fees": "15.0000",
+      "entry_at": "2026-08-20T15:21:01",
+      "exit_at": "2026-08-20T15:31:01",
+      "exit_reason": "direction_reversal",
+      "slippage": "0.000000",
+      "mae": "-10.000000",
+      "mfe": "36.000000"
+    }
+  ],
+  "rejected_signals": [
+    {
+      "decision_at": "2026-08-20T13:52:00",
+      "reason": "stale_quote",
+      "indicators": {
+        "rsi": "34.65664456878908501943993052",
+        "profile": "timed_trend",
+        "macd_fast": "8",
+        "macd_hist": "-0.1002831960409171674511741490",
+        "macd_line": "-0.5072322061847636309986634",
+        "macd_slow": "17",
+        "boll_lower": "712.2836408975335348899283388",
+        "boll_upper": "714.9705591024664651100716612",
+        "boll_middle": "713.6271",
+        "boll_period": "20",
+        "boll_stddev": "2",
+        "macd_signal": "-0.4069490101438464635474892510",
+        "vix_5m_trend": "neutral",
+        "volume_ratio": "1.308321167632036929821467437",
+        "rsi_threshold": "30",
+        "macd_hist_prev": "-0.0826565828457012873025141862",
+        "previous_close": "712.740",
+        "boll_middle_prev": "713.7081",
+        "boll_middle_prev2": "713.66885",
+        "macd_signal_period": "9",
+        "two_bars_ago_close": "712.900",
+        "boll_band_extension": "0.9729362044592848396915289430",
+        "boll_middle_crosses": "2",
+        "indicator_timeframe": "1m",
+        "normal_cross2_filter": "false",
+        "previous_volume_ratio": "0.8823733266709112742688126113",
+        "volume_ratio_threshold": "1.2",
+        "boll_middle_cross_limit": "2",
+        "normal_fresh_macd_filter": "false",
+        "boll_middle_crosses_reset": "false",
+        "continuation_quality_filter": "false"
+      }
+    },
+    {
+      "decision_at": "2026-08-20T15:11:00",
+      "reason": "cooldown",
+      "indicators": {
+        "rsi": "39.05100212676596502476923029",
+        "spot": "711.940",
+        "profile": "timed_trend",
+        "macd_fast": "8",
+        "macd_hist": "-0.1963512630417888687189435937",
+        "macd_line": "-0.2433658900623083554389030",
+        "macd_slow": "17",
+        "boll_lower": "711.5147380162428999214967007",
+        "boll_upper": "714.2632619837571000785032993",
+        "boll_middle": "712.889",
+        "boll_period": "20",
+        "boll_stddev": "2",
+        "macd_signal": "-0.04701462702051948671995940630",
+        "vix_5m_trend": "rising",
+        "volume_ratio": "1.188928582756623596013801092",
+        "rsi_threshold": "30",
+        "macd_hist_prev": "-0.1738812272965180993201927921",
+        "previous_close": "712.305",
+        "boll_middle_prev": "712.931",
+        "boll_middle_prev2": "712.9515",
+        "macd_signal_period": "9",
+        "two_bars_ago_close": "712.250",
+        "boll_band_extension": "0.6905524646803699544527421380",
+        "boll_middle_crosses": "2",
+        "indicator_timeframe": "1m",
+        "normal_cross2_filter": "false",
+        "previous_volume_ratio": "1.027447250330789043701823695",
+        "volume_ratio_threshold": "1.080",
+        "boll_middle_cross_limit": "2",
+        "normal_fresh_macd_filter": "false",
+        "boll_middle_crosses_reset": "false",
+        "continuation_quality_filter": "false"
+      }
+    },
+    {
+      "decision_at": "2026-08-20T15:12:00",
+      "reason": "cooldown",
+      "indicators": {
+        "rsi": "38.20191769257619297501282786",
+        "spot": "711.845",
+        "profile": "timed_trend",
+        "macd_fast": "8",
+        "macd_hist": "-0.2002959033143751990494012709",
+        "macd_line": "-0.2973845061634884855317110",
+        "macd_slow": "17",
+        "boll_lower": "711.4043061429591805763155219",
+        "boll_upper": "714.2941938570408194236844781",
+        "boll_middle": "712.84925",
+        "boll_period": "20",
+        "boll_stddev": "2",
+        "macd_signal": "-0.09708860284911328648230972912",
+        "vix_5m_trend": "rising",
+        "volume_ratio": "1.807399571888073473631165459",
+        "rsi_threshold": "30",
+        "macd_hist_prev": "-0.1963512630417888687189435886",
+        "previous_close": "711.940",
+        "boll_middle_prev": "712.889",
+        "boll_middle_prev2": "712.931",
+        "macd_signal_period": "9",
+        "two_bars_ago_close": "712.305",
+        "boll_band_extension": "0.6950097023538749883032958288",
+        "boll_middle_crosses": "2",
+        "indicator_timeframe": "1m",
+        "normal_cross2_filter": "false",
+        "previous_volume_ratio": "1.188928582756623596013801092",
+        "volume_ratio_threshold": "1.080",
+        "boll_middle_cross_limit": "2",
+        "normal_fresh_macd_filter": "false",
+        "boll_middle_crosses_reset": "false",
+        "continuation_quality_filter": "false"
+      }
+    }
+  ],
+  "system_events": [
+    {
+      "at": "2026-08-20T06:16:34",
+      "kind": "ready",
+      "message": "startup checks passed",
+      "details": {}
+    },
+    {
+      "at": "2026-08-20T06:16:37",
+      "kind": "candlesticks_subscribed",
+      "message": "subscribed to real-time one-minute candlesticks",
+      "details": {
+        "symbols": [
+          "QQQ.US"
+        ]
+      }
+    },
+    {
+      "at": "2026-08-20T06:16:39",
+      "kind": "volatility_warm_failed",
+      "message": "OpenApiException: (kind=ErrorKind.OpenApi, code=301606, trace_id=) request rate limit",
+      "details": {
+        "symbol": ".VIX.US"
+      }
+    },
+    {
+      "at": "2026-08-20T07:48:40",
+      "kind": "ready",
+      "message": "startup checks passed",
+      "details": {}
+    },
+    {
+      "at": "2026-08-20T07:48:44",
+      "kind": "candlesticks_subscribed",
+      "message": "subscribed to real-time one-minute candlesticks",
+      "details": {
+        "symbols": [
+          "QQQ.US"
+        ]
+      }
+    },
+    {
+      "at": "2026-08-20T07:48:47",
+      "kind": "volatility_warm_failed",
+      "message": "OpenApiException: (kind=ErrorKind.OpenApi, code=301606, trace_id=) request rate limit",
+      "details": {
+        "symbol": ".VIX.US"
+      }
+    },
+    {
+      "at": "2026-08-20T08:37:26",
+      "kind": "ready",
+      "message": "startup checks passed",
+      "details": {}
+    },
+    {
+      "at": "2026-08-20T08:37:30",
+      "kind": "candlesticks_subscribed",
+      "message": "subscribed to real-time one-minute candlesticks",
+      "details": {
+        "symbols": [
+          "QQQ.US"
+        ]
+      }
+    },
+    {
+      "at": "2026-08-20T08:37:32",
+      "kind": "volatility_warm_failed",
+      "message": "OpenApiException: (kind=ErrorKind.OpenApi, code=301606, trace_id=) request rate limit",
+      "details": {
+        "symbol": ".VIX.US"
+      }
+    },
+    {
+      "at": "2026-08-20T10:14:25",
+      "kind": "ready",
+      "message": "startup checks passed",
+      "details": {}
+    },
+    {
+      "at": "2026-08-20T10:14:29",
+      "kind": "candlesticks_subscribed",
+      "message": "subscribed to real-time one-minute candlesticks",
+      "details": {
+        "symbols": [
+          "QQQ.US"
+        ]
+      }
+    },
+    {
+      "at": "2026-08-20T10:14:31",
+      "kind": "volatility_warm_failed",
+      "message": "OpenApiException: (kind=ErrorKind.OpenApi, code=301606, trace_id=) request rate limit",
+      "details": {
+        "symbol": ".VIX.US"
+      }
+    },
+    {
+      "at": "2026-08-20T10:34:23",
+      "kind": "ready",
+      "message": "startup checks passed",
+      "details": {}
+    },
+    {
+      "at": "2026-08-20T10:34:27",
+      "kind": "candlesticks_subscribed",
+      "message": "subscribed to real-time one-minute candlesticks",
+      "details": {
+        "symbols": [
+          "QQQ.US"
+        ]
+      }
+    },
+    {
+      "at": "2026-08-20T10:34:29",
+      "kind": "volatility_warm_failed",
+      "message": "OpenApiException: (kind=ErrorKind.OpenApi, code=301606, trace_id=) request rate limit",
+      "details": {
+        "symbol": ".VIX.US"
+      }
+    },
+    {
+      "at": "2026-08-20T13:53:01",
+      "kind": "buy_signal",
+      "message": "buy 10 QQQ260820P710000.US",
+      "details": {
+        "reason": "entry_timed_opening_signal",
+        "direction": "put",
+        "intent_id": "930a6b9d-c793-4079-b4e7-d9f9434e18e9",
+        "reference_price": "1.66"
+      }
+    },
+    {
+      "at": "2026-08-20T13:55:00",
+      "kind": "sell_signal",
+      "message": "sell 10 QQQ260820P710000.US",
+      "details": {
+        "reason": "stop_loss",
+        "direction": "put",
+        "intent_id": "c96a2fe7-4936-426a-9cca-de0e6fc24eed",
+        "reference_price": "1.19"
+      }
+    },
+    {
+      "at": "2026-08-20T13:55:00",
+      "kind": "hard_stop_triggered",
+      "message": "one-minute close confirmed stop; submitting emergency market exit",
+      "details": {
+        "symbol": "QQQ260820P710000.US",
+        "quantity": 10,
+        "stop_price": "1.245000",
+        "trigger_bid": "1.19",
+        "triggered_at": "2026-08-20T13:55:00.334299+00:00"
+      }
+    },
+    {
+      "at": "2026-08-20T13:55:02",
+      "kind": "hard_stop_filled",
+      "message": "emergency market exit filled",
+      "details": {
+        "symbol": "QQQ260820P710000.US",
+        "quantity": 10,
+        "fill_price": "1.2000",
+        "stop_price": "1.245000",
+        "penetration": "0.045000",
+        "trigger_bid": "1.19",
+        "penetration_pct": "0.02710843373493975903614457831"
+      }
+    },
+    {
+      "at": "2026-08-20T14:11:02",
+      "kind": "buy_signal",
+      "message": "buy 10 QQQ260820C715000.US",
+      "details": {
+        "reason": "entry_timed_boll_macd_signal",
+        "direction": "call",
+        "intent_id": "54c4e729-c91c-495a-89c8-5860d7cb908a",
+        "reference_price": "1.14"
+      }
+    },
+    {
+      "at": "2026-08-20T14:15:10",
+      "kind": "halted",
+      "message": "startup failed: datetime must be timezone-aware",
+      "details": {}
+    },
+    {
+      "at": "2026-08-20T14:15:15",
+      "kind": "volatility_warm_failed",
+      "message": "OpenApiException: (kind=ErrorKind.OpenApi, code=301606, trace_id=) request rate limit",
+      "details": {
+        "symbol": ".VIX.US"
+      }
+    },
+    {
+      "at": "2026-08-20T14:55:16",
+      "kind": "halted",
+      "message": "startup failed: datetime must be timezone-aware",
+      "details": {}
+    },
+    {
+      "at": "2026-08-20T14:55:21",
+      "kind": "volatility_warm_failed",
+      "message": "OpenApiException: (kind=ErrorKind.OpenApi, code=301606, trace_id=) request rate limit",
+      "details": {
+        "symbol": ".VIX.US"
+      }
+    },
+    {
+      "at": "2026-08-20T15:10:29",
+      "kind": "startup_recovered",
+      "message": "startup broker and signal state reconciled",
+      "details": {
+        "position": "QQQ260820C715000.US",
+        "signals_failed": 0,
+        "cancelled_orders": 0,
+        "signals_executed": 0
+      }
+    },
+    {
+      "at": "2026-08-20T15:10:30",
+      "kind": "ready",
+      "message": "startup checks passed and broker position was adopted",
+      "details": {}
+    },
+    {
+      "at": "2026-08-20T15:10:30",
+      "kind": "sell_signal",
+      "message": "sell 10 QQQ260820C715000.US",
+      "details": {
+        "reason": "stale_position",
+        "direction": "call",
+        "intent_id": "2ff07634-5158-4efa-b182-ac18a375c1d3",
+        "reference_price": "0.54"
+      }
+    },
+    {
+      "at": "2026-08-20T15:10:33",
+      "kind": "candlesticks_subscribed",
+      "message": "subscribed to real-time one-minute candlesticks",
+      "details": {
+        "symbols": [
+          "QQQ.US"
+        ]
+      }
+    },
+    {
+      "at": "2026-08-20T15:10:35",
+      "kind": "volatility_warm_failed",
+      "message": "OpenApiException: (kind=ErrorKind.OpenApi, code=301606, trace_id=) request rate limit",
+      "details": {
+        "symbol": ".VIX.US"
+      }
+    },
+    {
+      "at": "2026-08-20T15:21:02",
+      "kind": "buy_signal",
+      "message": "buy 10 QQQ260820P710000.US",
+      "details": {
+        "reason": "entry_timed_boll_macd_signal",
+        "direction": "put",
+        "intent_id": "8bb4fa92-1dcb-453d-9a69-9c5119af81c7",
+        "reference_price": "0.80"
+      }
+    },
+    {
+      "at": "2026-08-20T15:22:56",
+      "kind": "sell_signal",
+      "message": "sell 5 QQQ260820P710000.US",
+      "details": {
+        "reason": "trailing_stop",
+        "direction": "put",
+        "intent_id": "a09ff527-a309-42d8-888a-624d1de4d76f",
+        "reference_price": "0.96"
+      }
+    },
+    {
+      "at": "2026-08-20T15:29:01",
+      "kind": "macd_reversal_pending",
+      "message": "MACD reversal is waiting for volume confirmation",
+      "details": {
+        "rvol": "0.5780814617778159139046827651",
+        "symbol": "QQQ260820P710000.US",
+        "bar_end": "2026-08-20T15:29:00+00:00",
+        "direction": "put",
+        "macd_hist": "0.0185842802096670025277734563",
+        "rvol_prev": "0.8340616623454510215500060339",
+        "macd_hist_prev": "-0.0089309390787300671049897796"
+      }
+    },
+    {
+      "at": "2026-08-20T15:31:01",
+      "kind": "sell_signal",
+      "message": "sell 5 QQQ260820P710000.US",
+      "details": {
+        "reason": "direction_reversal",
+        "direction": "put",
+        "intent_id": "856f984e-820d-4e52-9b8c-a3c7a1e53277",
+        "reference_price": "0.75"
+      }
+    }
+  ],
+  "comparison_20d": {
+    "trading_days": 5,
+    "trades": 16,
+    "net_pnl": "-1645.0000",
+    "win_rate": "0.375",
+    "average_slippage": "0.000000"
+  },
+  "data_quality": {
+    "one_minute_bars": 1000,
+    "missing_minutes_between_observations": 1994
+  },
+  "option_backtest_complete": true,
+  "suggestions": [
+    "复核被拒绝信号的主要原因，优先改善行情完整性和成交价差。",
+    "当日胜率偏低；在滚动样本验证前不要放宽突破或流动性门槛。"
+  ]
+}
