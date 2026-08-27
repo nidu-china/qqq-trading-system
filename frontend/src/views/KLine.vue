@@ -319,7 +319,8 @@ onBeforeUnmount(() => {
 function handleResize() { chart?.resize() }
 
 function disabledDate(d: Date) {
-  const iso = d.toISOString().slice(0, 10)
+  // Use local date parts to avoid timezone offset issues
+  const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   return !dates.value.includes(iso)
 }
 </script>
