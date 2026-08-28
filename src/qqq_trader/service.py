@@ -185,38 +185,79 @@ class TradingService:
     async def _warm_volatility_history(self) -> None:
         now = datetime.now(timezone.utc)
         end = now.astimezone(NY_TZ).date()
-        start = end - timedelta(days=max(45, self.engine.settings.volatility_lookback_days * 2))
+        vix_symbol = self.engine.settings.volatility_symbol
+        required_days = self.engine.settings.volatility_lookback_days
+        
         self._log.info(
-            "warming volatility history | %s | %s to %s",
-            self.engine.settings.volatility_symbol, start, end,
+            "warming volatility history | %s | required_days=%d",
+            vix_symbol, required_days,
         )
+        
+        # Try to load from local parquet first
+        local_daily_ok = False
         try:
-            intraday, daily = await asyncio.gather(
-                self.volatility_provider.historical_bars(
-                    self.engine.settings.volatility_symbol, start, end, "5m"
-                ),
-                self.volatility_provider.historical_bars(
-                    self.engine.settings.volatility_symbol, start, end, "day"
-                ),
+            from pathlib import Path
+            store_path = Path(self.engine.settings.data_dir) / "bars"
+            daily_bars = self.market_store.__class__.read_bars_path(store_path, "day")
+            vix_daily = [
+                b for b in daily_bars 
+                if b.symbol == vix_symbol and b.start.astimezone(NY_TZ).date() <= end
+            ]
+            vix_daily_sorted = sorted(vix_daily, key=lambda b: b.start)
+            
+            if len(vix_daily_sorted) >= required_days:
+                self.volatility_daily_bars = vix_daily_sorted
+                local_daily_ok = True
+                self._log.info(
+                    "volatility daily loaded from local | %s | daily=%d (required=%d)",
+                    vix_symbol, len(vix_daily_sorted), required_days,
+                )
+            else:
+                self._log.warning(
+                    "insufficient local VIX daily data | %s | have=%d need=%d | will fetch from API",
+                    vix_symbol, len(vix_daily_sorted), required_days,
+                )
+        except Exception as exc:
+            self._log.warning("failed to load local VIX daily data | %s | will fetch from API", exc)
+        
+        # Fetch from API if local data is insufficient or failed
+        start = end - timedelta(days=max(45, required_days * 2))
+        try:
+            # Always fetch intraday from API (needs to be recent)
+            intraday = await self.volatility_provider.historical_bars(
+                vix_symbol, start, end, "5m"
             )
             self.volatility_bars_5m = [bar for bar in intraday if bar.end <= now]
-            self.volatility_daily_bars = daily
             self.market_store.write_bars(self.volatility_bars_5m, "5m")
-            self.market_store.write_bars(self.volatility_daily_bars, "day")
-            self._log.info(
-                "volatility warmed | %s | 5m=%d daily=%d",
-                self.engine.settings.volatility_symbol, len(intraday), len(daily),
-            )
+            
+            # Fetch daily from API only if local load failed
+            if not local_daily_ok:
+                daily = await self.volatility_provider.historical_bars(
+                    vix_symbol, start, end, "day"
+                )
+                self.volatility_daily_bars = daily
+                self.market_store.write_bars(self.volatility_daily_bars, "day")
+                self._log.info(
+                    "volatility warmed from API | %s | 5m=%d daily=%d",
+                    vix_symbol, len(intraday), len(daily),
+                )
+            else:
+                self._log.info(
+                    "volatility warmed (hybrid) | %s | 5m=%d daily=%d (local)",
+                    vix_symbol, len(intraday), len(self.volatility_daily_bars),
+                )
+            
             await self.engine.journal.event(
                 "volatility_warmed",
-                f"loaded {len(intraday)} intraday and {len(daily)} daily bars",
-                {"symbol": self.engine.settings.volatility_symbol},
+                f"loaded {len(self.volatility_bars_5m)} intraday and {len(self.volatility_daily_bars)} daily bars",
+                {"symbol": vix_symbol, "daily_source": "local" if local_daily_ok else "api"},
             )
         except Exception as exc:
+            self._log.error("volatility warm failed | %s", exc)
             await self.engine.journal.event(
                 "volatility_warm_failed",
                 str(exc),
-                {"symbol": self.engine.settings.volatility_symbol},
+                {"symbol": vix_symbol},
             )
 
     async def _subscribe_realtime_candlesticks(self) -> None:
