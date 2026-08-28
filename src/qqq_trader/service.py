@@ -326,7 +326,13 @@ class TradingService:
         symbol = self.engine.settings.volatility_symbol
         try:
             recent = await self.volatility_provider.recent_bars(symbol, 500, "1m")
-            self.volatility_bars_1m = [bar for bar in recent if bar.end <= now]
+            # Only keep regular trading hours (9:30-16:00 ET)
+            from datetime import time as time_type
+            self.volatility_bars_1m = [
+                bar for bar in recent 
+                if bar.end <= now
+                and time_type(9, 30) <= bar.end.astimezone(NY_TZ).time().replace(tzinfo=None) <= time_type(16, 0)
+            ]
             self.market_store.write_bars(self.volatility_bars_1m, "1m")
             derived = BarAggregator.to_five_minutes(self.volatility_bars_1m)
             merged = {bar.start: bar for bar in [*self.volatility_bars_5m, *derived]}
