@@ -14,7 +14,7 @@ from decimal import Decimal
 
 from .config import NY_TZ
 from .domain import Bar, Direction, ExitDecision, ExitReason, MarketState, Position, Signal
-from .indicators import bollinger_bands, ema_series
+from .indicators import bollinger_bands, ema_series, macd_histogram
 from .policy import RULES
 from .strategy import StrategyEngine
 from .volatility import VixFiveMinuteTrend
@@ -53,6 +53,11 @@ class HybridEngine:
         self._previous_boll_upper: Decimal = ZERO
         self._previous_boll_lower: Decimal = ZERO
         self._regime_details: dict[str, str] = {}
+        # Dual MACD: fast for range, slow for trend
+        self._macd_fast: Decimal = ZERO  # MACD(5,10,3) for range
+        self._macd_fast_prev: Decimal = ZERO
+        self._macd_slow: Decimal = ZERO  # MACD(8,17,9) for trend
+        self._macd_slow_prev: Decimal = ZERO
 
     def _reset_day(self, trading_day: date) -> None:
         self._current_day = trading_day
@@ -84,6 +89,35 @@ class HybridEngine:
         self._ema_fast, self._ema_fast_prev = fast[-1], fast[-2]
         self._ema_slow, self._ema_slow_prev = slow[-1], slow[-2]
         return True
+
+    def _dual_macd_values(self, closes: Sequence[Decimal]) -> bool:
+        """Calculate both fast MACD(5,10,3) and slow MACD(8,17,9)."""
+        # Fast MACD for range (5,10,3)
+        if len(closes) >= 10 + 3:
+            _, _, fast_hist = macd_histogram(closes, 5, 10, 3)
+            _, _, fast_prev = macd_histogram(closes[:-1], 5, 10, 3)
+            self._macd_fast = fast_hist
+            self._macd_fast_prev = fast_prev
+        else:
+            return False
+        
+        # Slow MACD for trend (8,17,9) - default
+        if len(closes) >= 17 + 9:
+            _, _, slow_hist = macd_histogram(closes, 8, 17, 9)
+            _, _, slow_prev = macd_histogram(closes[:-1], 8, 17, 9)
+            self._macd_slow = slow_hist
+            self._macd_slow_prev = slow_prev
+        else:
+            return False
+        
+        return True
+
+    def _active_macd(self) -> tuple[Decimal, Decimal]:
+        """Return (current, previous) MACD based on regime."""
+        if self.last_state is MarketState.RANGE:
+            return (self._macd_fast, self._macd_fast_prev)
+        else:
+            return (self._macd_slow, self._macd_slow_prev)
 
     def _raw_regime(self) -> MarketState:
         """Classify the latest completed bar without future information."""
@@ -200,14 +234,17 @@ class HybridEngine:
         band_position = (ctx.current_close - ctx.boll_middle) / half_width
         minimum_volume = RULES.regime_trend_min_volume_ratio
         
+        # Use slow MACD(8,17,9) for trend
+        macd_curr, macd_prev = self._active_macd()
+        
         # Lower threshold for early entry: 0.2 instead of 0.65
         relaxed_band_position = Decimal("0.2")
         
         if (
             self.last_state is MarketState.TREND_UP
             and band_position >= relaxed_band_position
-            and ctx.macd_hist > ZERO
-            and ctx.macd_hist >= ctx.macd_hist_prev
+            and macd_curr > ZERO
+            and macd_curr >= macd_prev
             and RULES.regime_trend_call_rsi_min <= ctx.rsi_val < RULES.timed_call_rsi_max
             and ctx.rvol_val >= minimum_volume
         ):
@@ -215,8 +252,8 @@ class HybridEngine:
         if (
             self.last_state is MarketState.TREND_DOWN
             and band_position <= -relaxed_band_position
-            and ctx.macd_hist < ZERO
-            and ctx.macd_hist <= ctx.macd_hist_prev
+            and macd_curr < ZERO
+            and macd_curr <= macd_prev
             and RULES.timed_put_rsi_min < ctx.rsi_val <= RULES.regime_trend_put_rsi_max
             and ctx.rvol_val >= minimum_volume
         ):
@@ -260,6 +297,9 @@ class HybridEngine:
             <= RULES.regime_range_max_volume_ratio
         )
         
+        # Use fast MACD(5,10,3) for range - more sensitive
+        macd_curr, macd_prev = self._active_macd()
+        
         # Original: outer band touches
         lower_reentry = ctx.current_close <= ctx.boll_lower or (
             ctx.prev_close <= self._previous_boll_lower and ctx.current_close > ctx.boll_lower
@@ -275,13 +315,13 @@ class HybridEngine:
         
         # Strong MACD reversal from middle
         macd_turning_up = (
-            ctx.macd_hist > ctx.macd_hist_prev
-            and ctx.macd_hist > ZERO
+            macd_curr > macd_prev
+            and macd_curr > ZERO
             and ctx.current_close < ctx.boll_middle
         )
         macd_turning_down = (
-            ctx.macd_hist < ctx.macd_hist_prev
-            and ctx.macd_hist < ZERO
+            macd_curr < macd_prev
+            and macd_curr < ZERO
             and ctx.current_close > ctx.boll_middle
         )
         
@@ -289,14 +329,14 @@ class HybridEngine:
         if (
             lower_reentry
             and ctx.rsi_val <= RULES.regime_range_rsi_oversold
-            and ctx.macd_hist > ctx.macd_hist_prev
+            and macd_curr > macd_prev
             and volume_ok
         ):
             return self._signal(Direction.CALL, "regime_range_reversion", spot)
         if (
             upper_reentry
             and ctx.rsi_val >= RULES.regime_range_rsi_overbought
-            and ctx.macd_hist < ctx.macd_hist_prev
+            and macd_curr < macd_prev
             and volume_ok
         ):
             return self._signal(Direction.PUT, "regime_range_reversion", spot)
@@ -339,6 +379,8 @@ class HybridEngine:
 
         closes = [bar.close for bar in visible[-500:]]
         if not self._ema_values(closes):
+            return None
+        if not self._dual_macd_values(closes):
             return None
         self._previous_boll_upper, _, self._previous_boll_lower = bollinger_bands(
             closes[:-1], RULES.timed_boll_period, RULES.timed_boll_stddev
