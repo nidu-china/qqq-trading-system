@@ -237,12 +237,12 @@ class HybridEngine:
         # Use slow MACD(8,17,9) for trend
         macd_curr, macd_prev = self._active_macd()
         
-        # Lower threshold for early entry: 0.2 instead of 0.65
-        relaxed_band_position = Decimal("0.2")
+        # Strict threshold to avoid false breakouts: 0.65 (original value)
+        required_band_position = Decimal("0.65")
         
         if (
             self.last_state is MarketState.TREND_UP
-            and band_position >= relaxed_band_position
+            and band_position >= required_band_position
             and macd_curr > ZERO
             and macd_curr >= macd_prev
             and RULES.regime_trend_call_rsi_min <= ctx.rsi_val < RULES.timed_call_rsi_max
@@ -251,7 +251,7 @@ class HybridEngine:
             return self._signal(Direction.CALL, "regime_trend_following", spot)
         if (
             self.last_state is MarketState.TREND_DOWN
-            and band_position <= -relaxed_band_position
+            and band_position <= -required_band_position
             and macd_curr < ZERO
             and macd_curr <= macd_prev
             and RULES.timed_put_rsi_min < ctx.rsi_val <= RULES.regime_trend_put_rsi_max
@@ -300,7 +300,7 @@ class HybridEngine:
         # Use fast MACD(5,10,3) for range - more sensitive
         macd_curr, macd_prev = self._active_macd()
         
-        # Original: outer band touches
+        # Only outer band reversions (strict, no middle band)
         lower_reentry = ctx.current_close <= ctx.boll_lower or (
             ctx.prev_close <= self._previous_boll_lower and ctx.current_close > ctx.boll_lower
         )
@@ -308,24 +308,6 @@ class HybridEngine:
             ctx.prev_close >= self._previous_boll_upper and ctx.current_close < ctx.boll_upper
         )
         
-        # New: middle band bounces (relaxed entry)
-        half_width = max(ctx.boll_upper - ctx.boll_middle, Decimal("0.000001"))
-        distance_from_middle = abs(ctx.current_close - ctx.boll_middle) / half_width
-        near_middle = distance_from_middle <= Decimal("0.3")  # Within 30% of half-width
-        
-        # Strong MACD reversal from middle
-        macd_turning_up = (
-            macd_curr > macd_prev
-            and macd_curr > ZERO
-            and ctx.current_close < ctx.boll_middle
-        )
-        macd_turning_down = (
-            macd_curr < macd_prev
-            and macd_curr < ZERO
-            and ctx.current_close > ctx.boll_middle
-        )
-        
-        # Outer band reversions (strict)
         if (
             lower_reentry
             and ctx.rsi_val <= RULES.regime_range_rsi_oversold
@@ -340,12 +322,6 @@ class HybridEngine:
             and volume_ok
         ):
             return self._signal(Direction.PUT, "regime_range_reversion", spot)
-        
-        # Middle band bounces (relaxed, only if volume supports)
-        if near_middle and macd_turning_up and volume_ok:
-            return self._signal(Direction.CALL, "regime_range_middle_bounce", spot)
-        if near_middle and macd_turning_down and volume_ok:
-            return self._signal(Direction.PUT, "regime_range_middle_bounce", spot)
         
         return None
 
