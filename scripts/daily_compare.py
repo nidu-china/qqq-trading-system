@@ -1,8 +1,9 @@
 """Daily comparison of three strategy modes for July-August 2026."""
 from __future__ import annotations
 
+import argparse
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -12,15 +13,22 @@ from qqq_trader.config import NY_TZ, Settings
 from qqq_trader.persistence import ParquetMarketStore
 from qqq_trader.risk import ContractSelector, RiskEngine
 
+# Parse command line arguments
+parser = argparse.ArgumentParser(description="Backtest Hybrid strategy")
+parser.add_argument("--start", type=str, default="2026-07-01", help="Start date (YYYY-MM-DD)")
+parser.add_argument("--end", type=str, default="2026-08-27", help="End date (YYYY-MM-DD)")
+args = parser.parse_args()
+
+start = datetime.strptime(args.start, "%Y-%m-%d").date()
+end = datetime.strptime(args.end, "%Y-%m-%d").date()
+
 ET = ZoneInfo("America/New_York")
 store_path = Path("data/market/bars")
 bars = ParquetMarketStore.read_bars_path(store_path, "1m")
 vol_5m = ParquetMarketStore.read_bars_path(store_path, "5m")
 vol_daily = ParquetMarketStore.read_bars_path(store_path, "day")
-
-start = date(2026, 7, 1)
 qqq_bars = [b for b in bars if b.symbol == "QQQ.US"]
-period_bars = [b for b in qqq_bars if b.start.date() >= start]
+period_bars = [b for b in qqq_bars if start <= b.start.date() <= end]
 warmup_bars = [b for b in qqq_bars if b.start.date() < start]
 VIX = ".VIX.US"
 vol = [b for b in vol_5m if b.symbol == VIX and b.start.date() >= date(2026, 5, 1)]
@@ -37,7 +45,7 @@ for mode in ["hybrid"]:
     s = Settings(trading_mode="replay", strategy_mode=mode)
     tester = EventDrivenBacktester(s, None, ContractSelector(), RiskEngine(s))
     r = tester.run(
-        period_bars, {}, Decimal("10000"), vol, vol_d,
+        period_bars, {}, Decimal("100000"), vol, vol_d,
         trade_start=start, warmup_bars=warmup_bars,
     )
 
