@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import argparse
 from collections import defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -28,8 +28,20 @@ bars = ParquetMarketStore.read_bars_path(store_path, "1m")
 vol_5m = ParquetMarketStore.read_bars_path(store_path, "5m")
 vol_daily = ParquetMarketStore.read_bars_path(store_path, "day")
 qqq_bars = [b for b in bars if b.symbol == "QQQ.US"]
-period_bars = [b for b in qqq_bars if start <= b.start.date() <= end]
-warmup_bars = [b for b in qqq_bars if b.start.date() < start]
+
+# Period bars: regular trading hours (RTH) only
+period_bars = [
+    b for b in qqq_bars
+    if start <= b.start.date() <= end
+    and time(9, 30) <= b.start.astimezone(ET).time() < time(16, 0)
+]
+
+# Warmup: use 09:00-09:30 pre-market data for each trading day
+warmup_bars = [
+    b for b in qqq_bars
+    if start <= b.start.date() <= end
+    and time(9, 0) <= b.start.astimezone(ET).time() < time(9, 30)
+]
 VIX = ".VIX.US"
 vol = [b for b in vol_5m if b.symbol == VIX and b.start.date() >= date(2026, 5, 1)]
 vol_d = [b for b in vol_daily if b.symbol == VIX and b.start.date() >= date(2026, 5, 1)]
