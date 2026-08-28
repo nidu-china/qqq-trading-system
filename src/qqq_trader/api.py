@@ -417,12 +417,28 @@ def create_app(
         )
         if not bar_path.exists():
             raise HTTPException(404, f"no {timeframe} bars for {trading_date}")
-        bars = ParquetMarketStore.read_bars(bar_path)
-        bars.sort(key=lambda b: b.start)
+        all_bars = ParquetMarketStore.read_bars(bar_path)
+        all_bars.sort(key=lambda b: b.start)
+        
+        # For intraday: use all bars (including premarket) for indicator calculation,
+        # but only return RTH bars with computed indicators
         if timeframe != "day":
-            bars = regular_session_bars(bars)
+            from datetime import time as time_type
+            rth_bars = regular_session_bars(all_bars)
+            # Include 09:00-09:30 premarket for warmup
+            warmup_bars = [
+                b for b in all_bars
+                if time_type(9, 0) <= b.start.astimezone(NY_TZ).time() < time_type(9, 30)
+            ]
+            bars_for_indicators = warmup_bars + rth_bars
+            bars_to_display = rth_bars
+            warmup_count = len(warmup_bars)
+        else:
+            bars_for_indicators = all_bars
+            bars_to_display = all_bars
+            warmup_count = 0
 
-        closes = [b.close for b in bars]
+        closes = [b.close for b in bars_for_indicators]
         rules = settings.rules
         ema_fast_period = rules.trend_ema_fast
         ema_slow_period = rules.trend_ema_slow
@@ -457,7 +473,9 @@ def create_app(
                 ]
 
         items = []
-        for i, b in enumerate(bars):
+        for i, b in enumerate(bars_to_display):
+            # Adjust index to account for warmup bars used in indicator calculation
+            indicator_index = i + warmup_count
             item: dict[str, Any] = {
                 "time": b.start.isoformat(),
                 "open": float(b.open),
@@ -468,35 +486,35 @@ def create_app(
             }
 
             ema9_start = ema_fast_period - 1
-            if i >= ema9_start and ema9_vals:
-                ei = i - ema9_start
+            if indicator_index >= ema9_start and ema9_vals:
+                ei = indicator_index - ema9_start
                 if 0 <= ei < len(ema9_vals):
                     item["ema9"] = float(ema9_vals[ei])
             ema20_start = ema_slow_period - 1
-            if i >= ema20_start and ema20_vals:
-                ei = i - ema20_start
+            if indicator_index >= ema20_start and ema20_vals:
+                ei = indicator_index - ema20_start
                 if 0 <= ei < len(ema20_vals):
                     item["ema20"] = float(ema20_vals[ei])
 
-            if i >= 0:
-                item["vwap"] = float(calc_vwap(bars[: i + 1]))
+            if indicator_index >= 0:
+                item["vwap"] = float(calc_vwap(bars_for_indicators[: indicator_index + 1]))
 
-            if i + 1 >= boll_period:
+            if indicator_index + 1 >= boll_period:
                 upper, middle, lower = bollinger_bands(
-                    closes[: i + 1], boll_period, boll_std
+                    closes[: indicator_index + 1], boll_period, boll_std
                 )
                 item["boll_upper"] = float(upper)
                 item["boll_mid"] = float(middle)
                 item["boll_lower"] = float(lower)
 
             macd_start = macd_slow - 1
-            if i >= macd_start and macd_lines:
-                mi = i - macd_start
+            if indicator_index >= macd_start and macd_lines:
+                mi = indicator_index - macd_start
                 if 0 <= mi < len(macd_lines):
                     item["macd_line"] = float(macd_lines[mi])
                 sig_start = macd_required - 1
-                if i >= sig_start and signal_lines:
-                    si = i - sig_start
+                if indicator_index >= sig_start and signal_lines:
+                    si = indicator_index - sig_start
                     if 0 <= si < len(signal_lines):
                         item["macd_signal"] = float(signal_lines[si])
                     if 0 <= si < len(hist_lines):
