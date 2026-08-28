@@ -97,6 +97,7 @@ def backfill(
     end: str = typer.Option(..., help="End date in YYYY-MM-DD"),
     symbol: str = typer.Option("QQQ.US"),
     include_volatility: bool = typer.Option(True, "--include-volatility/--no-include-volatility"),
+    include_premarket: bool = typer.Option(False, "--include-premarket/--no-include-premarket", help="Include 09:00-09:30 premarket data"),
 ) -> None:
     """Backfill underlying and configured volatility bars."""
 
@@ -113,7 +114,21 @@ def backfill(
         try:
             typer.echo(f"requesting {symbol} 1m bars: {start_date} to {end_date}")
             bars = await market.historical_bars(symbol, start_date, end_date, "1m")
-            bars = regular_session_bars(bars)
+            
+            # Filter bars based on premarket option
+            if include_premarket:
+                from datetime import time as time_type
+                # Include 09:00-16:00 (premarket + RTH)
+                bars = [
+                    b for b in bars
+                    if time_type(9, 0) <= b.start.astimezone(NY_TZ).time() < time_type(16, 0)
+                ]
+                typer.echo("including premarket data (09:00-09:30 ET)")
+            else:
+                # Regular trading hours only (09:30-16:00)
+                bars = regular_session_bars(bars)
+                typer.echo("regular trading hours only (09:30-16:00 ET)")
+            
             store = ParquetMarketStore(settings.data_dir)
             store.replace_bars(bars, "1m")
             from .indicators import BarAggregator
@@ -146,7 +161,7 @@ def backtest(
     option_frames: Path | None = typer.Option(None, exists=True),
     volatility_bars: Path | None = typer.Option(None, exists=True),
     volatility_daily_bars: Path | None = typer.Option(None, exists=True),
-    starting_equity: str = typer.Option("10000"),
+    starting_equity: str = typer.Option("100000"),
 ) -> None:
     """Replay saved bars and optional captured candidate-option Bid/Ask frames."""
     settings = Settings(trading_mode="replay")
