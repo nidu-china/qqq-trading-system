@@ -193,8 +193,9 @@ class TradingService:
             vix_symbol, required_days,
         )
         
-        # Try to load from local parquet first
-        local_daily_ok = False
+        # Try to load from local parquet first and determine what's missing
+        local_daily_loaded = []
+        missing_start = None
         try:
             from pathlib import Path
             store_path = Path(self.engine.settings.data_dir) / "bars"
@@ -203,54 +204,79 @@ class TradingService:
                 b for b in daily_bars 
                 if b.symbol == vix_symbol and b.start.astimezone(NY_TZ).date() <= end
             ]
-            vix_daily_sorted = sorted(vix_daily, key=lambda b: b.start)
+            local_daily_loaded = sorted(vix_daily, key=lambda b: b.start)
             
-            if len(vix_daily_sorted) >= required_days:
-                self.volatility_daily_bars = vix_daily_sorted
-                local_daily_ok = True
+            if local_daily_loaded:
+                latest_local_date = local_daily_loaded[-1].start.astimezone(NY_TZ).date()
                 self._log.info(
-                    "volatility daily loaded from local | %s | daily=%d (required=%d)",
-                    vix_symbol, len(vix_daily_sorted), required_days,
+                    "local VIX daily data | %s | count=%d | latest=%s",
+                    vix_symbol, len(local_daily_loaded), latest_local_date,
                 )
+                # Check if we need to fetch missing recent days
+                if latest_local_date < end:
+                    from datetime import timedelta as td
+                    missing_start = latest_local_date + td(days=1)
+                    self._log.info(
+                        "will fetch missing VIX daily | %s to %s",
+                        missing_start, end,
+                    )
             else:
                 self._log.warning(
-                    "insufficient local VIX daily data | %s | have=%d need=%d | will fetch from API",
-                    vix_symbol, len(vix_daily_sorted), required_days,
+                    "no local VIX daily data found | will fetch from API",
                 )
+                missing_start = end - timedelta(days=max(45, required_days * 2))
         except Exception as exc:
             self._log.warning("failed to load local VIX daily data | %s | will fetch from API", exc)
+            missing_start = end - timedelta(days=max(45, required_days * 2))
         
-        # Fetch from API if local data is insufficient or failed
-        start = end - timedelta(days=max(45, required_days * 2))
+        # Fetch missing data from API
         try:
             # Always fetch intraday from API (needs to be recent)
+            intraday_start = end - timedelta(days=5)
             intraday = await self.volatility_provider.historical_bars(
-                vix_symbol, start, end, "5m"
+                vix_symbol, intraday_start, end, "5m"
             )
             self.volatility_bars_5m = [bar for bar in intraday if bar.end <= now]
             self.market_store.write_bars(self.volatility_bars_5m, "5m")
             
-            # Fetch daily from API only if local load failed
-            if not local_daily_ok:
+            # Fetch missing daily data if needed
+            if missing_start is not None:
+                self._log.info("fetching missing VIX daily | %s to %s", missing_start, end)
                 daily = await self.volatility_provider.historical_bars(
-                    vix_symbol, start, end, "day"
+                    vix_symbol, missing_start, end, "day"
                 )
-                self.volatility_daily_bars = daily
-                self.market_store.write_bars(self.volatility_daily_bars, "day")
+                # Merge with local data
+                self.volatility_daily_bars = local_daily_loaded + daily
+                # Write only the new data to avoid overwriting existing files
+                self.market_store.write_bars(daily, "day")
                 self._log.info(
-                    "volatility warmed from API | %s | 5m=%d daily=%d",
-                    vix_symbol, len(intraday), len(daily),
+                    "volatility warmed (incremental) | %s | 5m=%d daily=%d (local=%d + fetched=%d)",
+                    vix_symbol, len(intraday), len(self.volatility_daily_bars),
+                    len(local_daily_loaded), len(daily),
                 )
             else:
+                # All daily data is local
+                self.volatility_daily_bars = local_daily_loaded
                 self._log.info(
-                    "volatility warmed (hybrid) | %s | 5m=%d daily=%d (local)",
+                    "volatility warmed (local) | %s | 5m=%d daily=%d",
                     vix_symbol, len(intraday), len(self.volatility_daily_bars),
+                )
+            
+            # Final validation
+            if len(self.volatility_daily_bars) < required_days:
+                self._log.error(
+                    "insufficient VIX daily data after warm | have=%d required=%d",
+                    len(self.volatility_daily_bars), required_days,
                 )
             
             await self.engine.journal.event(
                 "volatility_warmed",
                 f"loaded {len(self.volatility_bars_5m)} intraday and {len(self.volatility_daily_bars)} daily bars",
-                {"symbol": vix_symbol, "daily_source": "local" if local_daily_ok else "api"},
+                {
+                    "symbol": vix_symbol,
+                    "daily_local": len(local_daily_loaded),
+                    "daily_fetched": len(self.volatility_daily_bars) - len(local_daily_loaded),
+                },
             )
         except Exception as exc:
             self._log.error("volatility warm failed | %s", exc)
