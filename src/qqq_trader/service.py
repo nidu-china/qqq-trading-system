@@ -320,7 +320,7 @@ class TradingService:
             return
         if (
             self._last_vix_refresh is not None
-            and (now - self._last_vix_refresh).total_seconds() < 300
+            and (now - self._last_vix_refresh).total_seconds() < 60
         ):
             return
         symbol = self.engine.settings.volatility_symbol
