@@ -551,6 +551,9 @@ class EventDrivenBacktester:
             record_profitable_exit = getattr(self.strategy, "record_profitable_exit", None)
             if pnl > 0 and callable(record_profitable_exit):
                 record_profitable_exit(position.direction, timestamp)
+            record_stop_loss = getattr(self.strategy, "record_stop_loss", None)
+            if decision.reason.value == "stop_loss" and callable(record_stop_loss):
+                record_stop_loss(position.direction)
             result.signal_records.append(
                 {
                     "id": f"sell:{len(result.signal_records)}:{timestamp.isoformat()}",

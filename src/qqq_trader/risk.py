@@ -68,6 +68,19 @@ class RiskEngine:
         self.settings = settings
         self.rules = settings.rules
 
+    def daily_loss_breached(
+        self,
+        day_opening_equity: Decimal,
+        day_realized_pnl: Decimal,
+        unrealized_pnl: Decimal = Decimal(0),
+    ) -> bool:
+        """Return True if daily loss limit has been exceeded.
+
+        No hard daily loss limit is currently configured, so this always
+        returns False.  Add a `daily_loss_limit` setting to enable it.
+        """
+        return False
+
     def quote_problem(self, quote: Quote, now: datetime) -> str | None:
         rules = self.rules
         age = Decimal(str((now - quote.timestamp).total_seconds()))

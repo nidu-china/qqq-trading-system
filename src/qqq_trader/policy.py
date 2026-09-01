@@ -108,6 +108,26 @@ class StrategyRules:
     # Hybrid strategy: fallback to BOLL/MACD if no ORB breakout by this time
     hybrid_fallback_time: time = time(10, 1)
 
+    # ── HybridEngine regime classification ────────────────────────────────────
+    # Trend regime: 7 votes (EMA×3 + MACD×2 + close + RSI)
+    regime_trend_call_rsi_min: Decimal = Decimal("60")
+    regime_trend_put_rsi_max: Decimal = Decimal("40")
+    regime_trend_min_ema_separation: Decimal = Decimal("0.20")   # Boll half-width units
+    regime_trend_max_middle_crosses: int = 2
+    regime_trend_min_score: int = 5                              # out of 7
+    regime_trend_min_volume_ratio: Decimal = Decimal("0.70")
+    # Range regime: 4 votes (EMA sep + crosses + MACD strength + band pos)
+    regime_range_max_ema_separation: Decimal = Decimal("0.50")
+    regime_range_min_middle_crosses: int = 3
+    regime_range_max_macd_strength: Decimal = Decimal("0.30")
+    regime_range_max_band_position: Decimal = Decimal("0.80")
+    regime_range_min_score: int = 3                              # out of 4
+    regime_confirmation_bars: int = 3
+    regime_range_min_volume_ratio: Decimal = Decimal("0.60")
+    regime_range_max_volume_ratio: Decimal = Decimal("3.00")
+    regime_range_rsi_oversold: Decimal = Decimal("40")
+    regime_range_rsi_overbought: Decimal = Decimal("60")
+
     synthetic_min_price: Decimal = Decimal("0.01")
     synthetic_iv_floor: Decimal = Decimal("0.08")
     synthetic_iv_cap: Decimal = Decimal("1.50")
