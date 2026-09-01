@@ -7,8 +7,10 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 # Ensure MariaDB data/run directories exist and are owned by the mysql user.
-sudo mkdir -p /var/lib/mysql /var/run/mysqld
-sudo chown -R mysql:mysql /var/lib/mysql /var/run/mysqld
+# mariadbd's default socket is /run/mysqld/mysqld.sock. On some images /var/run
+# is a real directory rather than a symlink to /run, so create both paths.
+sudo mkdir -p /var/lib/mysql /run/mysqld /var/run/mysqld
+sudo chown -R mysql:mysql /var/lib/mysql /run/mysqld /var/run/mysqld
 
 # Initialize the data directory on first boot only.
 if [ ! -d /var/lib/mysql/mysql ]; then
