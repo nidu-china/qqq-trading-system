@@ -1,0 +1,19 @@
+{
+  "name": "QQQ 0DTE Trading System",
+  "user": "ubuntu",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    {
+      "name": "trader",
+      "command": "cd /workspace && source .venv/bin/activate && qqq-trader trade",
+      "description": "Trading engine + read-only web API/UI on port 8000 (paper mode)."
+    }
+  ],
+  "ports": [
+    {
+      "name": "web",
+      "port": 8000
+    }
+  ]
+}
