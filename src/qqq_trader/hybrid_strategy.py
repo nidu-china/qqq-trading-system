@@ -569,12 +569,15 @@ class HybridEngine:
         ctx = self.last_context
         if ctx is None:
             return None
-        # Mean-reversion strategies: exit when price returns to Bollinger middle band
+        # Mean-reversion strategies
         if position.strategy_name in (
             "regime_range_reversion",
             "regime_mean_reversion",
             "regime_or_reversion",
         ):
+            # Exit at Bollinger middle band (correct for 0DTE options:
+            # time decay is severe, so 2-bar exits at mid-band are appropriate).
+            # Post-exit QQQ continuation does not translate to option gains due to theta.
             if position.direction is Direction.CALL and ctx.current_close >= ctx.boll_middle:
                 return ExitDecision(ExitReason.BOLLINGER_MIDDLE, position.quantity)
             if position.direction is Direction.PUT and ctx.current_close <= ctx.boll_middle:
