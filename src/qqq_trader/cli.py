@@ -113,17 +113,19 @@ def backfill(
         await market.connect()
         try:
             typer.echo(f"requesting {symbol} 1m bars: {start_date} to {end_date}")
-            bars = await market.historical_bars(symbol, start_date, end_date, "1m")
-            
+            bars = await market.historical_bars(
+                symbol, start_date, end_date, "1m", all_sessions=include_premarket
+            )
+
             # Filter bars based on premarket option
             if include_premarket:
                 from datetime import time as time_type
-                # Include 09:00-16:00 (premarket + RTH)
+                # Include 09:00-16:00 (premarket + RTH), exclude after-hours
                 bars = [
                     b for b in bars
                     if time_type(9, 0) <= b.start.astimezone(NY_TZ).time() < time_type(16, 0)
                 ]
-                typer.echo("including premarket data (09:00-09:30 ET)")
+                typer.echo(f"including premarket data (09:00-09:30 ET), total bars: {len(bars)}")
             else:
                 # Regular trading hours only (09:30-16:00)
                 bars = regular_session_bars(bars)

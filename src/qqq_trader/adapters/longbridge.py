@@ -374,13 +374,15 @@ class LongbridgeMarketData:
         return bars
 
     async def historical_bars(
-        self, symbol: str, start: date, end: date, period: str = "1m"
+        self, symbol: str, start: date, end: date, period: str = "1m",
+        all_sessions: bool = False,
     ) -> list[Bar]:
         from longbridge.openapi import AdjustType, Period, TradeSessions
 
         if end < start:
             raise ValueError("historical bar end date must not precede start date")
         timeout = float(self.session.settings.longbridge_request_timeout_seconds)
+        trade_session = TradeSessions.All if all_sessions else TradeSessions.Intraday
         bars: dict[datetime, Bar] = {}
         current = start
         while current <= end:
@@ -392,7 +394,7 @@ class LongbridgeMarketData:
                         AdjustType.NoAdjust,
                         current,
                         current,
-                        TradeSessions.Intraday,
+                        trade_session,
                     )
             except TimeoutError as exc:
                 raise RuntimeError(
