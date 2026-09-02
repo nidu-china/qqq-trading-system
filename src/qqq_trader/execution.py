@@ -27,10 +27,17 @@ class OrderExecutor:
         self._log = logging.getLogger("qqq_trader.executor")
 
     async def entry(
-        self, request: OrderRequest, quote_supplier: QuoteSupplier
+        self,
+        request: OrderRequest,
+        quote_supplier: QuoteSupplier,
+        ceiling_price: Decimal | None = None,
     ) -> BrokerOrder | None:
         initial_limit = request.limit_price
-        ceiling = tick_price(initial_limit + 2 * RULES.slippage_quote)
+        ceiling = (
+            tick_price(ceiling_price)
+            if ceiling_price is not None
+            else tick_price(initial_limit + 2 * RULES.slippage_quote)
+        )
         attempts = RULES.entry_reprices + 1
         current = request
         total_filled = 0

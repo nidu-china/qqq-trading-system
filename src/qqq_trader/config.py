@@ -70,6 +70,7 @@ class Settings(BaseSettings):
     cooldown_minutes: int
     fee_per_contract: Decimal
     slippage_quote: Decimal
+    entry_initial_discount: Decimal = Decimal("0.10")
 
     # 离场（必须在 .env 显式配置）
     option_stop_loss_pct: Decimal

@@ -86,14 +86,15 @@ class StrategyRules:
     stale_minutes: int = 20
 
     fee_per_contract: Decimal = Decimal("1.50")
-    slippage_quote: Decimal = Decimal("0.02")
+    slippage_quote: Decimal = Decimal("0.04")
+    entry_initial_discount: Decimal = Decimal("0.10")
     max_quote_age_seconds: Decimal = Decimal("5")
     max_spread_ratio: Decimal = Decimal("0.10")
     max_spread_absolute: Decimal = Decimal("0.20")
     min_open_interest: int = 100
     min_option_volume: int = 10
 
-    strike_offset: Decimal = Decimal("2")
+    strike_offset: Decimal = Decimal("1")
     option_candidate_count: int = 5
 
     # Trend-following (ORB) strategy

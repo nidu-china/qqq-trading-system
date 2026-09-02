@@ -520,11 +520,16 @@ class TradingEngine:
             )
             await self.journal.signal(signal, True, "accepted")
             from .execution import tick_price
+            # Entry pricing: start at bid - entry_initial_discount, reprice up to
+            # ask + slippage_quote.  Wide initial discount avoids inflated fills
+            # while the ask-based ceiling guarantees we can always get filled.
+            entry_ask = quote.ask or (quote.bid + RULES.slippage_quote)
+            entry_ceiling = tick_price(entry_ask + RULES.slippage_quote)
             request = OrderRequest(
                 symbol=contract.symbol,
                 side=OrderSide.BUY,
                 quantity=quantity,
-                limit_price=tick_price(quote.bid - RULES.slippage_quote),
+                limit_price=tick_price(quote.bid - RULES.entry_initial_discount),
                 reason=f"entry_{signal.strategy}",
             )
             indicators = {
@@ -536,7 +541,9 @@ class TradingEngine:
             await self._publish_trade_signal(
                 request, signal.direction, signal.bar_end, indicators
             )
-            filled = await self.executor.entry(request, self.market.latest_quote)
+            filled = await self.executor.entry(
+                request, self.market.latest_quote, ceiling_price=entry_ceiling
+            )
             fully_filled = filled is not None and filled.filled_quantity > 0
             await self.journal.trade_signal_status(
                 request.intent_id, "executed" if fully_filled else "failed"

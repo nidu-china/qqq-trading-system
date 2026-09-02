@@ -92,13 +92,13 @@ class HybridEngine:
     def record_stop_loss(self, direction: Direction) -> None:
         """Called after a stop-loss exit.
 
-        After the first stop-loss in a direction, that direction is blocked for
-        the rest of the day.  A single stop-loss already signals that the
-        regime classification is unreliable for this direction; continuing to
-        enter is just bleeding equity.  The lock resets at next day's
-        _reset_day call.
+        After 2 stop-losses in the same direction, that direction is blocked
+        for the rest of the day.  The lock resets at next day's _reset_day call.
         """
-        self._direction_blocked.add(direction)
+        count = self._stop_loss_count.get(direction, 0) + 1
+        self._stop_loss_count[direction] = count
+        if count >= 2:
+            self._direction_blocked.add(direction)
 
     @staticmethod
     def _rth(bar: Bar) -> bool:
@@ -144,6 +144,28 @@ class HybridEngine:
             return (self._macd_fast, self._macd_fast_prev)
         else:
             return (self._macd_slow, self._macd_slow_prev)
+
+    def _is_too_choppy(self, lookback: int = 5, max_reversals: int = 1) -> bool:
+        """Return True if recent bars show excessive directional reversals.
+
+        Counts how many times consecutive bar close directions reversed
+        (UP→DOWN or DOWN→UP) over the last `lookback` bars. If more than
+        `max_reversals` reversals, the market is too choppy for a trend entry.
+
+        Example: closes [A↑B↓C↓D↑E] has 2 reversals (A→B and C→D→E).
+        Default threshold: ≥2 reversals in 5 bars → too choppy.
+        """
+        bars = self._today_bars[-(lookback + 1):]
+        if len(bars) < lookback + 1:
+            return False
+        closes = [b.close for b in bars]
+        reversals = 0
+        for i in range(1, len(closes) - 1):
+            prev_dir = closes[i] - closes[i - 1]
+            curr_dir = closes[i + 1] - closes[i]
+            if (prev_dir > 0 and curr_dir < 0) or (prev_dir < 0 and curr_dir > 0):
+                reversals += 1
+        return reversals > max_reversals
 
     def _raw_regime(self) -> MarketState:
         """Classify the latest completed bar without future information."""
@@ -257,6 +279,9 @@ class HybridEngine:
         ctx = self.last_context
         assert ctx is not None
         assert ctx.bar_end is not None
+        # Chop filter: too many directional reversals in recent bars → skip trend entry
+        if self._is_too_choppy():
+            return None
         half_width = max(ctx.boll_upper - ctx.boll_middle, Decimal("0.000001"))
         band_position = (ctx.current_close - ctx.boll_middle) / half_width
         minimum_volume = RULES.regime_trend_min_volume_ratio
@@ -348,6 +373,9 @@ class HybridEngine:
         of upswings / 19% of downswings — worth capturing early.
         """
         if self._or_high is None or self._or_low is None:
+            return None
+        # Chop filter: too many reversals → wait for consistent momentum
+        if self._is_too_choppy():
             return None
         ctx = self.last_context
         assert ctx is not None
@@ -535,19 +563,16 @@ class HybridEngine:
             signal = self._trend_signal(spot)
 
         elif state is MarketState.RANGE:
-            # Range/oscillation regime: outer-band + middle-band reversion
-            signal = self._range_signal(spot)
-            # OR-anchored reversion as secondary: price below OR_LOW or above OR_HIGH
-            if signal is None:
-                signal = self._or_reversion_signal(spot)
+            # Range/oscillation regime: OR-anchored reversion only.
+            # regime_range_reversion (outer Bollinger band) removed: 26% win rate,
+            # net -$2,616 on 42-day backtest — time decay on 0DTE kills small-move entries.
+            signal = self._or_reversion_signal(spot)
 
         else:  # MarketState.UNKNOWN
             if local_time < RULES.phase_opening_end:
                 # Phase 2 UNKNOWN: OR breakout takes priority over regime signals
                 signal = self._phase2_or_breakout_signal(spot)
-            # Fall through to range + OR-reversion regardless of phase
-            if signal is None:
-                signal = self._range_signal(spot)
+            # OR-anchored reversion (has price quality gate) — no raw band reversion
             if signal is None:
                 signal = self._or_reversion_signal(spot)
             # Momentum: last resort when no other signal fires
