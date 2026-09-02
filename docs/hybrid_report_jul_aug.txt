@@ -1,5 +1,5 @@
 Period: 2026-07-01 to 2026-08-28 (42 days)
-Bars: 16379, Warmup: 0, Vol5m: 3055, VolD: 37
+Bars: 16380, Premarket: 1260, Vol5m: 3055, VolD: 37
 
 Running hybrid...
 
@@ -9,210 +9,204 @@ Running hybrid...
 Date         | Trades |        PnL |   Cumulative
 -------------------------------------------------
 2026-07-01   |      1 | $ +102.00 | $   +102.00
-2026-07-02   |      3 | $ +460.00 | $   +562.00
-2026-07-06   |      5 | $ -773.00 | $   -211.00
-2026-07-07   |      1 | $ -144.00 | $   -355.00
-2026-07-08   |      3 | $ -148.00 | $   -503.00
-2026-07-09   |      1 | $ +399.00 | $   -104.00
-2026-07-10   |      1 | $  +18.00 | $    -86.00
-2026-07-13   |      2 | $ +255.00 | $   +169.00
-2026-07-14   |      2 | $ -480.00 | $   -311.00
-2026-07-15   |      2 | $ -600.00 | $   -911.00
-2026-07-16   |      1 | $  +50.00 | $   -861.00
-2026-07-17   |      2 | $+1860.00 | $   +999.00
-2026-07-20   |      1 | $ +290.00 | $  +1289.00
-2026-07-21   |      4 | $ -300.00 | $   +989.00
-2026-07-22   |      4 | $ -275.00 | $   +714.00
-2026-07-23   |      4 | $ +860.00 | $  +1574.00
-2026-07-24   |      2 | $ +968.00 | $  +2542.00
-2026-07-27   |      3 | $+2940.00 | $  +5482.00
-2026-07-28   |      1 | $ -210.00 | $  +5272.00
-2026-07-29   |      2 | $ -540.00 | $  +4732.00
-2026-07-30   |      5 | $ -460.00 | $  +4272.00
-2026-07-31   |      4 | $ +937.00 | $  +5209.00
-2026-08-03   |      1 | $+1600.00 | $  +6809.00
-2026-08-04   |      3 | $  +70.00 | $  +6879.00
-2026-08-05   |      3 | $ -520.00 | $  +6359.00
-2026-08-06   |      2 | $ -230.00 | $  +6129.00
-2026-08-07   |      2 | $ +310.00 | $  +6439.00
-2026-08-10   |     -- |         -- | $  +6439.00
-2026-08-11   |      1 | $ -170.00 | $  +6269.00
-2026-08-12   |      1 | $ -170.00 | $  +6099.00
-2026-08-13   |      2 | $ -150.00 | $  +5949.00
-2026-08-14   |      2 | $ -150.00 | $  +5799.00
-2026-08-17   |     -- |         -- | $  +5799.00
-2026-08-18   |      3 | $  -75.00 | $  +5724.00
-2026-08-19   |     -- |         -- | $  +5724.00
-2026-08-20   |     -- |         -- | $  +5724.00
-2026-08-21   |      1 | $ -400.00 | $  +5324.00
-2026-08-24   |      2 | $  -30.00 | $  +5294.00
-2026-08-25   |      3 | $  +90.00 | $  +5384.00
-2026-08-26   |      1 | $ -180.00 | $  +5204.00
-2026-08-27   |      3 | $  -30.00 | $  +5174.00
-2026-08-28   |      2 | $ -710.00 | $  +4464.00
+2026-07-02   |      1 | $  -56.00 | $    +46.00
+2026-07-06   |      4 | $ -491.00 | $   -445.00
+2026-07-07   |      2 | $ -174.00 | $   -619.00
+2026-07-08   |      3 | $  +86.00 | $   -533.00
+2026-07-09   |      1 | $ +399.00 | $   -134.00
+2026-07-10   |      1 | $  -30.00 | $   -164.00
+2026-07-13   |      2 | $   +0.00 | $   -164.00
+2026-07-14   |      2 | $ -350.00 | $   -514.00
+2026-07-15   |      1 | $  +80.00 | $   -434.00
+2026-07-16   |      1 | $  +50.00 | $   -384.00
+2026-07-17   |      2 | $+1974.00 | $  +1590.00
+2026-07-20   |      1 | $ +290.00 | $  +1880.00
+2026-07-21   |      3 | $ -180.00 | $  +1700.00
+2026-07-22   |      4 | $ -420.00 | $  +1280.00
+2026-07-23   |      3 | $ +730.00 | $  +2010.00
+2026-07-24   |      2 | $  -10.00 | $  +2000.00
+2026-07-27   |      2 | $+2867.00 | $  +4867.00
+2026-07-28   |      1 | $ -450.00 | $  +4417.00
+2026-07-29   |     -- |         -- | $  +4417.00
+2026-07-30   |      4 | $ -340.00 | $  +4077.00
+2026-07-31   |      1 | $  +70.00 | $  +4147.00
+2026-08-03   |      1 | $+1610.00 | $  +5757.00
+2026-08-04   |      5 | $ -170.00 | $  +5587.00
+2026-08-05   |      3 | $ -800.00 | $  +4787.00
+2026-08-06   |      1 | $ +100.00 | $  +4887.00
+2026-08-07   |      2 | $ +310.00 | $  +5197.00
+2026-08-10   |     -- |         -- | $  +5197.00
+2026-08-11   |      1 | $  -90.00 | $  +5107.00
+2026-08-12   |      1 | $ -110.00 | $  +4997.00
+2026-08-13   |      1 | $ -230.00 | $  +4767.00
+2026-08-14   |      2 | $ -150.00 | $  +4617.00
+2026-08-17   |     -- |         -- | $  +4617.00
+2026-08-18   |      3 | $ -550.00 | $  +4067.00
+2026-08-19   |      2 | $ +210.00 | $  +4277.00
+2026-08-20   |      2 | $ -850.00 | $  +3427.00
+2026-08-21   |      3 | $ -800.00 | $  +2627.00
+2026-08-24   |      2 | $  +50.00 | $  +2677.00
+2026-08-25   |      2 | $ +520.00 | $  +3197.00
+2026-08-26   |      1 | $ -340.00 | $  +2857.00
+2026-08-27   |      3 | $ +240.00 | $  +3097.00
+2026-08-28   |      1 | $ -400.00 | $  +2697.00
 -------------------------------------------------
-TOTAL: 86T  PnL=$+4464.00  Win=36/86 (42%)  Rejected=12
+TOTAL: 78T  PnL=$+2697.00  Win=31/78 (40%)  Rejected=10
 
 --- HYBRID Trade Details (by Day) ---
 
   2026-07-01  (1 trades, PnL=$+102)
     call  entry=09:56  exit=10:16  PnL=$   +102  reason=trend_ema_exit             regime_momentum_3bar
 
-  2026-07-02  (3 trades, PnL=$+460)
-    call  entry=09:41  exit=09:47  PnL=$   +264  reason=trend_ema_exit             regime_momentum_3bar
-    call  entry=09:51  exit=10:07  PnL=$   +252  reason=trend_ema_exit             regime_trend_following
+  2026-07-02  (1 trades, PnL=$-56)
     put   entry=11:05  exit=11:12  PnL=$    -56  reason=trend_ema_exit             regime_trend_following
 
-  2026-07-06  (5 trades, PnL=$-773)
-    put   entry=10:01  exit=10:02  PnL=$   -282  reason=trend_ema_exit             regime_momentum_3bar
+  2026-07-06  (4 trades, PnL=$-491)
     put   entry=10:12  exit=10:14  PnL=$   -156  reason=bollinger_middle           regime_or_reversion
     put   entry=10:17  exit=10:19  PnL=$    +66  reason=bollinger_middle           regime_or_reversion
     call  entry=10:33  exit=10:41  PnL=$   -240  reason=trend_ema_exit             regime_trend_following
     put   entry=11:29  exit=11:31  PnL=$   -161  reason=bollinger_middle           regime_or_reversion
 
-  2026-07-07  (1 trades, PnL=$-144)
-    call  entry=09:41  exit=09:42  PnL=$   -144  reason=trend_ema_exit             regime_momentum_3bar
+  2026-07-07  (2 trades, PnL=$-174)
+    call  entry=09:58  exit=10:00  PnL=$   +192  reason=bollinger_middle           regime_or_reversion
+    put   entry=10:42  exit=10:48  PnL=$   -366  reason=trend_ema_exit             regime_trend_following
 
-  2026-07-08  (3 trades, PnL=$-148)
-    call  entry=09:41  exit=09:50  PnL=$   -456  reason=stop_loss                  regime_momentum_3bar
+  2026-07-08  (3 trades, PnL=$+86)
+    put   entry=09:56  exit=09:58  PnL=$   -222  reason=trend_ema_exit             regime_momentum_3bar
     call  entry=10:52  exit=10:54  PnL=$   +497  reason=bollinger_middle           regime_or_reversion
     put   entry=11:23  exit=11:35  PnL=$   -189  reason=trend_ema_exit             regime_trend_following
 
   2026-07-09  (1 trades, PnL=$+399)
     put   entry=10:12  exit=10:28  PnL=$   +399  reason=trend_ema_exit             regime_momentum_3bar
 
-  2026-07-10  (1 trades, PnL=$+18)
-    call  entry=09:43  exit=09:44  PnL=$    +18  reason=trend_ema_exit             regime_momentum_3bar
+  2026-07-10  (1 trades, PnL=$-30)
+    put   entry=09:56  exit=09:57  PnL=$    -30  reason=trend_ema_exit             regime_momentum_3bar
 
-  2026-07-13  (2 trades, PnL=$+255)
-    call  entry=10:19  exit=10:21  PnL=$   +180  reason=bollinger_middle           regime_or_reversion
+  2026-07-13  (2 trades, PnL=$+0)
+    call  entry=09:59  exit=10:05  PnL=$    -75  reason=trend_ema_exit             regime_momentum_3bar
     call  entry=10:48  exit=10:53  PnL=$    +75  reason=trend_ema_exit             regime_momentum_3bar
 
-  2026-07-14  (2 trades, PnL=$-480)
-    call  entry=09:46  exit=09:48  PnL=$   -410  reason=stop_loss                  regime_momentum_3bar
+  2026-07-14  (2 trades, PnL=$-350)
+    call  entry=10:09  exit=10:11  PnL=$   -280  reason=bollinger_middle           regime_or_reversion
     put   entry=11:11  exit=11:13  PnL=$    -70  reason=bollinger_middle           regime_or_reversion
 
-  2026-07-15  (2 trades, PnL=$-600)
-    put   entry=09:42  exit=09:44  PnL=$   -330  reason=trend_ema_exit             regime_momentum_3bar
-    call  entry=09:50  exit=09:52  PnL=$   -270  reason=bollinger_middle           regime_or_reversion
+  2026-07-15  (1 trades, PnL=$+80)
+    call  entry=09:59  exit=10:00  PnL=$    +80  reason=trend_ema_exit             regime_momentum_3bar
 
   2026-07-16  (1 trades, PnL=$+50)
     call  entry=11:16  exit=11:18  PnL=$    +50  reason=bollinger_middle           regime_or_reversion
 
-  2026-07-17  (2 trades, PnL=$+1,860)
-    call  entry=09:53  exit=10:07  PnL=$ +2,420  reason=take_profit_2              regime_momentum_3bar
-    put   entry=10:33  exit=10:36  PnL=$   -560  reason=stop_loss                  regime_momentum_3bar
+  2026-07-17  (2 trades, PnL=$+1,974)
+    call  entry=09:56  exit=10:32  PnL=$ +1,614  reason=trend_ema_exit             regime_momentum_3bar
+    call  entry=10:35  exit=10:44  PnL=$   +360  reason=trend_ema_exit             regime_momentum_3bar
 
   2026-07-20  (1 trades, PnL=$+290)
     put   entry=09:57  exit=10:26  PnL=$   +290  reason=trend_ema_exit             regime_momentum_3bar
 
-  2026-07-21  (4 trades, PnL=$-300)
-    put   entry=09:41  exit=09:42  PnL=$   +150  reason=trend_ema_exit             regime_momentum_3bar
-    put   entry=10:11  exit=10:14  PnL=$   -390  reason=trend_ema_exit             regime_momentum_3bar
+  2026-07-21  (3 trades, PnL=$-180)
+    put   entry=09:57  exit=10:00  PnL=$   -400  reason=stop_loss                  regime_momentum_3bar
+    call  entry=10:12  exit=10:14  PnL=$   +280  reason=bollinger_middle           regime_or_reversion
     put   entry=11:10  exit=11:12  PnL=$    -60  reason=bollinger_middle           regime_or_reversion
-    put   entry=11:15  exit=11:17  PnL=$     +0  reason=bollinger_middle           regime_or_reversion
 
-  2026-07-22  (4 trades, PnL=$-275)
-    call  entry=09:43  exit=09:44  PnL=$    +80  reason=trend_ema_exit             regime_momentum_3bar
-    call  entry=09:55  exit=10:08  PnL=$    +35  reason=trend_ema_exit             regime_momentum_3bar
+  2026-07-22  (4 trades, PnL=$-420)
+    put   entry=09:57  exit=09:59  PnL=$    -20  reason=bollinger_middle           regime_or_reversion
     put   entry=11:03  exit=11:05  PnL=$   -130  reason=bollinger_middle           regime_or_reversion
+    put   entry=11:08  exit=11:10  PnL=$    -10  reason=bollinger_middle           regime_or_reversion
     call  entry=11:27  exit=11:33  PnL=$   -260  reason=trend_ema_exit             regime_trend_following
 
-  2026-07-23  (4 trades, PnL=$+860)
-    call  entry=09:41  exit=09:42  PnL=$   +130  reason=trend_ema_exit             regime_momentum_3bar
+  2026-07-23  (3 trades, PnL=$+730)
     call  entry=10:36  exit=10:38  PnL=$ +1,090  reason=bollinger_middle           regime_or_reversion
     call  entry=10:46  exit=10:48  PnL=$   +160  reason=bollinger_middle           regime_or_reversion
     put   entry=11:29  exit=11:36  PnL=$   -520  reason=stop_loss                  regime_trend_following
 
-  2026-07-24  (2 trades, PnL=$+968)
-    put   entry=09:42  exit=10:09  PnL=$ +1,378  reason=trend_ema_exit             regime_momentum_3bar
-    put   entry=10:40  exit=10:50  PnL=$   -410  reason=stop_loss                  regime_trend_following
+  2026-07-24  (2 trades, PnL=$-10)
+    call  entry=09:56  exit=09:58  PnL=$    -10  reason=bollinger_middle           regime_or_reversion
+    call  entry=10:42  exit=10:44  PnL=$     +0  reason=bollinger_middle           regime_or_reversion
 
-  2026-07-27  (3 trades, PnL=$+2,940)
-    put   entry=09:44  exit=09:46  PnL=$   -270  reason=trend_ema_exit             regime_momentum_3bar
-    put   entry=10:12  exit=10:42  PnL=$ +2,970  reason=take_profit_2              regime_trend_following
+  2026-07-27  (2 trades, PnL=$+2,867)
+    put   entry=09:56  exit=10:50  PnL=$ +2,627  reason=trend_ema_exit             regime_momentum_3bar
     call  entry=11:18  exit=11:20  PnL=$   +240  reason=bollinger_middle           regime_or_reversion
 
-  2026-07-28  (1 trades, PnL=$-210)
-    call  entry=10:19  exit=10:21  PnL=$   -210  reason=bollinger_middle           regime_or_reversion
+  2026-07-28  (1 trades, PnL=$-450)
+    put   entry=09:56  exit=10:01  PnL=$   -450  reason=stop_loss                  regime_momentum_3bar
 
-  2026-07-29  (2 trades, PnL=$-540)
-    call  entry=09:42  exit=09:43  PnL=$   -150  reason=trend_ema_exit             regime_momentum_3bar
-    call  entry=09:55  exit=09:56  PnL=$   -390  reason=direction_reversal         regime_or_reversion
-
-  2026-07-30  (5 trades, PnL=$-460)
-    put   entry=09:41  exit=09:42  PnL=$   -120  reason=trend_ema_exit             regime_momentum_3bar
+  2026-07-30  (4 trades, PnL=$-340)
     put   entry=10:25  exit=10:27  PnL=$   -100  reason=bollinger_middle           regime_or_reversion
     put   entry=10:31  exit=10:33  PnL=$   -230  reason=bollinger_middle           regime_or_reversion
     put   entry=10:36  exit=10:38  PnL=$   -280  reason=bollinger_middle           regime_or_reversion
     put   entry=10:52  exit=11:04  PnL=$   +270  reason=trend_ema_exit             regime_momentum_3bar
 
-  2026-07-31  (4 trades, PnL=$+937)
-    put   entry=09:41  exit=09:42  PnL=$    +70  reason=trend_ema_exit             regime_momentum_3bar
-    call  entry=09:49  exit=09:51  PnL=$    -50  reason=bollinger_middle           regime_or_reversion
-    put   entry=10:04  exit=10:21  PnL=$ +1,217  reason=trend_ema_exit             regime_trend_following
-    put   entry=11:12  exit=11:13  PnL=$   -300  reason=stop_loss                  regime_momentum_3bar
+  2026-07-31  (1 trades, PnL=$+70)
+    call  entry=09:56  exit=09:58  PnL=$    +70  reason=bollinger_middle           regime_or_reversion
 
-  2026-08-03  (1 trades, PnL=$+1,600)
-    call  entry=09:57  exit=11:10  PnL=$ +1,600  reason=trend_ema_exit             regime_trend_following
+  2026-08-03  (1 trades, PnL=$+1,610)
+    call  entry=09:56  exit=11:10  PnL=$ +1,610  reason=trend_ema_exit             regime_momentum_3bar
 
-  2026-08-04  (3 trades, PnL=$+70)
-    call  entry=10:00  exit=10:21  PnL=$   +490  reason=trend_ema_exit             regime_momentum_3bar
-    call  entry=10:29  exit=10:39  PnL=$   -310  reason=trend_ema_exit             regime_trend_following
+  2026-08-04  (5 trades, PnL=$-170)
+    put   entry=09:56  exit=09:57  PnL=$   +220  reason=bollinger_middle           regime_or_reversion
+    put   entry=10:08  exit=10:10  PnL=$     +0  reason=bollinger_middle           regime_or_reversion
+    put   entry=10:17  exit=10:19  PnL=$    -10  reason=bollinger_middle           regime_or_reversion
+    call  entry=10:29  exit=10:37  PnL=$   -270  reason=trend_ema_exit             regime_trend_following
     put   entry=11:06  exit=11:08  PnL=$   -110  reason=bollinger_middle           regime_or_reversion
 
-  2026-08-05  (3 trades, PnL=$-520)
-    call  entry=09:41  exit=09:53  PnL=$    +10  reason=trend_ema_exit             regime_momentum_3bar
+  2026-08-05  (3 trades, PnL=$-800)
+    put   entry=09:57  exit=09:58  PnL=$   -270  reason=trend_ema_exit             regime_momentum_3bar
     call  entry=10:34  exit=10:36  PnL=$   -120  reason=bollinger_middle           regime_or_reversion
     put   entry=10:54  exit=11:00  PnL=$   -410  reason=stop_loss                  regime_trend_following
 
-  2026-08-06  (2 trades, PnL=$-230)
-    call  entry=09:42  exit=09:43  PnL=$   -330  reason=trend_ema_exit             regime_momentum_3bar
+  2026-08-06  (1 trades, PnL=$+100)
     call  entry=10:09  exit=10:27  PnL=$   +100  reason=trend_ema_exit             regime_trend_following
 
   2026-08-07  (2 trades, PnL=$+310)
     put   entry=09:56  exit=10:17  PnL=$   +690  reason=trend_ema_exit             regime_momentum_3bar
     call  entry=10:27  exit=10:36  PnL=$   -380  reason=stop_loss                  regime_momentum_3bar
 
-  2026-08-11  (1 trades, PnL=$-170)
-    call  entry=09:42  exit=09:44  PnL=$   -170  reason=trend_ema_exit             regime_momentum_3bar
+  2026-08-11  (1 trades, PnL=$-90)
+    call  entry=09:57  exit=09:58  PnL=$    -90  reason=trend_ema_exit             regime_momentum_3bar
 
-  2026-08-12  (1 trades, PnL=$-170)
-    put   entry=09:41  exit=09:42  PnL=$   -170  reason=trend_ema_exit             regime_momentum_3bar
+  2026-08-12  (1 trades, PnL=$-110)
+    call  entry=09:59  exit=10:01  PnL=$   -110  reason=trend_ema_exit             regime_momentum_3bar
 
-  2026-08-13  (2 trades, PnL=$-150)
-    put   entry=09:41  exit=09:43  PnL=$    +80  reason=bollinger_middle           regime_or_reversion
+  2026-08-13  (1 trades, PnL=$-230)
     put   entry=10:51  exit=11:02  PnL=$   -230  reason=trend_ema_exit             regime_momentum_3bar
 
   2026-08-14  (2 trades, PnL=$-150)
     call  entry=10:25  exit=10:27  PnL=$    -50  reason=bollinger_middle           regime_or_reversion
     call  entry=11:06  exit=11:08  PnL=$   -100  reason=bollinger_middle           regime_or_reversion
 
-  2026-08-18  (3 trades, PnL=$-75)
-    call  entry=09:41  exit=09:42  PnL=$    -70  reason=trend_ema_exit             regime_momentum_3bar
-    put   entry=10:13  exit=10:16  PnL=$   -350  reason=stop_loss                  regime_momentum_3bar
-    put   entry=10:46  exit=11:23  PnL=$   +345  reason=trend_ema_exit             regime_momentum_3bar
+  2026-08-18  (3 trades, PnL=$-550)
+    put   entry=09:56  exit=09:57  PnL=$   -430  reason=stop_loss                  regime_momentum_3bar
+    put   entry=10:01  exit=10:03  PnL=$   -360  reason=stop_loss                  regime_momentum_3bar
+    call  entry=10:14  exit=10:16  PnL=$   +240  reason=bollinger_middle           regime_or_reversion
 
-  2026-08-21  (1 trades, PnL=$-400)
+  2026-08-19  (2 trades, PnL=$+210)
+    call  entry=09:56  exit=09:58  PnL=$    -30  reason=bollinger_middle           regime_or_reversion
+    put   entry=10:01  exit=10:17  PnL=$   +240  reason=trend_ema_exit             regime_momentum_3bar
+
+  2026-08-20  (2 trades, PnL=$-850)
+    call  entry=09:56  exit=09:57  PnL=$   -490  reason=stop_loss                  regime_momentum_3bar
+    put   entry=10:03  exit=10:08  PnL=$   -360  reason=stop_loss                  regime_momentum_3bar
+
+  2026-08-21  (3 trades, PnL=$-800)
+    call  entry=09:56  exit=09:58  PnL=$    +70  reason=bollinger_middle           regime_or_reversion
+    put   entry=10:03  exit=10:06  PnL=$   -470  reason=stop_loss                  regime_momentum_3bar
     put   entry=10:20  exit=10:24  PnL=$   -400  reason=stop_loss                  regime_trend_following
 
-  2026-08-24  (2 trades, PnL=$-30)
-    call  entry=09:41  exit=09:42  PnL=$    -70  reason=trend_ema_exit             regime_momentum_3bar
+  2026-08-24  (2 trades, PnL=$+50)
+    call  entry=09:56  exit=09:57  PnL=$    +10  reason=trend_ema_exit             regime_momentum_3bar
     call  entry=11:08  exit=11:10  PnL=$    +40  reason=bollinger_middle           regime_or_reversion
 
-  2026-08-25  (3 trades, PnL=$+90)
-    call  entry=09:42  exit=09:56  PnL=$    -75  reason=trend_ema_exit             regime_momentum_3bar
-    put   entry=10:05  exit=10:37  PnL=$   +145  reason=trend_ema_exit             regime_momentum_3bar
+  2026-08-25  (2 trades, PnL=$+520)
+    put   entry=09:56  exit=10:37  PnL=$   +500  reason=trend_ema_exit             regime_momentum_3bar
     call  entry=11:04  exit=11:06  PnL=$    +20  reason=bollinger_middle           regime_or_reversion
 
-  2026-08-26  (1 trades, PnL=$-180)
-    put   entry=09:58  exit=10:00  PnL=$   -180  reason=bollinger_middle           regime_or_reversion
+  2026-08-26  (1 trades, PnL=$-340)
+    call  entry=09:56  exit=10:08  PnL=$   -340  reason=trend_ema_exit             regime_momentum_3bar
 
-  2026-08-27  (3 trades, PnL=$-30)
-    call  entry=09:41  exit=09:50  PnL=$    +20  reason=stop_loss                  regime_momentum_3bar
+  2026-08-27  (3 trades, PnL=$+240)
+    put   entry=09:56  exit=10:01  PnL=$   +290  reason=trend_ema_exit             regime_momentum_3bar
     put   entry=11:02  exit=11:04  PnL=$   +130  reason=bollinger_middle           regime_or_reversion
     call  entry=11:17  exit=11:22  PnL=$   -180  reason=trend_ema_exit             regime_trend_following
 
-  2026-08-28  (2 trades, PnL=$-710)
-    call  entry=09:41  exit=09:50  PnL=$   -310  reason=stop_loss                  regime_momentum_3bar
+  2026-08-28  (1 trades, PnL=$-400)
     put   entry=10:14  exit=10:17  PnL=$   -400  reason=stop_loss                  regime_trend_following
