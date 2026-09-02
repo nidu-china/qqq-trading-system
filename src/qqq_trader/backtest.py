@@ -447,6 +447,7 @@ class EventDrivenBacktester:
         cancel_check: Callable[[], bool] | None = None,
         trade_start: date | None = None,
         warmup_bars: list[Bar] | None = None,
+        reset_daily_context: bool = False,
     ) -> BacktestResult:
         result = BacktestResult(starting_equity, starting_equity)
         available = sorted(
@@ -622,6 +623,14 @@ class EventDrivenBacktester:
                 day_opening_equity = starting_equity + realized
                 day_start_realized = realized
                 daily_halted = False
+                if reset_daily_context:
+                    # Simulate live trading: each day starts fresh with only today's premarket bars
+                    from datetime import time as _time_type
+                    available = [
+                        b for b in available
+                        if b.end.astimezone(NY_TZ).date() == trading_day
+                        and b.start.astimezone(NY_TZ).time() < _time_type(9, 30)
+                    ]
             available.append(bar)
             set_volatility_context = getattr(self.strategy, "set_volatility_context", None)
             if callable(set_volatility_context):

@@ -310,7 +310,20 @@ class StrategyEngine:
             for bar in visible
             if bar.start.astimezone(NY_TZ).date() == trading_day
         ]
-        indicator_bars = visible[-500:]
+        # Include same-day premarket bars (09:00-09:29 ET) for indicator warmup.
+        # This lets indicators (EMA/BOLL/MACD) be fully calculated from the first
+        # RTH bar when running without multi-day history (e.g. daily-reset backtest).
+        premarket_today = sorted(
+            (
+                b for b in bars_1m
+                if b.complete
+                and b.start.astimezone(NY_TZ).date() == trading_day
+                and time(9, 0) <= b.start.astimezone(NY_TZ).time().replace(tzinfo=None) < time(9, 30)
+            ),
+            key=lambda b: b.end,
+        )
+        # Combine premarket warmup with RTH bars; take most recent 500 for efficiency
+        indicator_bars = (premarket_today + visible)[-500:]
         closes = [bar.close for bar in indicator_bars]
         minimum = max(
             RULES.timed_boll_period,

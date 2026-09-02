@@ -51,26 +51,24 @@ vol_5m = ParquetMarketStore.read_bars_path(store_path, "5m")
 vol_daily = ParquetMarketStore.read_bars_path(store_path, "day")
 qqq_bars = [b for b in bars if b.symbol == "QQQ.US"]
 
-# Period bars: regular trading hours (RTH) only
+# Period bars: premarket (09:00-09:29 ET) + RTH (09:30-16:00 ET)
+# reset_daily_context=True resets available to empty at each day start,
+# so each day uses only the day's premarket bars for indicator warmup.
 period_bars = [
     b for b in qqq_bars
     if start <= b.start.date() <= end
-    and time(9, 30) <= b.start.astimezone(ET).time() < time(16, 0)
+    and time(9, 0) <= b.start.astimezone(ET).time() < time(16, 0)
 ]
-
-# Warmup: use 09:00-09:30 pre-market data for each trading day
-warmup_bars = [
-    b for b in qqq_bars
-    if start <= b.start.date() <= end
-    and time(9, 0) <= b.start.astimezone(ET).time() < time(9, 30)
-]
+warmup_bars: list = []  # premarket bars are now included in period_bars
 VIX = ".VIX.US"
 vol = [b for b in vol_5m if b.symbol == VIX and b.start.date() >= date(2026, 5, 1)]
 vol_d = [b for b in vol_daily if b.symbol == VIX and b.start.date() >= date(2026, 5, 1)]
 
-trading_dates = sorted(set(b.start.astimezone(ET).date() for b in period_bars))
+rth_bars = [b for b in period_bars if b.start.astimezone(ET).time() >= time(9, 30)]
+premarket_count = len(period_bars) - len(rth_bars)
+trading_dates = sorted(set(b.start.astimezone(ET).date() for b in rth_bars))
 print(f"Period: {trading_dates[0]} to {trading_dates[-1]} ({len(trading_dates)} days)")
-print(f"Bars: {len(period_bars)}, Warmup: {len(warmup_bars)}, Vol5m: {len(vol)}, VolD: {len(vol_d)}")
+print(f"Bars: {len(rth_bars)}, Premarket: {premarket_count}, Vol5m: {len(vol)}, VolD: {len(vol_d)}")
 print()
 
 _compare_all = args.compare_all
@@ -83,7 +81,7 @@ for mode in _modes:
     tester = EventDrivenBacktester(s, None, ContractSelector(), RiskEngine(s))
     r = tester.run(
         period_bars, {}, Decimal("100000"), vol, vol_d,
-        trade_start=start, warmup_bars=warmup_bars,
+        trade_start=start, reset_daily_context=True,
     )
 
     daily: dict[date, dict] = defaultdict(lambda: {
