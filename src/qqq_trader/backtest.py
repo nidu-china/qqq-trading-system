@@ -624,13 +624,25 @@ class EventDrivenBacktester:
                 day_start_realized = realized
                 daily_halted = False
                 if reset_daily_context:
-                    # Simulate live trading: each day starts fresh with only today's premarket bars
+                    # Simulate daily engine restart: keep the last 60 RTH bars from
+                    # yesterday as indicator context, plus today's premarket bars.
+                    # This gives BOLL/MACD a stable baseline while avoiding weeks of
+                    # accumulated history that a restarted engine wouldn't have.
                     from datetime import time as _time_type
-                    available = [
+                    prev_rth = sorted(
+                        [
+                            b for b in available
+                            if b.end.astimezone(NY_TZ).date() < trading_day
+                            and _time_type(9, 30) <= b.start.astimezone(NY_TZ).time() < _time_type(16, 0)
+                        ],
+                        key=lambda b: b.end,
+                    )[-390:]
+                    today_pre = [
                         b for b in available
                         if b.end.astimezone(NY_TZ).date() == trading_day
                         and b.start.astimezone(NY_TZ).time() < _time_type(9, 30)
                     ]
+                    available = sorted(prev_rth + today_pre, key=lambda b: b.end)
             available.append(bar)
             set_volatility_context = getattr(self.strategy, "set_volatility_context", None)
             if callable(set_volatility_context):
