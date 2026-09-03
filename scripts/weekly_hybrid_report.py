@@ -4,6 +4,13 @@ Usage:
   python scripts/weekly_hybrid_report.py              # last 5 trading days in data
   python scripts/weekly_hybrid_report.py --week 2026-08-18   # week starting Mon 08-18
   python scripts/weekly_hybrid_report.py --start 2026-08-18 --end 2026-08-22
+  python scripts/weekly_hybrid_report.py --start 2026-07-01 --end 2026-07-31 --daily-reset
+
+Modes:
+  default      -- cumulative mode: indicators accumulate across all days (more stable)
+  --daily-reset -- each day restarted with yesterday's full RTH (390 bars) +
+                   today's premarket (09:00-09:29); simulates live trading where
+                   engine restarts daily but loads yesterday as warmup
 """
 from __future__ import annotations
 
@@ -28,6 +35,8 @@ parser.add_argument("--week", type=str, default=None,
                          "Defaults to the last 5 trading days available.")
 parser.add_argument("--start", type=str, default=None, help="Explicit start date (YYYY-MM-DD)")
 parser.add_argument("--end",   type=str, default=None, help="Explicit end date (YYYY-MM-DD)")
+parser.add_argument("--daily-reset", action="store_true",
+                    help="Reset indicator state each day using premarket (09:00-09:29) bars as warmup.")
 args = parser.parse_args()
 
 # ── Load data ────────────────────────────────────────────────────────────────
@@ -79,19 +88,28 @@ warmup_bars = [
     and time(9, 0) <= b.start.astimezone(ET).time() < time(9, 30)
 ]
 
+# In daily-reset mode, premarket bars must be in the main bars list so the
+# ordered loop processes them before each RTH session starts.
+if args.daily_reset:
+    run_bars = sorted(period_bars + warmup_bars, key=lambda b: b.end)
+else:
+    run_bars = period_bars
+
 # ── Run backtest ─────────────────────────────────────────────────────────────
+mode_label = "daily-reset (premarket warmup)" if args.daily_reset else "cumulative (cross-day)"
 print("=" * 80)
 print(f"{'HYBRID WEEKLY BACKTEST':^80}")
 print("=" * 80)
 print(f"Period : {start}  to  {end}  ({len(target_dates)} days)")
-print(f"Bars   : {len(period_bars)} RTH  +  {len(warmup_bars)} warmup")
+print(f"Bars   : {len(period_bars)} RTH  +  {len(warmup_bars)} premarket  Mode: {mode_label}")
 print()
 
 s = Settings(trading_mode="replay", strategy_mode="hybrid")
 tester = EventDrivenBacktester(s, None, ContractSelector(), RiskEngine(s))
 r = tester.run(
-    period_bars, {}, Decimal("100000"), vix_5m, vix_d,
-    trade_start=start, warmup_bars=warmup_bars,
+    run_bars, {}, Decimal("100000"), vix_5m, vix_d,
+    trade_start=start,
+    reset_daily_context=args.daily_reset,
 )
 
 # ── Daily summary ─────────────────────────────────────────────────────────────

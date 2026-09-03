@@ -625,14 +625,31 @@ class EventDrivenBacktester:
                 day_start_realized = realized
                 daily_halted = False
                 if reset_daily_context:
-                    # Simulate daily engine restart: each day starts with only today's
-                    # premarket bars (09:00-09:29 ET). The strategy's _one_minute_context
-                    # uses these 30 bars to warm up BOLL/MACD/EMA before RTH opens.
+                    # Simulate daily engine restart with "yesterday RTH + today premarket"
+                    # warmup. Yesterday's 390 RTH bars give MACD(26)/BOLL(20)/EMA(200) enough
+                    # history to converge; today's 30 premarket bars bring price action
+                    # up to the current session open.
                     from datetime import time as _time_type
+                    # Find the most recent prior trading day in available
+                    prior_rth_dates = sorted(set(
+                        b.start.astimezone(NY_TZ).date()
+                        for b in available
+                        if _time_type(9, 30) <= b.start.astimezone(NY_TZ).time()
+                        and b.end.astimezone(NY_TZ).date() != trading_day
+                    ))
+                    prev_day = prior_rth_dates[-1] if prior_rth_dates else None
                     available = [
                         b for b in available
-                        if b.end.astimezone(NY_TZ).date() == trading_day
-                        and b.start.astimezone(NY_TZ).time() < _time_type(9, 30)
+                        if (
+                            # Yesterday's full RTH bars (up to 390 bars)
+                            prev_day is not None
+                            and b.end.astimezone(NY_TZ).date() == prev_day
+                            and _time_type(9, 30) <= b.start.astimezone(NY_TZ).time()
+                        ) or (
+                            # Today's premarket bars (09:00-09:29)
+                            b.end.astimezone(NY_TZ).date() == trading_day
+                            and b.start.astimezone(NY_TZ).time() < _time_type(9, 30)
+                        )
                     ]
             available.append(bar)
             set_volatility_context = getattr(self.strategy, "set_volatility_context", None)
