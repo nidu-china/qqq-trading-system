@@ -196,6 +196,8 @@ class Position:
     entry_intent_id: UUID | None = None
     macd_reversal_pending: bool = False
     macd_reversal_pending_at: datetime | None = None
+    pyramid_stage: int = 0          # 0=30% in, 1=70% in, 2=100% in
+    pyramid_target_qty: int = 0     # full-size target (100%) contracts
 
     def __post_init__(self) -> None:
         _aware(self.opened_at)

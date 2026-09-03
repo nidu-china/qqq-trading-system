@@ -251,6 +251,7 @@ HDR = (
 
 print("=" * W)
 print(f"{'DAILY TOP-5 SWINGS  (09:40–14:00 ET, ZigZag ≥0.12%)':^{W}}")
+print(f"{'# = amplitude rank; rows sorted chronologically by start time':^{W}}")
 print("=" * W)
 
 for day in trading_dates:
@@ -281,7 +282,12 @@ for day in trading_dates:
     print(HDR)
     print("-" * W)
 
-    for rank, sw in enumerate(swings[:TOP_N], 1):
+    # Take top-N by amplitude, but display sorted chronologically by start time
+    top_swings = swings[:TOP_N]
+    top_swings_by_time = sorted(top_swings, key=lambda s: s['start_bar'].start)
+
+    for sw in top_swings_by_time:
+        amp_rank = top_swings.index(sw) + 1   # original amplitude rank
         sb = sw['start_bar']
         hist = [b for b in day_bars if b.start <= sb.start]
         if not hist:
@@ -296,7 +302,7 @@ for day in trading_dates:
         rvol_str = f"{s['rvol']:5.2f}" if s['rvol'] is not None else "  N/A"
 
         print(
-            f"{rank:>2}  {sw['dir']:<3}  {st_str:>5}→{en_str:<5}  "
+            f"{amp_rank:>2}  {sw['dir']:<3}  {st_str:>5}→{en_str:<5}  "
             f"{sw['amp_pct']:>4.2f}%  {sw['dur']:>3}b  "
             f"{s['or_pos']:>7}  {_b(s['ema_bull']):>5}  "
             f"{_f(s['mf']):>8}  {_b(s['mf_accel']):>2}  "
@@ -309,8 +315,8 @@ for day in trading_dates:
         bucket[0].append(s)
         bucket[1].append(st_str)
 
-        # Collect #1 swing per day for the summary table
-        if rank == 1:
+        # Collect #1 amplitude swing per day for the summary table
+        if amp_rank == 1:
             best_daily.append({
                 'date':    day,
                 'dir':     sw['dir'],
@@ -460,19 +466,20 @@ for label, key, tv in conds:
 # --- Timing Distribution -----------------------------------------------------
 print("\n\n")
 print("=" * 80)
-print(f"{'SWING START TIME DISTRIBUTION (30-min buckets)':^80}")
+print(f"{'SWING START TIME DISTRIBUTION (15-min buckets)':^80}")
 print("=" * 80)
 
 def _time_dist(times: list[str], label: str) -> None:
     buckets: dict[str, int] = defaultdict(int)
     for t in times:
         h, m = map(int, t.split(":"))
-        bm = (m // 30) * 30
+        bm = (m // 15) * 15   # 15-minute granularity
         buckets[f"{h:02d}:{bm:02d}"] += 1
     print(f"\n  {label}  (total {len(times)})")
+    max_count = max(buckets.values()) if buckets else 1
     for k in sorted(buckets):
         c   = buckets[k]
-        bar = "#" * c
+        bar = "#" * round(c / max_count * 25)   # normalize bar to 25 chars
         pct = c / len(times) * 100 if times else 0
         print(f"    {k}  {bar:<25}  {c:>3}  ({pct:.0f}%)")
 

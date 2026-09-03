@@ -66,6 +66,11 @@ class HybridEngine:
         # Direction lock after repeated stop-losses in the same direction
         self._stop_loss_count: dict[Direction, int] = {}
         self._direction_blocked: set[Direction] = set()
+        # Trap signal cooldown: prevent consecutive trap fires on the same pivot
+        self._last_trap_bar: datetime | None = None
+        # Minimum signal score gate: suppress low-quality entries
+        # Signals below this score are silently dropped in evaluate()
+        self._min_signal_score: int = 4
 
     def _reset_day(self, trading_day: date) -> None:
         self._current_day = trading_day
@@ -78,6 +83,7 @@ class HybridEngine:
         self._macd_fast_prev2 = ZERO
         self._stop_loss_count.clear()
         self._direction_blocked.clear()
+        self._last_trap_bar = None
 
     def set_volatility_context(self, volatility_bars: Sequence[Bar], decision_at: datetime) -> None:
         self.indicators.set_volatility_context(volatility_bars, decision_at)
@@ -246,9 +252,490 @@ class HybridEngine:
             self.last_state = MarketState.UNKNOWN
         return self.last_state
 
+    def _score_signal(self, direction: Direction) -> tuple[int, dict[str, str]]:
+        """Compute multi-dimensional signal confluence score (0–11).
+
+        Data-driven from 43-day ZigZag analysis (103 UP + 112 DN swing starts):
+
+        CALL scoring — mean-reversion oversold bounce:
+          RSI ≤ 40              0–3  (avg RSI at UP start = 39.1; 56% < 40)
+          BandPos ≤ -0.65       0–3  (avg BandPos = -0.67; 62% < -0.65)
+          Price < VWAP          0–2  (72% of UP swings start below VWAP)
+          MACDf 2-bar accel     0–2  (turning from negative → timing gate)
+          Volume ≥ threshold    0–1
+          ─────────────────── max 11
+
+        PUT scoring — momentum fade / exhaustion:
+          MACDf > 0 AND accel   0–3  (91% MACDf>0; 78% accel at DN start)
+          Price > VWAP          0–2  (67% of DN swings start above VWAP)
+          BandPos ≥ +0.30       0–2  (78% of DN swings have band_pos>0.30)
+          RSI 55–75             0–2  (avg RSI = 59 at DN start)
+          Volume ≥ threshold    0–1  (optional quality gate)
+          EMA9 > EMA21          0–1  (67% of DN swings have EMA bull)
+          ─────────────────── max 11
+        """
+        ctx = self.last_context
+        if ctx is None:
+            return 0, {}
+
+        score = 0
+        details: dict[str, str] = {}
+
+        half_width = max(ctx.boll_upper - ctx.boll_middle, Decimal("0.0001"))
+        band_pos = (ctx.current_close - ctx.boll_middle) / half_width
+        vwap = ctx.vwap_value
+        macd_accel_2bar = self._macd_fast > self._macd_fast_prev > self._macd_fast_prev2
+        details["vwap"] = str(vwap) if vwap > ZERO else "N/A"
+        details["band_pos"] = str(band_pos)
+
+        if direction is Direction.CALL:
+            # ── Mean-reversion oversold bounce ──────────────────────────────
+            rsi_score = 3 if ctx.rsi_val <= Decimal("40") else (2 if ctx.rsi_val <= Decimal("48") else 0)
+            score += rsi_score
+            details["score_rsi"] = str(rsi_score)
+
+            bp_score = 3 if band_pos <= Decimal("-0.65") else (2 if band_pos <= Decimal("-0.30") else 0)
+            score += bp_score
+            details["score_band"] = str(bp_score)
+
+            if vwap > ZERO and ctx.current_close < vwap:
+                score += 2
+                details["score_vwap"] = "2"
+            else:
+                details["score_vwap"] = "0"
+
+            if macd_accel_2bar:
+                score += 2
+            details["score_macd_accel"] = "2" if macd_accel_2bar else "0"
+
+            vol_score = 1 if ctx.rvol_val >= RULES.regime_trend_min_volume_ratio else 0
+            score += vol_score
+            details["score_volume"] = str(vol_score)
+
+        else:  # PUT
+            # ── Momentum fade / exhaustion ───────────────────────────────────
+            macd_pos_and_accel = self._macd_fast > ZERO and macd_accel_2bar
+            macd_score = 3 if macd_pos_and_accel else (1 if self._macd_fast > ZERO else 0)
+            score += macd_score
+            details["score_macd"] = str(macd_score)
+
+            if vwap > ZERO and ctx.current_close > vwap:
+                score += 2
+                details["score_vwap"] = "2"
+            else:
+                details["score_vwap"] = "0"
+
+            bp_score = 2 if band_pos >= Decimal("0.30") else 0
+            score += bp_score
+            details["score_band"] = str(bp_score)
+
+            rsi_val = ctx.rsi_val
+            rsi_score = 2 if Decimal("55") <= rsi_val <= Decimal("75") else (1 if rsi_val > Decimal("50") else 0)
+            score += rsi_score
+            details["score_rsi"] = str(rsi_score)
+
+            ema_score = 1 if self._ema_fast > self._ema_slow else 0
+            score += ema_score
+            details["score_ema"] = str(ema_score)
+
+            vol_score = 1 if ctx.rvol_val >= RULES.regime_trend_min_volume_ratio else 0
+            score += vol_score
+            details["score_volume"] = str(vol_score)
+
+        details["signal_score"] = str(score)
+        return score, details
+
+    def _vwap_pullback_signal(self, spot: Decimal | None) -> Signal | None:
+        """Data-driven entry signals from ZigZag swing analysis (43 days).
+
+        CALL — oversold bounce BELOW VWAP (mean-reversion):
+          72% of UP swing starts are BELOW VWAP (not above!)
+          62% have BandPos ≤ -0.65, avg RSI = 39
+          → Buy the oversold dip, not the breakout above VWAP.
+
+        PUT — VWAP rejection in downtrend (retest of VWAP from below):
+          Requires confirmed EMA downtrend (fast < slow) + bearish bar at VWAP.
+          Complements _vwap_macd_fade_signal which is the broader PUT path.
+        """
+        ctx = self.last_context
+        if ctx is None:
+            return None
+        vwap_val = ctx.vwap_value
+        if vwap_val <= ZERO:
+            return None
+        if len(self._today_bars) < 3:
+            return None
+
+        atr_val = ctx.atr_val if ctx.atr_val > ZERO else Decimal("0.30")
+        prev_bar = self._today_bars[-2]
+        curr_bar = self._today_bars[-1]
+        volume_ok = ctx.rvol_val >= RULES.regime_trend_min_volume_ratio
+
+        half_width = max(ctx.boll_upper - ctx.boll_middle, Decimal("0.0001"))
+        band_pos = (ctx.current_close - ctx.boll_middle) / half_width
+
+        # Fast MACD (5,10,3) 2-bar acceleration
+        macd_accel_2bar = self._macd_fast > self._macd_fast_prev > self._macd_fast_prev2
+
+        # CALL: deeply oversold bounce below VWAP.
+        # Use 1-bar MACD turn (not 3-bar) to fire earlier, closer to swing start.
+        # RSI ≤ 43 covers 62% of missed UP swings (avg RSI=41); bullish bar + new
+        # close high distinguish real bounces from drift-lower continuations.
+        macd_turning_up_1bar = self._macd_fast > self._macd_fast_prev
+        if (
+            ctx.current_close < vwap_val
+            and band_pos <= Decimal("-0.60")                       # near lower Bollinger band (avg missed=-0.58)
+            and ctx.rsi_val <= Decimal("43")                       # deeply oversold (covers 62% of missed UPs)
+            and macd_turning_up_1bar                               # MACD just started turning up
+            and curr_bar.close > curr_bar.open                     # bullish candle
+            and curr_bar.close > prev_bar.close                    # making new close high
+            and volume_ok
+            and self.last_state is not MarketState.TREND_DOWN
+            and Direction.CALL not in self._direction_blocked
+        ):
+            return self._signal(Direction.CALL, "vwap_bounce_call", spot)
+
+        # PUT: price tests VWAP from below in downtrend, gets rejected.
+        # Require MACD still accelerating negative → rejects entries where the
+        # swing momentum has already peaked and MACD is starting to flatten.
+        macd_still_falling = self._macd_fast < self._macd_fast_prev
+        if (
+            self._ema_fast < self._ema_slow                        # EMA downtrend confirmed
+            and prev_bar.high >= vwap_val - atr_val * Decimal("0.5")  # prior bar reached VWAP zone
+            and ctx.current_close < vwap_val                       # now rejected below VWAP
+            and curr_bar.close < curr_bar.open                     # bearish candle
+            and self._macd_fast < ZERO                             # MACD still negative
+            and macd_still_falling                                 # MACD still accelerating ↓
+            and RULES.timed_put_rsi_min < ctx.rsi_val <= Decimal("55")
+            and volume_ok
+            and self.last_state is not MarketState.TREND_UP
+            and Direction.PUT not in self._direction_blocked
+        ):
+            return self._signal(Direction.PUT, "vwap_pullback", spot)
+
+        return None
+
+    def _vwap_macd_fade_signal(self, spot: Decimal | None) -> Signal | None:
+        """Fade the rally: PUT when fast MACD positive and accelerating above VWAP.
+
+        Data-driven (43 days, 112 DN swing starts):
+          91% have MACDf > 0 at DN start
+          78% have MACDf accelerating
+          67% have price > VWAP
+          VWAP_above + MACDf_accel combined = 52% hit rate on DN swings
+          (vs current _or_reversion which covers only 23%)
+
+        This is the primary broad PUT signal, complementing the OR-anchored
+        _or_reversion_signal which requires OR_HIGH break.
+        """
+        ctx = self.last_context
+        if ctx is None:
+            return None
+        vwap_val = ctx.vwap_value
+        if vwap_val <= ZERO:
+            return None
+        if len(self._today_bars) < 3:
+            return None
+
+        # Fast MACD (5,10,3) — 2-bar acceleration from positive territory
+        macd_accel_2bar = self._macd_fast > self._macd_fast_prev > self._macd_fast_prev2
+
+        half_width = max(ctx.boll_upper - ctx.boll_middle, Decimal("0.0001"))
+        band_pos = (ctx.current_close - ctx.boll_middle) / half_width
+        volume_ok = ctx.rvol_val >= RULES.regime_trend_min_volume_ratio
+
+        if (
+            ctx.current_close > vwap_val                           # above VWAP (67% of DN starts)
+            and self._macd_fast > ZERO                             # MACD positive (91% of DN starts)
+            and macd_accel_2bar                                    # still accelerating (78% of DN starts)
+            and band_pos >= Decimal("0.50")                        # tightened: near upper band
+            and Decimal("65") <= ctx.rsi_val <= Decimal("80")     # overbought (tightened from 55)
+            and volume_ok
+            and self.last_state is not MarketState.TREND_UP        # not in confirmed strong uptrend
+            and Direction.PUT not in self._direction_blocked
+        ):
+            return self._signal(Direction.PUT, "vwap_macd_fade", spot)
+
+        return None
+
+    def _momentum_exhaustion_signal(self, spot: Decimal | None) -> Signal | None:
+        """POST-PEAK exhaustion reversal: PUT when MACD is positive but decelerating.
+
+        Diagnosis of 73 missed DN swing starts:
+          74% have MACDf > 0  — but our vwap_macd_fade requires MACDf still ACCELERATING.
+          64% have BandPos > +0.30  — market is extended.
+          56% are above VWAP.
+          Many swing starts happen AFTER the MACD peak (deceleration, not acceleration).
+
+        Signal fires when:
+          - Price above VWAP (56–67% of DN starts)
+          - MACD positive but decelerating: fast_curr > 0 AND fast_curr < fast_prev
+          - BandPos ≥ +0.40 (extended — somewhat higher gate than vwap_macd_fade's +0.30)
+          - RSI ≥ 58 (elevated)
+          - 15-bar cooldown (shared with vwap_macd_fade to avoid back-to-back entries)
+        """
+        ctx = self.last_context
+        if ctx is None:
+            return None
+        vwap_val = ctx.vwap_value
+        if vwap_val <= ZERO:
+            return None
+        if len(self._today_bars) < 3:
+            return None
+
+        half_width = max(ctx.boll_upper - ctx.boll_middle, Decimal("0.0001"))
+        band_pos = (ctx.current_close - ctx.boll_middle) / half_width
+        volume_ok = ctx.rvol_val >= RULES.regime_trend_min_volume_ratio
+
+        macd_decel = (
+            self._macd_fast > ZERO                  # still positive (not fully reversed)
+            and self._macd_fast < self._macd_fast_prev   # but now decelerating from peak
+            and self._macd_fast_prev > ZERO         # prev also positive (not spike)
+        )
+        if (
+            ctx.current_close > vwap_val
+            and macd_decel
+            and band_pos >= Decimal("0.50")         # tightened: avg BandPos=+0.42 at missed DNs
+            and ctx.rsi_val >= Decimal("63")        # tightened: avg RSI=56.5 at missed DNs
+            and volume_ok
+            and self.last_state is not MarketState.TREND_UP
+            and Direction.PUT not in self._direction_blocked
+        ):
+            return self._signal(Direction.PUT, "momentum_exhaustion_put", spot)
+
+        return None
+
+    def _deep_oversold_bounce_call(self, spot: Decimal | None) -> Signal | None:
+        """Counter-trend CALL bounce from deeply oversold levels.
+
+        Diagnosis of 85 missed UP swing starts:
+          65% have RSI < 45  (deeply oversold)
+          72% have BandPos < -0.30  (below BB middle)
+          67% below VWAP
+          27% start in TREND_DOWN regime — vwap_bounce_call is blocked there
+
+        vwap_bounce_call requires macd_accel_2bar, but at a true swing bottom
+        MACD is still decelerating. This signal targets the opposite: deep oversold
+        + price makes a lower wick (hammer) or volume spike, signalling exhaustion.
+
+        Conditions (stricter RSI to compensate for relaxed MACD):
+          - RSI ≤ 38 (deeply oversold — tighter than vwap_bounce_call's 48)
+          - BandPos ≤ -0.50 (near lower Bollinger band)
+          - Price below VWAP
+          - Current bar closes ABOVE its open (bullish bar — MACD direction not required)
+          - Volume OK
+          - Shared bounce cooldown (15-bar) with vwap_bounce_call
+        """
+        ctx = self.last_context
+        if ctx is None:
+            return None
+        vwap_val = ctx.vwap_value
+        if vwap_val <= ZERO:
+            return None
+        if len(self._today_bars) < 3:
+            return None
+
+        curr_bar = self._today_bars[-1]
+        volume_ok = ctx.rvol_val >= RULES.regime_trend_min_volume_ratio
+        half_width = max(ctx.boll_upper - ctx.boll_middle, Decimal("0.0001"))
+        band_pos = (ctx.current_close - ctx.boll_middle) / half_width
+
+        if (
+            ctx.current_close < vwap_val            # below VWAP (67% of missed UPs)
+            and band_pos <= Decimal("-0.60")         # tightened: avg BandPos=-0.49 at missed UPs
+            and ctx.rsi_val <= Decimal("35")         # tightened: avg RSI=42 at missed UPs
+            and curr_bar.close > curr_bar.open       # bullish bar (exhaustion hint)
+            and volume_ok
+            and Direction.CALL not in self._direction_blocked
+        ):
+            return self._signal(Direction.CALL, "deep_oversold_bounce", spot)
+
+        return None
+
+    def _macd_narrowing_call(self, spot: Decimal | None) -> Signal | None:
+        """CALL entry when MACD histogram is negative but narrowing (momentum weakening).
+
+        Covers 70% of missed UP swings where MACDf < 0 at swing start.
+        The swing bottom typically fires when downward MACD momentum SHRINKS:
+          hist < 0  AND  hist > hist_prev  (less negative than before)
+          → downward momentum is decelerating → reversal approaching
+
+        Combined with pyramid scaling (30% initial entry), this catches the
+        early bounce before MACD crosses zero.
+
+        Conditions:
+          - MACDf < 0  (still negative — not a zero-cross, that's vwap_bounce_call)
+          - MACDf > MACDf_prev  (narrowing from below)
+          - MACDf_prev < 0  (previous bar also negative — confirms narrowing, not a spike)
+          - RSI ≤ 48  (oversold; covers the 33% of missed UPs with RSI 40-48)
+          - BandPos ≤ -0.30  (below BB middle; 70% of missed UPs)
+          - Price below VWAP  (67% of missed UPs)
+          - 12-bar cooldown (independent tracker)
+        """
+        ctx = self.last_context
+        if ctx is None:
+            return None
+        vwap_val = ctx.vwap_value
+        if vwap_val <= ZERO:
+            return None
+        if len(self._today_bars) < 3:
+            return None
+
+        volume_ok = ctx.rvol_val >= RULES.regime_trend_min_volume_ratio
+        half_width = max(ctx.boll_upper - ctx.boll_middle, Decimal("0.0001"))
+        band_pos = (ctx.current_close - ctx.boll_middle) / half_width
+
+        macd_narrowing_from_below = (
+            self._macd_fast < ZERO                      # still negative
+            and self._macd_fast > self._macd_fast_prev  # but less negative (narrowing)
+            and self._macd_fast_prev < ZERO             # prev also negative (not a spike)
+        )
+        if (
+            ctx.current_close < vwap_val
+            and macd_narrowing_from_below
+            and band_pos <= Decimal("-0.45")         # tightened: avg=-0.49 at missed UPs
+            and ctx.rsi_val <= Decimal("42")         # tightened: avg=42.2 at missed UPs
+            and volume_ok
+            and self.last_state is not MarketState.TREND_DOWN
+            and Direction.CALL not in self._direction_blocked
+        ):
+            return self._signal(Direction.CALL, "macd_narrowing_call", spot)
+
+        return None
+
+    def _macd_narrowing_put(self, spot: Decimal | None) -> Signal | None:
+        """PUT entry when MACD histogram is positive but narrowing (momentum weakening).
+
+        Covers 74% of missed DN swings where MACDf > 0 at swing start.
+        The swing top typically fires when upward MACD momentum SHRINKS:
+          hist > 0  AND  hist < hist_prev  (less positive than before)
+          → upward momentum is decelerating → reversal approaching
+
+        This is the symmetric counterpart of _macd_narrowing_call.
+
+        Conditions:
+          - MACDf > 0  (still positive)
+          - MACDf < MACDf_prev  (narrowing from above)
+          - MACDf_prev > 0  (previous bar also positive)
+          - RSI ≥ 52  (elevated; covers the 29% of missed DNs with RSI 50-60)
+          - BandPos ≥ +0.30  (above BB middle; 64% of missed DNs)
+          - Price above VWAP (56% of missed DNs)
+          - Not TREND_UP
+          - 12-bar cooldown (independent tracker)
+        """
+        ctx = self.last_context
+        if ctx is None:
+            return None
+        vwap_val = ctx.vwap_value
+        if vwap_val <= ZERO:
+            return None
+        if len(self._today_bars) < 3:
+            return None
+
+        volume_ok = ctx.rvol_val >= RULES.regime_trend_min_volume_ratio
+        half_width = max(ctx.boll_upper - ctx.boll_middle, Decimal("0.0001"))
+        band_pos = (ctx.current_close - ctx.boll_middle) / half_width
+
+        macd_narrowing_from_above = (
+            self._macd_fast > ZERO                      # still positive
+            and self._macd_fast < self._macd_fast_prev  # but less positive (narrowing)
+            and self._macd_fast_prev > ZERO             # prev also positive (not a spike)
+        )
+        if (
+            ctx.current_close > vwap_val
+            and macd_narrowing_from_above
+            and band_pos >= Decimal("0.45")         # tightened: avg=+0.42 at missed DNs
+            and ctx.rsi_val >= Decimal("60")         # tightened: avg=56.5 at missed DNs
+            and volume_ok
+            and self.last_state is not MarketState.TREND_UP
+            and Direction.PUT not in self._direction_blocked
+        ):
+            return self._signal(Direction.PUT, "macd_narrowing_put", spot)
+
+        return None
+
+    def _trap_signal(self, spot: Decimal | None) -> Signal | None:
+        """Detect false breakout (trap) patterns and trade the reversal.
+
+        False breakout above OR_HIGH → PUT:
+          prev bar high > OR_HIGH, but volume was thin (rvol_prev < 1.0)
+          OR the breakout bar had a large upper wick (>60 % of bar range),
+          AND the current bar closes back below OR_HIGH.
+
+        False breakdown below OR_LOW → CALL:
+          Symmetric logic on the downside.
+
+        Trap cooldown: after firing, waits ≥ 3 bars before firing again to
+        prevent consecutive duplicate signals on the same reversal pivot.
+        """
+        if self._or_high is None or self._or_low is None:
+            return None
+        if len(self._today_bars) < 3:
+            return None
+        ctx = self.last_context
+        if ctx is None:
+            return None
+
+        # Cooldown: skip if we fired a trap signal within the last 3 bars
+        if self._last_trap_bar is not None and ctx.bar_end is not None:
+            bars_since = sum(
+                1 for b in self._today_bars if b.end > self._last_trap_bar
+            )
+            if bars_since < 3:
+                return None
+
+        prev_bar = self._today_bars[-2]
+        curr_bar = self._today_bars[-1]
+        macd_curr, macd_prev = self._active_macd()
+        bar_range = prev_bar.high - prev_bar.low
+
+        # ── False breakout above OR_HIGH → PUT ──────────────────────────────
+        if (
+            prev_bar.high > self._or_high                         # prior bar poked above
+            and self.last_state is not MarketState.TREND_UP       # not in strong uptrend
+            and curr_bar.close < self._or_high                    # price retreated
+            and macd_curr <= macd_prev                            # MACD weakening
+            and ctx.rsi_val <= Decimal("62")
+            and ctx.rvol_val >= RULES.regime_trend_min_volume_ratio
+            and Direction.PUT not in self._direction_blocked
+        ):
+            # Volume or wick must confirm the false breakout
+            thin_volume = ctx.rvol_prev < Decimal("1.0")
+            upper_wick = (
+                bar_range > ZERO
+                and (prev_bar.high - prev_bar.close) / bar_range > Decimal("0.55")
+            )
+            if thin_volume or upper_wick:
+                sig = self._signal(Direction.PUT, "trap_false_breakout", spot)
+                self._last_trap_bar = sig.bar_end
+                return sig
+
+        # ── False breakdown below OR_LOW → CALL ─────────────────────────────
+        if (
+            prev_bar.low < self._or_low                           # prior bar poked below
+            and self.last_state is not MarketState.TREND_DOWN     # not in strong downtrend
+            and curr_bar.close > self._or_low                     # price recovered
+            and macd_curr >= macd_prev                            # MACD strengthening
+            and ctx.rsi_val >= Decimal("38")
+            and ctx.rvol_val >= RULES.regime_trend_min_volume_ratio
+            and Direction.CALL not in self._direction_blocked
+        ):
+            thin_volume = ctx.rvol_prev < Decimal("1.0")
+            lower_wick = (
+                bar_range > ZERO
+                and (prev_bar.close - prev_bar.low) / bar_range > Decimal("0.55")
+            )
+            if thin_volume or lower_wick:
+                sig = self._signal(Direction.CALL, "trap_false_breakdown", spot)
+                self._last_trap_bar = sig.bar_end
+                return sig
+
+        return None
+
     def _signal(self, direction: Direction, strategy: str, spot: Decimal | None) -> Signal:
         ctx = self.last_context
         assert ctx is not None and ctx.bar_end is not None
+        score, score_details = self._score_signal(direction)
         indicators = {
             "profile": "regime_adaptive",
             "indicator_timeframe": "1m",
@@ -265,6 +752,7 @@ class HybridEngine:
             "volume_ratio": str(ctx.rvol_val),
             "vix_5m_trend": self.vix_trend.value,
             **self._regime_details,
+            **score_details,
         }
         return Signal(
             direction=direction,
@@ -273,7 +761,65 @@ class HybridEngine:
             strategy=strategy,
             market_state=self.last_state,
             indicators=indicators,
+            vwap=ctx.vwap_value if ctx.vwap_value > ZERO else None,
+            atr=ctx.atr_val if ctx.atr_val > ZERO else None,
         )
+
+    def pyramid_add_decision(self, position: "Position") -> tuple[int, str] | None:
+        """Return (contracts_to_add, stage_name) for pyramid scaling, or None.
+
+        Pyramid schedule (relative to full-size target):
+          Stage 0 → 1 : add 40% after spot gains ≥ 0.25 ATR in direction  (total 70%)
+          Stage 1 → 2 : add remaining 30% after spot gains ≥ 0.50 ATR      (total 100%)
+
+        Conditions:
+          - MACD (fast) must not be reversing against the trade
+          - Bar must be before 12:00 ET (avoid theta drag on late adds)
+          - pyramid_target_qty must be set on the Position
+
+        Why these thresholds?
+          0.25 ATR = ~$0.07 on a typical $0.28 ATR day → confirms initial thesis
+          0.50 ATR = ~$0.14 → strong follow-through before committing full size
+        """
+        from .domain import Position as _Position  # avoid circular at module level
+        ctx = self.last_context
+        if ctx is None or position.entry_spot is None:
+            return None
+        if position.pyramid_target_qty <= 0 or position.pyramid_stage >= 2:
+            return None
+
+        bar_time = ctx.bar_end.astimezone(NY_TZ).time().replace(tzinfo=None)
+        if bar_time >= RULES.phase_main_end:
+            return None
+
+        atr = ctx.atr_val if ctx.atr_val > ZERO else Decimal("0.30")
+        entry_spot = position.entry_spot
+        current = ctx.current_close
+
+        if position.direction is Direction.CALL:
+            gained = current - entry_spot
+            macd_ok = self._macd_fast >= self._macd_fast_prev
+        else:
+            gained = entry_spot - current
+            macd_ok = self._macd_fast <= self._macd_fast_prev
+
+        if not macd_ok:
+            return None
+
+        if position.pyramid_stage == 0:
+            threshold = atr * Decimal("0.25")
+            if gained >= threshold:
+                add_qty = max(1, round(position.pyramid_target_qty * Decimal("0.40")))
+                return (add_qty, "pyramid_add_1")
+
+        elif position.pyramid_stage == 1:
+            threshold = atr * Decimal("0.50")
+            if gained >= threshold:
+                already_in = position.quantity
+                add_qty = max(1, position.pyramid_target_qty - already_in)
+                return (add_qty, "pyramid_add_2")
+
+        return None
 
     def _trend_signal(self, spot: Decimal | None) -> Signal | None:
         ctx = self.last_context
@@ -338,31 +884,40 @@ class HybridEngine:
         return None
 
     def _momentum_signal(self, spot: Decimal | None) -> Signal | None:
-        """Pure momentum entry: 3 consecutive rising/falling bars."""
+        """Pure momentum entry: 3 consecutive rising/falling bars.
+
+        ZigZag analysis (43 days, 215 top-5 swings) shows two opening patterns:
+          CALL: oversold flush (RSI~39, price below OR, MACDf negative at start)
+          PUT:  overbought push  (RSI~59, MACDf positive at start)
+        Both are captured reliably by the 3-bar rule + volume confirmation.
+
+        Note: adding MACD direction gates here was tested but rejected — both
+        the Jul-17 CALL (extreme bounce, MACDf turned positive mid-reversal) and
+        the Aug-03 CALL (strong opening trend, MACDf positive throughout) would
+        have been blocked, losing the strategy's two largest winning sessions.
+        """
         if len(self._today_bars) < 4:
             return None
-        
+
         ctx = self.last_context
         assert ctx is not None
-        
-        # Check last 3 bars for consistent direction
+
         last_3 = self._today_bars[-3:]
         all_rising = all(
-            last_3[i].close > last_3[i-1].close for i in range(1, len(last_3))
+            last_3[i].close > last_3[i - 1].close for i in range(1, len(last_3))
         )
         all_falling = all(
-            last_3[i].close < last_3[i-1].close for i in range(1, len(last_3))
+            last_3[i].close < last_3[i - 1].close for i in range(1, len(last_3))
         )
-        
-        # Require decent volume
+
         volume_ok = ctx.rvol_val >= RULES.regime_trend_min_volume_ratio * Decimal("0.9")
-        
+
         if all_rising and volume_ok and ctx.rsi_val < RULES.timed_call_rsi_max:
             return self._signal(Direction.CALL, "regime_momentum_3bar", spot)
-        
+
         if all_falling and volume_ok and ctx.rsi_val > RULES.timed_put_rsi_min:
             return self._signal(Direction.PUT, "regime_momentum_3bar", spot)
-        
+
         return None
 
     def _phase2_or_breakout_signal(self, spot: Decimal | None) -> Signal | None:
@@ -434,20 +989,27 @@ class HybridEngine:
         return None
 
     def _or_reversion_signal(self, spot: Decimal | None) -> Signal | None:
-        """OR-anchored mean reversion for Phase 3+ (after 10:00 ET).
+        """OR-anchored mean reversion for RANGE or UNKNOWN regime.
 
         ZigZag analysis — 43 trading days Jul–Aug 2026, 215 top-5 swings:
-          - 55% of upswing   starts: price < OR_LOW  (avg RSI 39, band_pos -0.86)
-          - 38% of downswing starts: price > OR_HIGH (avg RSI 59, band_pos +0.78)
+          UP   starts: 55% price < OR_LOW,  avg RSI 39, avg band_pos -0.67
+          DOWN starts: 38% price > OR_HIGH, avg RSI 59, avg band_pos +0.62
 
-        Uses the OR as a daily fair-value reference: excursions beyond OR
-        boundaries tend to revert.  More specific than raw band reversion
-        because it requires BOTH OR position AND Bollinger band confirmation.
+        Key parameter changes vs. initial version:
+          CALL band_pos: -0.30 → -0.65  (matches the actual avg -0.67; the
+            original -0.30 admitted too many shallow dips that were noise)
+          CALL time gate: signal only fires at ≥10:00 ET to skip the noisy
+            09:40-10:00 opening-settle window where OR is freshly formed.
+          CALL MACD: 2-bar accel retained — provides a reliable entry-timing
+            gate regardless of the absolute histogram level.
+          PUT side: unchanged (decel_2bar + RSI≥60 confirmed working in analysis)
 
-        Signal logic (fires in RANGE or UNKNOWN regime, Phase 3+ only):
-          CALL  price < OR_LOW  AND  band_pos < -0.30  AND  RSI <= 40  AND  2-bar MACDf accel
-          PUT   price > OR_HIGH AND  band_pos > +0.30  AND  RSI >= 60  AND  2-bar MACDf decel
-        Exit at Bollinger middle band (same as regime_range_reversion).
+        Signal logic:
+          CALL  ≥10:00  price < OR_LOW  AND  band_pos ≤ -0.65  AND  RSI ≤ 40
+                AND  2-bar MACDf accel
+          PUT   any     price > OR_HIGH AND  band_pos ≥ +0.30  AND  RSI ≥ 60
+                AND  2-bar MACDf decel
+        Exit at Bollinger middle band.
         """
         if self._or_high is None or self._or_low is None:
             return None
@@ -460,32 +1022,35 @@ class HybridEngine:
         macd_prev  = self._macd_fast_prev
         macd_prev2 = self._macd_fast_prev2
         volume_ok = ctx.rvol_val >= RULES.regime_range_min_volume_ratio
+        bar_time = ctx.bar_end.astimezone(NY_TZ).time().replace(tzinfo=None)
 
         # ── CALL: buy the oversold dip below OR_LOW ─────────────────────────
-        # ZigZag stats: 55% of upswings start with price < OR_LOW,
-        # avg band_pos = -0.67, avg RSI = 39, MACD negative but accelerating.
-        # Use -0.30 threshold (captures the full range including avg -0.67);
-        # OR position + RSI<=40 + 2-bar MACD provide the quality gate.
+        # ZigZag stats: avg band_pos = -0.67 at UP swing starts; -0.65 gate
+        # targets the confirmed deeply-oversold cases and eliminates shallow
+        # borderline dips that are more likely to continue lower.
+        # ≥10:00 gate: the OR settles in 09:30-09:40; in 09:40-10:00 the market
+        # is still in price-discovery mode — OR reversion signals there are
+        # statistically unreliable and better handled by _phase2_or_breakout_signal.
         macd_accel_2bar = macd_curr > macd_prev > macd_prev2
         if (
-            ctx.current_close < self._or_low
-            and band_pos <= Decimal("-0.30")   # consistent with OR gate + RSI filter
-            and ctx.rsi_val <= Decimal("40")   # avg RSI = 39 at upswing starts
-            and macd_accel_2bar                # 2 bars of consecutive improvement
+            bar_time >= RULES.phase_opening_end   # ≥10:00 — skip opening settle
+            and ctx.current_close < self._or_low
+            and band_pos <= Decimal("-0.65")       # avg -0.67; filters shallow dips
+            and ctx.rsi_val <= Decimal("40")       # avg RSI = 39 at UP starts
+            and macd_accel_2bar                    # 2-bar recovery: timing quality gate
             and volume_ok
         ):
             return self._signal(Direction.CALL, "regime_or_reversion", spot)
 
         # ── PUT: fade the overbought push above OR_HIGH ─────────────────────
-        # ZigZag stats: 38% of downswings start with price > OR_HIGH,
-        # avg band_pos = +0.62, avg RSI = 59, MACD positive but decelerating.
-        # band_pos >= 0.30 captures 78% of above-OR-HIGH downswings;
-        # RSI >= 60 provides the quality filter (avg 59 in analysis).
+        # ZigZag stats: avg RSI = 59, avg band_pos = +0.62 at DN swing starts.
+        # Waiting for MACD to peak and decelerate (2-bar) confirms the rally
+        # has exhausted before entering the put — unchanged from original.
         macd_decel_2bar = macd_curr < macd_prev < macd_prev2
         if (
             ctx.current_close > self._or_high
-            and band_pos >= Decimal("0.30")    # RSI + MACD handle quality
-            and ctx.rsi_val >= Decimal("60")   # avg RSI = 59 at DN starts
+            and band_pos >= Decimal("0.30")        # wide gate — RSI + MACD handle quality
+            and ctx.rsi_val >= Decimal("60")       # avg RSI = 59 at DN starts
             and macd_decel_2bar
             and volume_ok
         ):
@@ -555,38 +1120,78 @@ class HybridEngine:
         if local_time >= RULES.phase_main_end:
             return None
 
+        # After noon, only high-confidence entries survive theta decay:
+        # raise the score floor so weak signals don't waste capital in the
+        # afternoon when 0DTE options lose value fast.
+        original_min_score = self._min_signal_score
+        afternoon = time(12, 0)
+        if local_time >= afternoon:
+            self._min_signal_score = max(self._min_signal_score, 7)
+
         # ── Signal selection ─────────────────────────────────────────────────
         signal: Signal | None = None
 
         if state in {MarketState.TREND_UP, MarketState.TREND_DOWN}:
             # Trend regime: Phase 2 uses OR breakout, Phase 3+ uses band_pos ≥ 0.65
             signal = self._trend_signal(spot)
+            # VWAP pullback: secondary entry when trend signal doesn't fire
+            if signal is None:
+                signal = self._vwap_pullback_signal(spot)
 
         elif state is MarketState.RANGE:
-            # Range/oscillation regime: OR-anchored reversion only.
-            # regime_range_reversion (outer Bollinger band) removed: 26% win rate,
-            # net -$2,616 on 42-day backtest — time decay on 0DTE kills small-move entries.
-            signal = self._or_reversion_signal(spot)
+            # Range/oscillation regime: VWAP-based signals.
+            # regime_or_reversion removed (4% alignment, 96% noise)
+            # vwap_macd_fade/momentum_exhaustion/deep_oversold/macd_narrowing: all <10% alignment, removed
+            signal = self._vwap_pullback_signal(spot)
 
         else:  # MarketState.UNKNOWN
             if local_time < RULES.phase_opening_end:
                 # Phase 2 UNKNOWN: OR breakout takes priority over regime signals
                 signal = self._phase2_or_breakout_signal(spot)
-            # OR-anchored reversion (has price quality gate) — no raw band reversion
             if signal is None:
-                signal = self._or_reversion_signal(spot)
+                signal = self._vwap_pullback_signal(spot)
             # Momentum: last resort when no other signal fires
             if signal is None:
                 signal = self._momentum_signal(spot)
-        
+
+        # Trap signal: applicable in any regime after primary signals exhausted
+        if signal is None:
+            signal = self._trap_signal(spot)
+
         # Drop signals for directions blocked after repeated stop-losses
         if signal is not None and signal.direction in self._direction_blocked:
+            self._min_signal_score = original_min_score
             return None
+
+        # Score gate: suppress low-quality signals to reduce false entries.
+        # The score is embedded in signal.indicators["signal_score"] by _signal().
+        # Structural signals with their own entry conditions are exempt since they
+        # have rigorous multi-indicator gates that substitute for the score check.
+        # Trend regime signals are exempt (regime confirmation acts as the gate).
+        _SCORE_EXEMPT_STRATEGIES = {
+            "regime_trend_following", "regime_trend_or_breakout",
+            "regime_or_breakout", "regime_momentum_3bar",
+            "vwap_pullback",           # EMA downtrend + VWAP rejection gate
+            "vwap_bounce_call",        # RSI≤40 + BandPos≤-0.45 + bullish bar + new high gate
+        }
+        # regime_or_reversion has 94% noise rate — require a stricter score threshold
+        _OR_REVERSION_MIN_SCORE = 6
+        if signal is not None and signal.strategy not in _SCORE_EXEMPT_STRATEGIES:
+            raw_score = int(signal.indicators.get("signal_score", "0"))
+            floor = (
+                _OR_REVERSION_MIN_SCORE
+                if signal.strategy == "regime_or_reversion"
+                else self._min_signal_score
+            )
+            if raw_score < floor:
+                self._min_signal_score = original_min_score
+                return None
 
         if signal is not None and signal.bar_end == self.last_signal_bar:
             return None
         if signal is not None:
             self.last_signal_bar = signal.bar_end
+        self._min_signal_score = original_min_score
         return signal
 
     def bar_exit_decision(self, position: Position) -> ExitDecision | None:
@@ -619,6 +1224,37 @@ class HybridEngine:
             return ExitDecision(ExitReason.STATE_INVALIDATION, position.quantity)
         if ema_broken:
             return ExitDecision(ExitReason.TREND_EMA_EXIT, position.quantity)
+
+        # ATR trailing stop: for trend and pullback strategies, trail by 1 ATR
+        # once the trade has moved at least 0.5 ATR in our favor.
+        atr_val = ctx.atr_val
+        if (
+            atr_val > ZERO
+            and position.strategy_name in (
+                "regime_trend_following",
+                "regime_trend_or_breakout",
+                "regime_or_breakout",
+                "regime_momentum_3bar",
+                "vwap_pullback",
+            )
+            and position.entry_spot is not None
+        ):
+            bars_since = [b for b in self._today_bars if b.end > position.opened_at]
+            if bars_since:
+                if position.direction is Direction.CALL:
+                    peak = max(b.close for b in bars_since)
+                    # Activate only once the trade is comfortably profitable
+                    if peak >= position.entry_spot + atr_val * Decimal("0.5"):
+                        trail_level = peak - atr_val
+                        if ctx.current_close <= trail_level:
+                            return ExitDecision(ExitReason.TRAILING_STOP, position.quantity)
+                else:
+                    trough = min(b.close for b in bars_since)
+                    if trough <= position.entry_spot - atr_val * Decimal("0.5"):
+                        trail_level = trough + atr_val
+                        if ctx.current_close >= trail_level:
+                            return ExitDecision(ExitReason.TRAILING_STOP, position.quantity)
+
         return None
 
     @property

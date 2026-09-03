@@ -79,7 +79,7 @@ def test_strategy_factory_and_opening_cutoff():
 
 
 def test_main_entry_window_runs_until_noon():
-    assert RULES.phase_main_end == __import__("datetime").time(12, 0)
+    assert RULES.phase_main_end == __import__("datetime").time(13, 30)
 
 
 def test_profitable_exit_resets_crosses_after_five_stable_closes():

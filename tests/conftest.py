@@ -66,7 +66,7 @@ _TRADING_DEFAULTS = {
     "phase_collect_start": "09:30:00",
     "phase_collect_end": "09:40:00",
     "phase_opening_end": "10:00:00",
-    "phase_main_end": "12:00:00",
+    "phase_main_end": "13:30:00",
     # BOLL/MACD
     "timed_opening_last_signal": "09:45:00",
     "timed_opening_flat": "09:55:00",

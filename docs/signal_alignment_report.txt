@@ -1,0 +1,1569 @@
+Loading QQQ 1m bars...
+  18895 bars loaded
+  Analyzing 45 days: 2026-07-01 to 2026-09-02
+
+==================================================================================================================================
+                                                SIGNAL-TO-SWING ALIGNMENT ANALYSIS                                                
+                                    Align window = ±10 bars  |  Min remaining amplitude = 30%                                     
+==================================================================================================================================
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-07-01  |  5 top-5 swings  |  18 signals
+  Top-5 swings:  [UP 09:40→10:00 0.48%]  [UP 11:08→11:31 0.43%]  [DN 11:31→12:15 0.42%]  [UP 10:58→11:04 0.38%]  [DN 12:23→13:05 0.37%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:56  UP    regime_momentum_3bar               1             -     -b          -           -      NO_MATCH
+  10:36  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  10:47  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  10:57  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  11:03  DN    vwap_macd_fade                    10             -     -b          -           -      NO_MATCH
+  11:06  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  11:08  DN    trap_false_breakout                8             -     -b          -           -      NO_MATCH
+  11:17  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  11:30  UP    regime_trend_following             3             -     -b          -           -      NO_MATCH
+  11:56  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  12:16  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  12:17  UP    macd_narrowing_call                8             -     -b          -           -      NO_MATCH
+  12:19  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  12:25  DN    macd_narrowing_put                 9   DN 12:23 #5     1b         9%         91%          GOOD
+  12:40  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  12:41  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  12:45  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  13:05  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    UP 09:40→10:00  amp=0.48%  dur=20b
+    UP 11:08→11:31  amp=0.43%  dur=23b  | regime=range  VWAP=above  RSI=49  MACDf=0.0706  BandPos=+0.04
+    DN 11:31→12:15  amp=0.42%  dur=44b  | regime=range  VWAP=above  RSI=68  MACDf=0.0094  BandPos=+0.77
+    UP 10:58→11:04  amp=0.38%  dur=6b  | regime=range  VWAP=below  RSI=34  MACDf=-0.0988  BandPos=-0.86
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-07-02  |  5 top-5 swings  |  20 signals
+  Top-5 swings:  [DN 10:13→10:29 1.03%]  [DN 11:38→12:09 0.71%]  [DN 11:00→11:07 0.68%]  [DN 12:14→12:37 0.64%]  [DN 10:37→10:43 0.58%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  10:17  DN    vwap_pullback                      1   DN 10:13 #1     3b        28%         72%          GOOD
+  10:19  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  10:20  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  10:45  UP    deep_oversold_bounce              11             -     -b          -           -      NO_MATCH
+  11:05  DN    regime_trend_following             1   DN 11:00 #3     4b        63%         37%          GOOD
+  11:06  DN    regime_trend_following             1   DN 11:00 #3     5b        66%         34%          GOOD
+  11:09  UP    deep_oversold_bounce              11             -     -b          -           -      NO_MATCH
+  11:19  UP    macd_narrowing_call                8             -     -b          -           -      NO_MATCH
+  11:20  UP    regime_or_reversion               10             -     -b          -           -      NO_MATCH
+  12:02  DN    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  12:03  DN    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  12:04  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  12:22  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  12:23  UP    regime_or_reversion               10             -     -b          -           -      NO_MATCH
+  12:24  UP    macd_narrowing_call               11             -     -b          -           -      NO_MATCH
+  12:34  UP    regime_or_reversion               11             -     -b          -           -      NO_MATCH
+  12:39  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  12:58  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  12:59  UP    regime_or_reversion               10             -     -b          -           -      NO_MATCH
+  13:06  UP    vwap_bounce_call                  10             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    DN 11:38→12:09  amp=0.71%  dur=31b  | regime=trend_down  VWAP=below  RSI=65  MACDf=0.3073  BandPos=+0.87
+    DN 12:14→12:37  amp=0.64%  dur=23b  | regime=trend_down  VWAP=below  RSI=49  MACDf=0.2007  BandPos=+0.30
+    DN 10:37→10:43  amp=0.58%  dur=6b  | regime=trend_down  VWAP=below  RSI=39  MACDf=0.1865  BandPos=-0.29
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-07-06  |  5 top-5 swings  |  23 signals
+  Top-5 swings:  [DN 13:09→13:42 0.47%]  [UP 11:16→12:10 0.46%]  [UP 10:05→10:17 0.39%]  [DN 12:10→13:02 0.36%]  [DN 10:50→11:16 0.35%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  10:09  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  10:11  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  10:12  DN    regime_or_reversion                9             -     -b          -           -      NO_MATCH
+  10:32  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  10:33  UP    regime_trend_following             3             -     -b          -           -      NO_MATCH
+  10:34  UP    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  10:51  DN    vwap_macd_fade                    11   DN 10:50 #5     0b         0%        100%          GOOD
+  11:17  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  11:26  DN    macd_narrowing_put                 7             -     -b          -           -      NO_MATCH
+  11:29  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  11:30  UP    regime_momentum_3bar               1             -     -b          -           -      NO_MATCH
+  11:43  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  11:44  UP    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  11:58  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  12:10  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  12:12  DN    macd_narrowing_put                 9   DN 12:10 #4     1b         4%         96%          GOOD
+  12:13  DN    regime_or_reversion                8   DN 12:10 #4     2b         6%         94%          GOOD
+  12:51  DN    macd_narrowing_put                 7             -     -b          -           -      NO_MATCH
+  13:03  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  13:07  DN    vwap_macd_fade                    10             -     -b          -           -      NO_MATCH
+  13:09  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  13:22  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  13:23  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    DN 13:09→13:42  amp=0.47%  dur=33b  | regime=range  VWAP=above  RSI=58  MACDf=0.1435  BandPos=+0.72
+    UP 11:16→12:10  amp=0.46%  dur=54b  | regime=range  VWAP=below  RSI=34  MACDf=-0.1420  BandPos=-1.17
+    UP 10:05→10:17  amp=0.39%  dur=12b  | regime=range  VWAP=above  RSI=47  MACDf=-0.1871  BandPos=-0.61
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-07-07  |  5 top-5 swings  |  14 signals
+  Top-5 swings:  [UP 11:39→12:30 0.99%]  [DN 10:00→10:26 0.76%]  [DN 09:40→09:55 0.52%]  [UP 10:41→11:13 0.45%]  [DN 10:30→10:41 0.29%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:57  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  10:14  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  10:42  DN    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  10:43  UP    deep_oversold_bounce               9   UP 10:41 #4     1b        10%         90%          GOOD
+  11:17  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+  11:20  UP    vwap_bounce_call                  10             -     -b          -           -      NO_MATCH
+  11:41  UP    macd_narrowing_call                8   UP 11:39 #1     1b         5%         95%          GOOD
+  11:42  UP    vwap_bounce_call                   9   UP 11:39 #1     2b         8%         92%          GOOD
+  12:46  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  13:01  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  13:08  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  13:09  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  13:22  DN    vwap_macd_fade                    10             -     -b          -           -      NO_MATCH
+  13:24  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    DN 10:00→10:26  amp=0.76%  dur=26b  | regime=range  VWAP=below  RSI=45  MACDf=0.1017  BandPos=-0.17
+    DN 09:40→09:55  amp=0.52%  dur=15b  | regime=range  VWAP=below  RSI=37  MACDf=-0.0202  BandPos=-0.49
+    DN 10:30→10:41  amp=0.29%  dur=11b  | regime=range  VWAP=below  RSI=39  MACDf=0.1559  BandPos=-0.21
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-07-08  |  5 top-5 swings  |  22 signals
+  Top-5 swings:  [UP 11:52→12:30 0.85%]  [DN 10:53→11:17 0.54%]  [UP 12:38→13:07 0.44%]  [DN 09:58→10:12 0.43%]  [DN 10:37→10:49 0.41%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:56  DN    regime_momentum_3bar               1             -     -b          -           -      NO_MATCH
+  10:01  DN    momentum_exhaustion_put            9   DN 09:58 #4     2b         7%         93%          GOOD
+  10:08  DN    vwap_pullback                      1   DN 09:58 #4     9b        52%         48%          GOOD
+  10:14  UP    macd_narrowing_call                8             -     -b          -           -      NO_MATCH
+  10:22  DN    vwap_macd_fade                    10             -     -b          -           -      NO_MATCH
+  10:23  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  10:36  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  10:38  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+  10:42  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  10:51  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  10:53  UP    trap_false_breakdown               5             -     -b          -           -      NO_MATCH
+  10:58  DN    vwap_pullback                      1   DN 10:53 #2     4b        20%         80%          GOOD
+  11:01  UP    trap_false_breakdown               7             -     -b          -           -      NO_MATCH
+  11:16  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  11:18  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  11:23  DN    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  11:54  UP    macd_narrowing_call                8   UP 11:52 #1     1b         4%         96%          GOOD
+  12:52  UP    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  13:07  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  13:21  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  13:23  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  13:24  DN    regime_or_reversion                9             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    UP 12:38→13:07  amp=0.44%  dur=29b  | regime=trend_down  VWAP=above  RSI=52  MACDf=-0.2449  BandPos=-0.55
+    DN 10:37→10:49  amp=0.41%  dur=12b  | regime=trend_down  VWAP=below  RSI=48  MACDf=-0.1137  BandPos=-0.32
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-07-09  |  5 top-5 swings  |  27 signals
+  Top-5 swings:  [DN 09:57→10:20 0.94%]  [UP 10:20→10:28 0.45%]  [UP 10:53→11:15 0.44%]  [UP 12:36→13:47 0.40%]  [UP 09:48→09:57 0.34%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  10:12  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  10:13  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  10:14  UP    vwap_bounce_call                  11             -     -b          -           -      NO_MATCH
+  10:32  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  10:41  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  10:48  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  10:59  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  11:08  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  11:09  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  11:12  DN    trap_false_breakout                8             -     -b          -           -      NO_MATCH
+  11:16  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  11:42  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  11:44  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  11:51  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  11:52  DN    regime_or_reversion                9             -     -b          -           -      NO_MATCH
+  12:02  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  12:03  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  12:04  DN    regime_or_reversion                9             -     -b          -           -      NO_MATCH
+  12:07  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  12:17  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  12:41  DN    vwap_macd_fade                    10             -     -b          -           -      NO_MATCH
+  12:43  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  13:01  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  13:03  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  13:04  DN    regime_or_reversion                9             -     -b          -           -      NO_MATCH
+  13:05  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  13:14  DN    regime_or_reversion                8             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    DN 09:57→10:20  amp=0.94%  dur=23b  | regime=range  VWAP=above  RSI=68  MACDf=0.0570  BandPos=+0.84
+    UP 10:20→10:28  amp=0.45%  dur=8b  | regime=range  VWAP=below  RSI=22  MACDf=-0.3871  BandPos=-1.03
+    UP 10:53→11:15  amp=0.44%  dur=22b  | regime=range  VWAP=below  RSI=43  MACDf=-0.1875  BandPos=-0.83
+    UP 12:36→13:47  amp=0.40%  dur=71b  | regime=range  VWAP=above  RSI=34  MACDf=-0.0913  BandPos=-1.26
+    UP 09:48→09:57  amp=0.34%  dur=9b  | regime=range  VWAP=above  RSI=42  MACDf=0.0029  BandPos=-0.34
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-07-10  |  5 top-5 swings  |  30 signals
+  Top-5 swings:  [UP 11:42→12:52 0.66%]  [UP 11:05→11:32 0.61%]  [DN 10:28→10:32 0.57%]  [UP 09:40→09:52 0.54%]  [DN 11:32→11:42 0.48%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:56  DN    regime_momentum_3bar               6             -     -b          -           -      NO_MATCH
+  10:01  DN    trap_false_breakout                5             -     -b          -           -      NO_MATCH
+  10:03  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  10:04  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  10:07  DN    trap_false_breakout                5             -     -b          -           -      NO_MATCH
+  10:19  DN    trap_false_breakout                4             -     -b          -           -      NO_MATCH
+  10:20  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  10:23  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  10:24  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  10:33  DN    vwap_pullback                      1   DN 10:28 #3     4b       100%          0%  LATE(missed)
+  10:35  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  10:56  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  10:57  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  10:58  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  11:04  UP    trap_false_breakdown               9             -     -b          -           -      NO_MATCH
+  11:08  UP    trap_false_breakdown               5   UP 11:05 #2     2b        19%         81%          GOOD
+  11:17  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  11:40  DN    trap_false_breakout                4   DN 11:32 #5     7b        48%         52%          GOOD
+  11:42  DN    vwap_pullback                      1   DN 11:32 #5     9b        71%         29%  LATE(missed)
+  11:44  UP    deep_oversold_bounce               9   UP 11:42 #1     1b         6%         94%          GOOD
+  11:55  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  12:01  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  12:02  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  12:03  DN    regime_or_reversion                8             -     -b          -           -      NO_MATCH
+  12:46  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  12:52  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  13:16  DN    vwap_macd_fade                    10             -     -b          -           -      NO_MATCH
+  13:23  DN    macd_narrowing_put                 8             -     -b          -           -      NO_MATCH
+  13:28  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  13:29  DN    regime_or_reversion                8             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    UP 09:40→09:52  amp=0.54%  dur=12b  | regime=unknown  VWAP=below  RSI=49  MACDf=-0.0442  BandPos=-0.28
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-07-13  |  5 top-5 swings  |  24 signals
+  Top-5 swings:  [DN 12:10→12:37 0.54%]  [UP 10:16→10:30 0.53%]  [UP 09:51→10:00 0.45%]  [DN 11:23→12:05 0.44%]  [UP 10:54→11:00 0.35%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:59  UP    regime_momentum_3bar               3   UP 09:51 #3     7b        65%         35%          GOOD
+  10:18  UP    macd_narrowing_call                8   UP 10:16 #2     1b         4%         96%          GOOD
+  10:19  UP    vwap_bounce_call                  10   UP 10:16 #2     2b         4%         96%          GOOD
+  10:25  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  10:26  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  10:27  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  10:48  UP    regime_momentum_3bar               5             -     -b          -           -      NO_MATCH
+  10:50  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  10:51  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  11:02  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  11:03  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  11:23  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  11:25  DN    momentum_exhaustion_put            9   DN 11:23 #4     1b         2%         98%          GOOD
+  11:33  DN    vwap_macd_fade                    11   DN 11:23 #4     9b         6%         94%          GOOD
+  11:51  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  11:53  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  11:57  DN    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  12:18  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  12:19  UP    regime_or_reversion               11             -     -b          -           -      NO_MATCH
+  12:24  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  12:33  UP    regime_or_reversion               11             -     -b          -           -      NO_MATCH
+  12:39  UP    deep_oversold_bounce              10             -     -b          -           -      NO_MATCH
+  13:17  UP    macd_narrowing_call                8             -     -b          -           -      NO_MATCH
+  13:27  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    DN 12:10→12:37  amp=0.54%  dur=27b  | regime=trend_down  VWAP=above  RSI=55  MACDf=0.1581  BandPos=+1.01
+    UP 10:54→11:00  amp=0.35%  dur=6b  | regime=trend_down  VWAP=above  RSI=45  MACDf=-0.0582  BandPos=-0.50
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-07-14  |  5 top-5 swings  |  21 signals
+  Top-5 swings:  [UP 10:49→11:29 0.67%]  [DN 11:29→12:15 0.55%]  [UP 12:15→13:26 0.48%]  [UP 10:28→10:40 0.46%]  [DN 09:58→10:10 0.46%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  10:00  DN    macd_narrowing_put                 8   DN 09:58 #5     1b         4%         96%          GOOD
+  10:03  DN    vwap_pullback                      1   DN 09:58 #5     4b        51%         49%          GOOD
+  10:04  UP    macd_narrowing_call                8             -     -b          -           -      NO_MATCH
+  10:07  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  10:08  UP    trap_false_breakdown              11             -     -b          -           -      NO_MATCH
+  10:09  UP    regime_or_reversion               11             -     -b          -           -      NO_MATCH
+  10:34  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  10:36  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  10:49  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  11:06  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  11:10  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  11:11  DN    regime_or_reversion                8             -     -b          -           -      NO_MATCH
+  12:01  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  12:05  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  12:16  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  12:29  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  12:30  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  12:51  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  12:57  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  13:01  UP    regime_trend_following             3             -     -b          -           -      NO_MATCH
+  13:02  UP    regime_trend_following             1             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    UP 10:49→11:29  amp=0.67%  dur=40b  | regime=range  VWAP=below  RSI=42  MACDf=-0.2999  BandPos=-0.75
+    DN 11:29→12:15  amp=0.55%  dur=46b  | regime=range  VWAP=above  RSI=67  MACDf=-0.0201  BandPos=+0.98
+    UP 12:15→13:26  amp=0.48%  dur=71b  | regime=range  VWAP=below  RSI=36  MACDf=0.0527  BandPos=-0.73
+    UP 10:28→10:40  amp=0.46%  dur=12b  | regime=range  VWAP=below  RSI=46  MACDf=0.1111  BandPos=-0.04
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-07-15  |  5 top-5 swings  |  14 signals
+  Top-5 swings:  [UP 12:56→13:54 0.79%]  [DN 10:07→10:26 0.73%]  [DN 11:39→12:24 0.69%]  [DN 10:29→10:42 0.61%]  [UP 09:51→10:07 0.43%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:59  UP    regime_momentum_3bar               5   UP 09:51 #5     7b        39%         61%          GOOD
+  10:04  DN    macd_narrowing_put                 8             -     -b          -           -      NO_MATCH
+  10:15  DN    vwap_pullback                      1   DN 10:07 #2     7b        37%         63%          GOOD
+  10:17  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+  10:22  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  10:41  UP    deep_oversold_bounce              11             -     -b          -           -      NO_MATCH
+  11:18  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+  11:47  UP    macd_narrowing_call                8             -     -b          -           -      NO_MATCH
+  11:50  UP    vwap_bounce_call                  10             -     -b          -           -      NO_MATCH
+  12:05  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  12:23  UP    deep_oversold_bounce               8             -     -b          -           -      NO_MATCH
+  12:36  DN    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  12:38  DN    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  12:39  UP    deep_oversold_bounce              11             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    UP 12:56→13:54  amp=0.79%  dur=58b  | regime=trend_up  VWAP=below  RSI=50  MACDf=-0.0235  BandPos=+0.17
+    DN 11:39→12:24  amp=0.69%  dur=45b  | regime=trend_up  VWAP=below  RSI=57  MACDf=0.0440  BandPos=+0.54
+    DN 10:29→10:42  amp=0.61%  dur=13b  | regime=trend_up  VWAP=below  RSI=40  MACDf=0.0019  BandPos=-0.34
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-07-16  |  5 top-5 swings  |  29 signals
+  Top-5 swings:  [UP 09:54→10:16 0.68%]  [DN 11:52→12:22 0.51%]  [DN 09:40→09:49 0.43%]  [DN 10:37→10:55 0.39%]  [DN 13:28→13:45 0.36%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  10:01  DN    vwap_macd_fade                    10             -     -b          -           -      NO_MATCH
+  10:02  DN    macd_narrowing_put                 8             -     -b          -           -      NO_MATCH
+  10:04  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  10:34  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  10:51  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  10:52  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  10:53  UP    macd_narrowing_call               11             -     -b          -           -      NO_MATCH
+  11:07  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  11:09  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  11:10  UP    trap_false_breakdown               7             -     -b          -           -      NO_MATCH
+  11:15  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  11:16  UP    regime_or_reversion               11             -     -b          -           -      NO_MATCH
+  11:19  UP    trap_false_breakdown               7             -     -b          -           -      NO_MATCH
+  11:25  UP    trap_false_breakdown               5             -     -b          -           -      NO_MATCH
+  11:26  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  11:28  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  11:46  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  11:48  UP    macd_narrowing_call                8             -     -b          -           -      NO_MATCH
+  11:49  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  11:50  UP    trap_false_breakdown               9             -     -b          -           -      NO_MATCH
+  12:01  DN    vwap_pullback                      1   DN 11:52 #2     8b        30%         70%          GOOD
+  12:04  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+  12:07  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  12:11  DN    regime_trend_following             2             -     -b          -           -      NO_MATCH
+  12:12  DN    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  12:13  DN    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  12:22  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  12:44  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+  13:16  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    UP 09:54→10:16  amp=0.68%  dur=22b  | regime=trend_down  VWAP=below  RSI=35  MACDf=0.1258  BandPos=-0.52
+    DN 09:40→09:49  amp=0.43%  dur=9b  | regime=trend_down  VWAP=below  RSI=63  MACDf=-0.0643  BandPos=+0.30
+    DN 10:37→10:55  amp=0.39%  dur=18b  | regime=trend_down  VWAP=above  RSI=59  MACDf=0.0402  BandPos=+0.78
+    DN 13:28→13:45  amp=0.36%  dur=17b  | regime=trend_down  VWAP=below  RSI=63  MACDf=0.1556  BandPos=+1.10
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-07-17  |  5 top-5 swings  |  25 signals
+  Top-5 swings:  [UP 09:44→10:02 1.21%]  [UP 11:43→12:00 0.61%]  [DN 13:30→13:59 0.49%]  [UP 10:04→10:10 0.49%]  [UP 11:24→11:39 0.47%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:56  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  09:57  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  09:58  UP    regime_momentum_3bar               1             -     -b          -           -      NO_MATCH
+  09:59  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  10:33  DN    regime_momentum_3bar               4             -     -b          -           -      NO_MATCH
+  10:35  UP    regime_momentum_3bar               8             -     -b          -           -      NO_MATCH
+  10:36  UP    regime_momentum_3bar               2             -     -b          -           -      NO_MATCH
+  10:37  UP    regime_momentum_3bar               3             -     -b          -           -      NO_MATCH
+  10:39  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  11:30  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  11:33  DN    regime_or_reversion                9             -     -b          -           -      NO_MATCH
+  11:34  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  11:40  UP    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  11:55  UP    regime_trend_following             3             -     -b          -           -      NO_MATCH
+  12:10  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  12:40  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  12:43  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  12:46  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  12:47  DN    regime_or_reversion                9             -     -b          -           -      NO_MATCH
+  12:53  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  13:02  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  13:04  DN    regime_or_reversion                8             -     -b          -           -      NO_MATCH
+  13:05  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  13:17  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  13:29  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    UP 09:44→10:02  amp=1.21%  dur=18b  | regime=trend_down  VWAP=below  RSI=44  MACDf=0.0271  BandPos=-0.04
+    UP 11:43→12:00  amp=0.61%  dur=17b  | regime=trend_down  VWAP=above  RSI=53  MACDf=-0.0803  BandPos=+0.13
+    DN 13:30→13:59  amp=0.49%  dur=29b  | regime=trend_down  VWAP=above  RSI=61  MACDf=0.1090  BandPos=+0.70
+    UP 10:04→10:10  amp=0.49%  dur=6b  | regime=trend_down  VWAP=above  RSI=67  MACDf=0.2336  BandPos=+0.56
+    UP 11:24→11:39  amp=0.47%  dur=15b  | regime=trend_down  VWAP=above  RSI=41  MACDf=0.0150  BandPos=-0.60
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-07-20  |  5 top-5 swings  |  15 signals
+  Top-5 swings:  [DN 09:44→09:58 0.67%]  [DN 10:30→10:58 0.57%]  [DN 12:49→13:15 0.47%]  [UP 11:48→12:20 0.44%]  [UP 10:21→10:30 0.42%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:57  UP    vwap_bounce_call                  11             -     -b          -           -      NO_MATCH
+  10:14  UP    deep_oversold_bounce              10             -     -b          -           -      NO_MATCH
+  10:45  UP    macd_narrowing_call                8             -     -b          -           -      NO_MATCH
+  10:46  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  10:52  UP    regime_or_reversion               11             -     -b          -           -      NO_MATCH
+  11:50  UP    macd_narrowing_call                8   UP 11:48 #4     1b         1%         99%          GOOD
+  11:51  UP    vwap_bounce_call                   9   UP 11:48 #4     2b         7%         93%          GOOD
+  11:54  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  11:55  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  11:56  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  12:42  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  12:43  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  12:55  DN    regime_trend_following             1   DN 12:49 #3     5b        53%         47%          GOOD
+  12:56  DN    regime_trend_following             1   DN 12:49 #3     6b        50%         50%          GOOD
+  13:17  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    DN 09:44→09:58  amp=0.67%  dur=14b  | regime=range  VWAP=above  RSI=25  MACDf=-0.0456  BandPos=-0.83
+    DN 10:30→10:58  amp=0.57%  dur=28b  | regime=range  VWAP=below  RSI=62  MACDf=0.3222  BandPos=+1.17
+    UP 10:21→10:30  amp=0.42%  dur=9b  | regime=range  VWAP=below  RSI=34  MACDf=-0.0396  BandPos=-0.92
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-07-21  |  5 top-5 swings  |  27 signals
+  Top-5 swings:  [UP 11:02→11:26 0.40%]  [UP 10:21→10:31 0.37%]  [UP 11:59→13:50 0.35%]  [DN 10:00→10:10 0.31%]  [UP 10:15→10:19 0.24%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:57  DN    regime_or_breakout                 1             -     -b          -           -      NO_MATCH
+  10:01  DN    vwap_macd_fade                    10   DN 10:00 #4     0b         0%        100%          GOOD
+  10:03  DN    vwap_pullback                      1   DN 10:00 #4     2b        43%         57%          GOOD
+  10:11  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  10:12  UP    regime_or_reversion               10             -     -b          -           -      NO_MATCH
+  10:19  DN    vwap_macd_fade                    10             -     -b          -           -      NO_MATCH
+  10:29  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  10:30  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  10:44  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  10:59  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  11:01  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  11:09  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  11:10  DN    regime_or_reversion                9             -     -b          -           -      NO_MATCH
+  11:14  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  11:50  DN    vwap_macd_fade                    10             -     -b          -           -      NO_MATCH
+  11:51  DN    macd_narrowing_put                 8             -     -b          -           -      NO_MATCH
+  12:05  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  12:06  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  12:07  DN    regime_or_reversion                9             -     -b          -           -      NO_MATCH
+  12:08  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  12:23  UP    regime_trend_following             3             -     -b          -           -      NO_MATCH
+  12:39  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  12:40  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  12:41  DN    regime_or_reversion                9             -     -b          -           -      NO_MATCH
+  12:53  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  12:54  DN    regime_or_reversion                9             -     -b          -           -      NO_MATCH
+  12:55  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    UP 11:02→11:26  amp=0.40%  dur=24b  | regime=range  VWAP=above  RSI=44  MACDf=-0.0950  BandPos=-1.40
+    UP 10:21→10:31  amp=0.37%  dur=10b  | regime=range  VWAP=below  RSI=49  MACDf=0.1395  BandPos=+0.15
+    UP 11:59→13:50  amp=0.35%  dur=111b  | regime=range  VWAP=above  RSI=39  MACDf=-0.0484  BandPos=-0.98
+    UP 10:15→10:19  amp=0.24%  dur=4b  | regime=range  VWAP=below  RSI=42  MACDf=0.0456  BandPos=-0.58
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-07-22  |  5 top-5 swings  |  23 signals
+  Top-5 swings:  [UP 10:44→11:26 0.50%]  [UP 09:50→10:00 0.40%]  [DN 13:07→13:59 0.29%]  [DN 10:00→10:15 0.25%]  [DN 10:32→10:44 0.24%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:56  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  09:57  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  10:21  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  10:22  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  10:42  DN    vwap_pullback                      1   DN 10:32 #5     9b        95%          5%  LATE(missed)
+  10:43  UP    macd_narrowing_call                8             -     -b          -           -      NO_MATCH
+  10:45  UP    vwap_bounce_call                  11   UP 10:44 #1     0b         0%        100%          GOOD
+  10:55  UP    macd_narrowing_call                9   UP 10:44 #1    10b         9%         91%          GOOD
+  10:58  DN    vwap_macd_fade                    10             -     -b          -           -      NO_MATCH
+  11:00  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  11:02  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  11:03  DN    regime_or_reversion                9             -     -b          -           -      NO_MATCH
+  11:27  UP    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  11:28  UP    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  11:53  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  12:35  DN    macd_narrowing_put                 8             -     -b          -           -      NO_MATCH
+  12:57  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  12:58  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  13:00  DN    regime_momentum_3bar               8             -     -b          -           -      NO_MATCH
+  13:03  DN    regime_momentum_3bar               7             -     -b          -           -      NO_MATCH
+  13:04  DN    regime_momentum_3bar               7             -     -b          -           -      NO_MATCH
+  13:07  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  13:09  DN    momentum_exhaustion_put            9   DN 13:07 #3     1b         3%         97%          GOOD
+
+  MISSED swings (no aligned signal):
+    UP 09:50→10:00  amp=0.40%  dur=10b  | regime=trend_down  VWAP=above  RSI=56  MACDf=-0.1171  BandPos=+0.05
+    DN 10:00→10:15  amp=0.25%  dur=15b  | regime=trend_down  VWAP=above  RSI=76  MACDf=0.1124  BandPos=+0.90
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-07-23  |  5 top-5 swings  |  25 signals
+  Top-5 swings:  [DN 10:37→10:55 0.62%]  [UP 12:06→12:38 0.53%]  [DN 09:43→09:51 0.50%]  [UP 11:44→12:02 0.44%]  [DN 12:38→12:54 0.42%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:59  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  10:06  DN    vwap_macd_fade                    10             -     -b          -           -      NO_MATCH
+  10:09  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  10:11  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+  10:25  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  10:35  UP    macd_narrowing_call                8             -     -b          -           -      NO_MATCH
+  10:36  UP    regime_or_reversion               11             -     -b          -           -      NO_MATCH
+  10:37  UP    vwap_bounce_call                  10             -     -b          -           -      NO_MATCH
+  10:38  DN    vwap_macd_fade                    10   DN 10:37 #1     0b         0%        100%          GOOD
+  10:40  DN    macd_narrowing_put                 9   DN 10:37 #1     2b         1%         99%          GOOD
+  10:42  DN    vwap_pullback                      1   DN 10:37 #1     4b        39%         61%          GOOD
+  10:46  UP    regime_or_reversion               10             -     -b          -           -      NO_MATCH
+  10:47  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  11:08  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  11:24  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  11:29  DN    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  12:44  UP    regime_momentum_3bar               2             -     -b          -           -      NO_MATCH
+  12:46  DN    regime_momentum_3bar               2   DN 12:38 #5     7b        69%         31%          GOOD
+  12:47  DN    vwap_pullback                      1   DN 12:38 #5     8b        73%         27%  LATE(missed)
+  12:49  UP    vwap_bounce_call                  11             -     -b          -           -      NO_MATCH
+  12:50  DN    regime_momentum_3bar               0             -     -b          -           -      NO_MATCH
+  12:51  UP    macd_narrowing_call               11             -     -b          -           -      NO_MATCH
+  13:06  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  13:26  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  13:27  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    UP 12:06→12:38  amp=0.53%  dur=32b  | regime=trend_down  VWAP=below  RSI=56  MACDf=-0.0761  BandPos=+0.20
+    DN 09:43→09:51  amp=0.50%  dur=8b  | regime=trend_down  VWAP=below  RSI=25  MACDf=-0.0562  BandPos=-0.78
+    UP 11:44→12:02  amp=0.44%  dur=18b  | regime=trend_down  VWAP=below  RSI=45  MACDf=-0.0046  BandPos=+0.01
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-07-24  |  5 top-5 swings  |  15 signals
+  Top-5 swings:  [UP 11:09→11:15 0.64%]  [DN 09:49→09:59 0.63%]  [DN 10:23→10:45 0.55%]  [DN 12:22→13:09 0.54%]  [UP 10:52→11:00 0.53%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:56  UP    vwap_bounce_call                  11             -     -b          -           -      NO_MATCH
+  09:57  UP    macd_narrowing_call               11             -     -b          -           -      NO_MATCH
+  10:20  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  10:31  DN    vwap_pullback                      1   DN 10:23 #3     7b        45%         55%          GOOD
+  10:34  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  10:37  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  10:42  UP    regime_or_reversion               11             -     -b          -           -      NO_MATCH
+  10:59  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  11:13  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  11:37  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  11:57  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  13:11  UP    deep_oversold_bounce              11             -     -b          -           -      NO_MATCH
+  13:17  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  13:28  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  13:29  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    UP 11:09→11:15  amp=0.64%  dur=6b  | regime=range  VWAP=below  RSI=46  MACDf=-0.2718  BandPos=-0.43
+    DN 09:49→09:59  amp=0.63%  dur=10b  | regime=range  VWAP=below  RSI=33  MACDf=-0.1130  BandPos=-0.82
+    DN 12:22→13:09  amp=0.54%  dur=47b  | regime=range  VWAP=above  RSI=56  MACDf=-0.0157  BandPos=+0.14
+    UP 10:52→11:00  amp=0.53%  dur=8b  | regime=range  VWAP=below  RSI=49  MACDf=0.2614  BandPos=+0.28
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-07-27  |  5 top-5 swings  |  17 signals
+  Top-5 swings:  [DN 10:08→10:44 1.32%]  [UP 10:44→11:05 0.83%]  [DN 09:51→10:03 0.70%]  [DN 12:40→13:05 0.61%]  [UP 11:37→12:10 0.58%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:56  DN    regime_or_breakout                 1   DN 09:51 #3     4b        28%         72%          GOOD
+  10:01  UP    deep_oversold_bounce              11             -     -b          -           -      NO_MATCH
+  10:16  UP    deep_oversold_bounce              10             -     -b          -           -      NO_MATCH
+  10:32  UP    deep_oversold_bounce              11             -     -b          -           -      NO_MATCH
+  11:17  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  11:18  UP    vwap_bounce_call                  11             -     -b          -           -      NO_MATCH
+  11:19  DN    regime_momentum_3bar               1             -     -b          -           -      NO_MATCH
+  11:21  UP    regime_momentum_3bar               5             -     -b          -           -      NO_MATCH
+  11:39  UP    deep_oversold_bounce               9   UP 11:37 #5     1b        10%         90%          GOOD
+  12:18  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+  12:19  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  12:26  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  12:52  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  12:53  UP    regime_or_reversion               11             -     -b          -           -      NO_MATCH
+  12:54  DN    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  12:57  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  13:27  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    DN 10:08→10:44  amp=1.32%  dur=36b  | regime=range  VWAP=below  RSI=37  MACDf=0.1192  BandPos=-0.35
+    UP 10:44→11:05  amp=0.83%  dur=21b  | regime=range  VWAP=below  RSI=22  MACDf=0.0174  BandPos=-0.74
+    DN 12:40→13:05  amp=0.61%  dur=25b  | regime=range  VWAP=below  RSI=60  MACDf=-0.0214  BandPos=+0.40
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-07-28  |  5 top-5 swings  |  14 signals
+  Top-5 swings:  [UP 11:04→11:26 0.78%]  [UP 10:38→10:51 0.60%]  [DN 09:40→09:47 0.55%]  [UP 10:22→10:37 0.44%]  [UP 09:58→10:06 0.41%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:56  DN    regime_or_breakout                 1             -     -b          -           -      NO_MATCH
+  10:00  UP    deep_oversold_bounce               8   UP 09:58 #5     1b         0%        100%          GOOD
+  10:08  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  10:16  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  10:19  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  11:15  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  11:19  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  11:20  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  11:54  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  12:40  DN    vwap_macd_fade                    10             -     -b          -           -      NO_MATCH
+  12:41  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  12:43  DN    macd_narrowing_put                 8             -     -b          -           -      NO_MATCH
+  12:53  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  12:54  DN    regime_or_reversion                9             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    UP 11:04→11:26  amp=0.78%  dur=22b  | regime=trend_down  VWAP=above  RSI=46  MACDf=-0.2913  BandPos=-0.65
+    UP 10:38→10:51  amp=0.60%  dur=13b  | regime=trend_down  VWAP=below  RSI=53  MACDf=0.1120  BandPos=+0.36
+    DN 09:40→09:47  amp=0.55%  dur=7b  | regime=trend_down  VWAP=below  RSI=66  MACDf=0.1136  BandPos=+0.90
+    UP 10:22→10:37  amp=0.44%  dur=15b  | regime=trend_down  VWAP=below  RSI=43  MACDf=0.0786  BandPos=-0.41
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-07-29  |  5 top-5 swings  |  13 signals
+  Top-5 swings:  [UP 12:43→13:21 0.93%]  [DN 09:40→09:52 0.55%]  [UP 12:14→12:30 0.56%]  [DN 10:05→10:14 0.53%]  [DN 10:21→10:26 0.47%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:58  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  10:16  UP    deep_oversold_bounce              11             -     -b          -           -      NO_MATCH
+  10:42  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  11:22  UP    macd_narrowing_call                8             -     -b          -           -      NO_MATCH
+  11:32  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  11:41  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  11:46  UP    regime_or_reversion               11             -     -b          -           -      NO_MATCH
+  11:47  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  11:57  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  11:58  UP    regime_or_reversion               11             -     -b          -           -      NO_MATCH
+  12:07  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  12:25  UP    regime_momentum_3bar               3   UP 12:14 #3    10b        62%         38%          GOOD
+  12:26  UP    regime_momentum_3bar               3             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    UP 12:43→13:21  amp=0.93%  dur=38b  | regime=range  VWAP=below  RSI=43  MACDf=-0.1835  BandPos=-0.95
+    DN 09:40→09:52  amp=0.55%  dur=12b  | regime=range  VWAP=above  RSI=52  MACDf=0.1044  BandPos=+0.41
+    DN 10:05→10:14  amp=0.53%  dur=9b  | regime=range  VWAP=below  RSI=50  MACDf=0.3630  BandPos=+0.26
+    DN 10:21→10:26  amp=0.47%  dur=5b  | regime=range  VWAP=below  RSI=44  MACDf=0.1202  BandPos=-0.22
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-07-30  |  5 top-5 swings  |  16 signals
+  Top-5 swings:  [UP 09:40→09:50 0.82%]  [DN 10:32→10:56 0.73%]  [UP 10:10→10:32 0.56%]  [UP 12:43→13:19 0.50%]  [DN 12:17→12:43 0.44%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  10:22  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  10:25  DN    regime_or_reversion                9             -     -b          -           -      NO_MATCH
+  10:26  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  10:27  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  10:35  DN    regime_or_reversion                8   DN 10:32 #2     2b         3%         97%          GOOD
+  10:52  DN    regime_momentum_3bar               3             -     -b          -           -      NO_MATCH
+  10:53  DN    regime_momentum_3bar               3             -     -b          -           -      NO_MATCH
+  10:58  UP    deep_oversold_bounce              11             -     -b          -           -      NO_MATCH
+  11:10  DN    vwap_macd_fade                    10             -     -b          -           -      NO_MATCH
+  11:12  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  11:27  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+  11:30  UP    vwap_bounce_call                  11             -     -b          -           -      NO_MATCH
+  11:35  DN    vwap_macd_fade                    10             -     -b          -           -      NO_MATCH
+  11:48  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  11:50  DN    regime_or_reversion                8             -     -b          -           -      NO_MATCH
+  12:04  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    UP 09:40→09:50  amp=0.82%  dur=10b  | regime=range  VWAP=above  RSI=61  MACDf=-0.0015  BandPos=+0.80
+    UP 10:10→10:32  amp=0.56%  dur=22b  | regime=range  VWAP=above  RSI=51  MACDf=-0.4481  BandPos=-0.58
+    UP 12:43→13:19  amp=0.50%  dur=36b  | regime=range  VWAP=below  RSI=24  MACDf=-0.1594  BandPos=-1.07
+    DN 12:17→12:43  amp=0.44%  dur=26b  | regime=range  VWAP=above  RSI=68  MACDf=0.0307  BandPos=+0.60
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-07-31  |  5 top-5 swings  |  8 signals
+  Top-5 swings:  [DN 09:56→10:10 0.96%]  [DN 09:40→09:50 0.66%]  [DN 11:15→11:27 0.61%]  [UP 13:07→13:37 0.45%]  [UP 10:16→10:22 0.45%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:56  UP    vwap_bounce_call                  10             -     -b          -           -      NO_MATCH
+  09:57  UP    regime_momentum_3bar               7             -     -b          -           -      NO_MATCH
+  10:12  UP    deep_oversold_bounce              11             -     -b          -           -      NO_MATCH
+  11:13  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+  11:29  UP    deep_oversold_bounce              11             -     -b          -           -      NO_MATCH
+  12:25  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  12:45  UP    vwap_bounce_call                  10             -     -b          -           -      NO_MATCH
+  12:52  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    DN 09:56→10:10  amp=0.96%  dur=14b  | regime=range  VWAP=below  RSI=42  MACDf=0.2040  BandPos=-0.20
+    DN 09:40→09:50  amp=0.66%  dur=10b  | regime=range  VWAP=above  RSI=48  MACDf=-0.0476  BandPos=-0.31
+    DN 11:15→11:27  amp=0.61%  dur=12b  | regime=range  VWAP=below  RSI=54  MACDf=0.0198  BandPos=+0.33
+    UP 13:07→13:37  amp=0.45%  dur=30b  | regime=range  VWAP=above  RSI=49  MACDf=-0.0767  BandPos=-0.18
+    UP 10:16→10:22  amp=0.45%  dur=6b  | regime=range  VWAP=below  RSI=27  MACDf=0.0668  BandPos=-0.61
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-08-03  |  5 top-5 swings  |  14 signals
+  Top-5 swings:  [UP 10:07→10:59 0.86%]  [UP 11:29→13:57 0.65%]  [UP 09:50→09:59 0.54%]  [DN 09:59→10:07 0.24%]  [DN 11:20→11:29 0.22%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:56  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  09:57  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  09:58  UP    regime_trend_or_breakout           1   UP 09:50 #3     7b        73%         27%  LATE(missed)
+  09:59  UP    regime_trend_or_breakout           3   UP 09:50 #3     8b        88%         12%  LATE(missed)
+  10:19  UP    regime_trend_following             3             -     -b          -           -      NO_MATCH
+  11:44  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  11:54  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  11:55  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  11:56  DN    regime_or_reversion                9             -     -b          -           -      NO_MATCH
+  12:03  UP    regime_trend_following             3             -     -b          -           -      NO_MATCH
+  12:45  UP    regime_momentum_3bar               3             -     -b          -           -      NO_MATCH
+  13:11  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  13:13  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  13:15  DN    regime_or_reversion                9             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    UP 10:07→10:59  amp=0.86%  dur=52b  | regime=range  VWAP=above  RSI=53  MACDf=-0.1956  BandPos=+0.03
+    UP 11:29→13:57  amp=0.65%  dur=148b  | regime=range  VWAP=above  RSI=33  MACDf=-0.1728  BandPos=-1.15
+    DN 09:59→10:07  amp=0.24%  dur=8b  | regime=range  VWAP=above  RSI=71  MACDf=0.3040  BandPos=+1.11
+    DN 11:20→11:29  amp=0.22%  dur=9b  | regime=range  VWAP=above  RSI=64  MACDf=0.0501  BandPos=+0.88
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-08-04  |  5 top-5 swings  |  20 signals
+  Top-5 swings:  [UP 10:20→13:48 1.33%]  [UP 09:56→10:14 0.36%]  [UP 09:40→09:54 0.34%]  [DN 13:48→13:59 0.20%]  [DN 10:14→10:20 0.13%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:57  DN    regime_momentum_3bar               6             -     -b          -           -      NO_MATCH
+  10:03  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  10:05  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  10:07  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  10:08  DN    regime_or_reversion                9             -     -b          -           -      NO_MATCH
+  10:27  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  10:29  UP    regime_trend_following             1   UP 10:20 #1     8b        13%         87%          GOOD
+  10:30  UP    regime_trend_following             1   UP 10:20 #1     9b        14%         86%          GOOD
+  10:45  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  11:06  DN    regime_or_reversion                8             -     -b          -           -      NO_MATCH
+  11:11  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  11:13  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  11:15  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  12:18  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  12:21  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  12:22  DN    regime_or_reversion                9             -     -b          -           -      NO_MATCH
+  12:23  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  12:33  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  12:47  UP    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  12:48  UP    regime_trend_following             1             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    UP 09:56→10:14  amp=0.36%  dur=18b  | regime=range  VWAP=above  RSI=55  MACDf=-0.2305  BandPos=-0.08
+    UP 09:40→09:54  amp=0.34%  dur=14b  | regime=range  VWAP=above  RSI=81  MACDf=0.0535  BandPos=+0.91
+    DN 13:48→13:59  amp=0.20%  dur=11b  | regime=range  VWAP=above  RSI=85  MACDf=0.0790  BandPos=+0.93
+    DN 10:14→10:20  amp=0.13%  dur=6b  | regime=range  VWAP=above  RSI=70  MACDf=-0.0021  BandPos=+0.69
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-08-05  |  5 top-5 swings  |  21 signals
+  Top-5 swings:  [DN 10:10→10:31 0.52%]  [DN 11:32→12:13 0.47%]  [UP 12:13→12:29 0.41%]  [DN 09:58→10:02 0.40%]  [DN 10:49→10:53 0.32%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:57  DN    regime_momentum_3bar               2             -     -b          -           -      NO_MATCH
+  10:01  DN    trap_false_breakout                4   DN 09:58 #4     2b        38%         62%          GOOD
+  10:03  DN    vwap_pullback                      1   DN 09:58 #4     4b       100%          0%  LATE(missed)
+  10:04  UP    macd_narrowing_call                8             -     -b          -           -      NO_MATCH
+  10:05  UP    vwap_bounce_call                  10             -     -b          -           -      NO_MATCH
+  10:21  DN    vwap_pullback                      1   DN 10:10 #1    10b        36%         64%          GOOD
+  10:23  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  10:24  UP    vwap_bounce_call                  11             -     -b          -           -      NO_MATCH
+  10:25  UP    trap_false_breakdown               9             -     -b          -           -      NO_MATCH
+  10:39  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  10:54  DN    regime_trend_following             1   DN 10:49 #5     4b       100%          0%  LATE(missed)
+  11:15  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+  11:27  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+  11:47  UP    macd_narrowing_call                8             -     -b          -           -      NO_MATCH
+  11:48  UP    vwap_bounce_call                  10             -     -b          -           -      NO_MATCH
+  12:04  UP    deep_oversold_bounce               8             -     -b          -           -      NO_MATCH
+  12:26  UP    regime_momentum_3bar               3             -     -b          -           -      NO_MATCH
+  12:27  UP    regime_momentum_3bar               5             -     -b          -           -      NO_MATCH
+  12:28  UP    regime_momentum_3bar               3             -     -b          -           -      NO_MATCH
+  13:06  UP    macd_narrowing_call                8             -     -b          -           -      NO_MATCH
+  13:19  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    DN 11:32→12:13  amp=0.47%  dur=41b  | regime=range  VWAP=below  RSI=56  MACDf=0.1373  BandPos=+0.89
+    UP 12:13→12:29  amp=0.41%  dur=16b  | regime=range  VWAP=below  RSI=35  MACDf=0.0019  BandPos=-0.71
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-08-06  |  5 top-5 swings  |  18 signals
+  Top-5 swings:  [UP 10:03→10:22 0.55%]  [UP 10:46→10:59 0.40%]  [DN 11:48→12:03 0.39%]  [UP 09:40→09:51 0.37%]  [DN 11:10→11:24 0.35%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  10:09  UP    regime_trend_following             3   UP 10:03 #1     5b        51%         49%          GOOD
+  10:10  UP    regime_trend_following             1   UP 10:03 #1     6b        54%         46%          GOOD
+  10:11  UP    regime_trend_following             1   UP 10:03 #1     7b        60%         40%          GOOD
+  10:56  DN    macd_narrowing_put                 8             -     -b          -           -      NO_MATCH
+  10:58  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  11:02  DN    regime_or_reversion                8             -     -b          -           -      NO_MATCH
+  11:07  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  11:09  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  11:45  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  11:51  DN    macd_narrowing_put                 9   DN 11:48 #3     2b         4%         96%          GOOD
+  11:55  DN    vwap_pullback                      1   DN 11:48 #3     6b        74%         26%  LATE(missed)
+  11:56  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+  11:57  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  12:12  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  13:00  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  13:02  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  13:16  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  13:28  DN    macd_narrowing_put                 8             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    UP 10:46→10:59  amp=0.40%  dur=13b  | regime=range  VWAP=above  RSI=38  MACDf=-0.1642  BandPos=-1.09
+    UP 09:40→09:51  amp=0.37%  dur=11b  | regime=range  VWAP=below  RSI=47  MACDf=-0.0022  BandPos=-0.29
+    DN 11:10→11:24  amp=0.35%  dur=14b  | regime=range  VWAP=above  RSI=65  MACDf=0.0995  BandPos=+0.80
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-08-07  |  5 top-5 swings  |  34 signals
+  Top-5 swings:  [UP 10:53→11:32 0.58%]  [DN 11:50→12:31 0.55%]  [UP 10:14→10:23 0.52%]  [DN 09:51→09:58 0.45%]  [UP 12:31→12:50 0.35%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:56  DN    regime_momentum_3bar               1   DN 09:51 #4     4b        32%         68%          GOOD
+  09:57  DN    vwap_pullback                      1   DN 09:51 #4     5b        65%         35%          GOOD
+  09:59  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  10:00  UP    regime_or_reversion               11             -     -b          -           -      NO_MATCH
+  10:01  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  10:11  UP    macd_narrowing_call                8             -     -b          -           -      NO_MATCH
+  10:21  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  10:22  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  10:27  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  10:28  UP    regime_momentum_3bar               1             -     -b          -           -      NO_MATCH
+  10:37  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+  10:38  UP    trap_false_breakdown               7             -     -b          -           -      NO_MATCH
+  10:40  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  10:46  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  10:47  UP    trap_false_breakdown               5             -     -b          -           -      NO_MATCH
+  10:52  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  10:56  UP    trap_false_breakdown               5   UP 10:53 #1     2b        13%         87%          GOOD
+  10:59  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  11:00  DN    macd_narrowing_put                 8             -     -b          -           -      NO_MATCH
+  11:08  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  11:22  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  11:51  DN    vwap_macd_fade                    11   DN 11:50 #2     0b         0%        100%          GOOD
+  11:54  DN    trap_false_breakout                4   DN 11:50 #2     3b        20%         80%          GOOD
+  12:08  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  12:10  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  12:28  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  12:43  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  12:46  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  13:07  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  13:10  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  13:15  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  13:25  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  13:26  UP    macd_narrowing_call                8             -     -b          -           -      NO_MATCH
+  13:28  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    UP 10:14→10:23  amp=0.52%  dur=9b  | regime=range  VWAP=below  RSI=34  MACDf=-0.0933  BandPos=-0.87
+    UP 12:31→12:50  amp=0.35%  dur=19b  | regime=range  VWAP=below  RSI=18  MACDf=-0.1832  BandPos=-0.90
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-08-10  |  5 top-5 swings  |  18 signals
+  Top-5 swings:  [UP 09:55→10:10 0.42%]  [DN 10:37→11:12 0.40%]  [DN 12:00→12:31 0.36%]  [UP 11:34→12:00 0.35%]  [UP 12:43→13:16 0.25%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  10:00  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  10:01  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  10:25  DN    trap_false_breakout                4             -     -b          -           -      NO_MATCH
+  10:33  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  10:37  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  10:55  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  10:56  UP    vwap_bounce_call                  11             -     -b          -           -      NO_MATCH
+  11:24  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+  11:25  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  11:53  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  12:12  UP    vwap_bounce_call                  10             -     -b          -           -      NO_MATCH
+  12:13  UP    macd_narrowing_call               10             -     -b          -           -      NO_MATCH
+  12:16  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  12:25  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  12:26  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  12:33  UP    macd_narrowing_call                8             -     -b          -           -      NO_MATCH
+  12:34  UP    vwap_bounce_call                  10             -     -b          -           -      NO_MATCH
+  13:29  UP    macd_narrowing_call                8             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    UP 09:55→10:10  amp=0.42%  dur=15b  | regime=trend_down  VWAP=below  RSI=41  MACDf=-0.0852  BandPos=-0.40
+    DN 10:37→11:12  amp=0.40%  dur=35b  | regime=trend_down  VWAP=above  RSI=61  MACDf=0.0589  BandPos=+0.89
+    DN 12:00→12:31  amp=0.36%  dur=31b  | regime=trend_down  VWAP=above  RSI=69  MACDf=0.0180  BandPos=+0.69
+    UP 11:34→12:00  amp=0.35%  dur=26b  | regime=trend_down  VWAP=below  RSI=32  MACDf=-0.0472  BandPos=-0.94
+    UP 12:43→13:16  amp=0.25%  dur=33b  | regime=trend_down  VWAP=below  RSI=30  MACDf=-0.0786  BandPos=-0.87
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-08-11  |  5 top-5 swings  |  21 signals
+  Top-5 swings:  [DN 10:52→13:14 0.74%]  [UP 09:50→10:07 0.47%]  [DN 09:40→09:50 0.30%]  [UP 13:14→13:54 0.20%]  [UP 10:43→10:52 0.20%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:57  UP    regime_momentum_3bar               7   UP 09:50 #2     6b        40%         60%          GOOD
+  09:58  UP    trap_false_breakdown               5   UP 09:50 #2     7b        36%         64%          GOOD
+  10:01  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  10:02  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  10:30  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  10:36  DN    macd_narrowing_put                 8             -     -b          -           -      NO_MATCH
+  10:48  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  10:49  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  10:50  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  11:08  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  11:09  UP    vwap_bounce_call                  11             -     -b          -           -      NO_MATCH
+  11:36  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  11:37  UP    macd_narrowing_call               11             -     -b          -           -      NO_MATCH
+  11:43  UP    trap_false_breakdown               9             -     -b          -           -      NO_MATCH
+  11:51  UP    trap_false_breakdown               7             -     -b          -           -      NO_MATCH
+  11:56  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  12:22  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  12:27  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  12:48  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  13:00  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  13:04  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    DN 10:52→13:14  amp=0.74%  dur=142b  | regime=trend_up  VWAP=above  RSI=65  MACDf=0.1267  BandPos=+1.12
+    DN 09:40→09:50  amp=0.30%  dur=10b  | regime=trend_up  VWAP=below  RSI=46  MACDf=0.0607  BandPos=+0.07
+    UP 13:14→13:54  amp=0.20%  dur=40b  | regime=trend_up  VWAP=below  RSI=25  MACDf=-0.0775  BandPos=-1.10
+    UP 10:43→10:52  amp=0.20%  dur=9b  | regime=trend_up  VWAP=above  RSI=42  MACDf=-0.0562  BandPos=-0.83
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-08-12  |  5 top-5 swings  |  20 signals
+  Top-5 swings:  [DN 09:48→09:56 0.34%]  [UP 11:40→13:05 0.34%]  [UP 09:40→09:48 0.31%]  [DN 10:45→11:03 0.27%]  [UP 10:04→10:10 0.23%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:57  DN    vwap_pullback                      1   DN 09:48 #1     8b       100%          0%  LATE(missed)
+  09:58  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+  09:59  UP    regime_momentum_3bar               5             -     -b          -           -      NO_MATCH
+  10:11  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  10:23  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  10:26  DN    macd_narrowing_put                 8             -     -b          -           -      NO_MATCH
+  10:33  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  10:36  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+  10:37  UP    trap_false_breakdown               5             -     -b          -           -      NO_MATCH
+  10:40  DN    macd_narrowing_put                 8             -     -b          -           -      NO_MATCH
+  10:52  DN    vwap_pullback                      1   DN 10:45 #4     6b        62%         38%          GOOD
+  10:54  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  10:57  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  11:24  UP    macd_narrowing_call                8             -     -b          -           -      NO_MATCH
+  11:35  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  12:36  UP    macd_narrowing_call                8             -     -b          -           -      NO_MATCH
+  12:41  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  12:42  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  13:26  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  13:28  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    UP 11:40→13:05  amp=0.34%  dur=85b  | regime=range  VWAP=below  RSI=36  MACDf=-0.0452  BandPos=-1.05
+    UP 09:40→09:48  amp=0.31%  dur=8b  | regime=range  VWAP=above  RSI=52  MACDf=-0.0436  BandPos=-0.30
+    UP 10:04→10:10  amp=0.23%  dur=6b  | regime=range  VWAP=below  RSI=38  MACDf=-0.1087  BandPos=-0.86
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-08-13  |  5 top-5 swings  |  15 signals
+  Top-5 swings:  [UP 09:43→10:34 0.85%]  [UP 11:58→13:21 0.44%]  [DN 11:22→11:40 0.32%]  [DN 11:42→11:58 0.22%]  [DN 10:34→11:03 0.21%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  10:51  DN    regime_momentum_3bar               3             -     -b          -           -      NO_MATCH
+  11:22  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  11:38  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  11:46  DN    vwap_pullback                      1   DN 11:42 #4     3b        52%         48%          GOOD
+  11:54  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  12:04  DN    macd_narrowing_put                 8             -     -b          -           -      NO_MATCH
+  12:18  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+  12:23  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  12:27  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  12:28  DN    regime_or_reversion                9             -     -b          -           -      NO_MATCH
+  12:52  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  13:01  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  13:03  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  13:04  DN    regime_or_reversion                9             -     -b          -           -      NO_MATCH
+  13:05  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    UP 09:43→10:34  amp=0.85%  dur=51b  | regime=trend_down  VWAP=above  RSI=48  MACDf=-0.0127  BandPos=-0.38
+    UP 11:58→13:21  amp=0.44%  dur=83b  | regime=trend_down  VWAP=below  RSI=35  MACDf=0.0078  BandPos=-0.78
+    DN 11:22→11:40  amp=0.32%  dur=18b  | regime=trend_down  VWAP=above  RSI=58  MACDf=0.0636  BandPos=+0.90
+    DN 10:34→11:03  amp=0.21%  dur=29b  | regime=trend_down  VWAP=above  RSI=77  MACDf=0.0814  BandPos=+1.06
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-08-14  |  5 top-5 swings  |  21 signals
+  Top-5 swings:  [DN 10:39→11:42 0.45%]  [DN 10:06→10:30 0.43%]  [UP 11:42→12:26 0.23%]  [UP 09:40→09:48 0.20%]  [DN 09:48→09:57 0.18%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:59  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+  10:01  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  10:06  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  10:07  DN    momentum_exhaustion_put            9   DN 10:06 #2     0b         0%        100%          GOOD
+  10:08  DN    macd_narrowing_put                 9   DN 10:06 #2     1b         4%         96%          GOOD
+  10:16  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+  10:17  DN    vwap_pullback                      1   DN 10:06 #2    10b        43%         57%          GOOD
+  10:21  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  10:25  UP    regime_or_reversion               11             -     -b          -           -      NO_MATCH
+  10:56  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+  11:02  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  11:06  UP    regime_or_reversion               11             -     -b          -           -      NO_MATCH
+  11:24  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  11:42  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  12:34  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  12:35  UP    vwap_bounce_call                  10             -     -b          -           -      NO_MATCH
+  12:37  UP    regime_momentum_3bar               5             -     -b          -           -      NO_MATCH
+  12:48  UP    macd_narrowing_call                8             -     -b          -           -      NO_MATCH
+  12:53  DN    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  13:26  UP    macd_narrowing_call                8             -     -b          -           -      NO_MATCH
+  13:27  UP    vwap_bounce_call                  10             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    DN 10:39→11:42  amp=0.45%  dur=63b  | regime=range  VWAP=below  RSI=50  MACDf=0.1655  BandPos=+0.52
+    UP 11:42→12:26  amp=0.23%  dur=44b  | regime=range  VWAP=below  RSI=34  MACDf=0.0084  BandPos=-0.86
+    UP 09:40→09:48  amp=0.20%  dur=8b  | regime=range  VWAP=above  RSI=39  MACDf=0.0042  BandPos=-0.91
+    DN 09:48→09:57  amp=0.18%  dur=9b  | regime=range  VWAP=above  RSI=39  MACDf=0.0042  BandPos=-0.91
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-08-17  |  5 top-5 swings  |  16 signals
+  Top-5 swings:  [DN 11:06→13:39 0.62%]  [UP 10:20→11:06 0.38%]  [DN 09:54→10:07 0.22%]  [DN 10:14→10:20 0.19%]  [UP 09:40→09:54 0.18%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  10:03  DN    vwap_pullback                      1   DN 09:54 #3     8b        71%         29%  LATE(missed)
+  10:04  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+  10:15  DN    macd_narrowing_put                 9   DN 10:14 #4     0b         0%        100%          GOOD
+  10:17  DN    vwap_pullback                      1   DN 10:14 #4     2b        47%         53%          GOOD
+  10:20  UP    macd_narrowing_call                8             -     -b          -           -      NO_MATCH
+  10:25  UP    vwap_bounce_call                   9   UP 10:20 #2     4b        11%         89%          GOOD
+  10:26  UP    trap_false_breakdown               9   UP 10:20 #2     5b         9%         91%          GOOD
+  10:48  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  11:33  DN    trap_false_breakout                4             -     -b          -           -      NO_MATCH
+  11:50  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  11:55  DN    macd_narrowing_put                 7             -     -b          -           -      NO_MATCH
+  12:03  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  12:04  UP    vwap_bounce_call                  11             -     -b          -           -      NO_MATCH
+  12:05  UP    macd_narrowing_call               11             -     -b          -           -      NO_MATCH
+  13:10  UP    deep_oversold_bounce              11             -     -b          -           -      NO_MATCH
+  13:25  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    DN 11:06→13:39  amp=0.62%  dur=153b  | regime=range  VWAP=above  RSI=79  MACDf=0.1030  BandPos=+1.05
+    UP 09:40→09:54  amp=0.18%  dur=14b  | regime=range  VWAP=above  RSI=63  MACDf=0.0516  BandPos=+0.96
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-08-18  |  5 top-5 swings  |  26 signals
+  Top-5 swings:  [DN 09:40→09:55 0.52%]  [DN 10:26→11:10 0.51%]  [UP 11:10→12:13 0.44%]  [DN 10:02→10:12 0.35%]  [DN 12:54→13:59 0.35%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:56  DN    regime_or_breakout                 1             -     -b          -           -      NO_MATCH
+  09:58  UP    trap_false_breakdown               7             -     -b          -           -      NO_MATCH
+  10:01  DN    regime_momentum_3bar               2             -     -b          -           -      NO_MATCH
+  10:03  UP    regime_momentum_3bar               5             -     -b          -           -      NO_MATCH
+  10:05  DN    regime_momentum_3bar               5   DN 10:02 #4     2b         6%         94%          GOOD
+  10:13  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  10:14  UP    regime_or_reversion               11             -     -b          -           -      NO_MATCH
+  10:16  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  10:25  UP    trap_false_breakdown               5             -     -b          -           -      NO_MATCH
+  10:27  DN    vwap_macd_fade                    11   DN 10:26 #2     0b         0%        100%          GOOD
+  10:28  DN    momentum_exhaustion_put            9   DN 10:26 #2     1b         3%         97%          GOOD
+  10:29  DN    macd_narrowing_put                 9   DN 10:26 #2     2b         2%         98%          GOOD
+  10:43  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  10:44  UP    macd_narrowing_call                8             -     -b          -           -      NO_MATCH
+  10:46  DN    regime_momentum_3bar               1             -     -b          -           -      NO_MATCH
+  10:47  UP    vwap_bounce_call                  10             -     -b          -           -      NO_MATCH
+  11:12  UP    deep_oversold_bounce              10   UP 11:10 #3     1b         4%         96%          GOOD
+  12:23  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  12:30  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  12:31  UP    regime_or_reversion               11             -     -b          -           -      NO_MATCH
+  12:32  UP    vwap_bounce_call                  11             -     -b          -           -      NO_MATCH
+  12:41  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  12:46  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  13:18  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  13:25  DN    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  13:26  DN    regime_trend_following             1             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    DN 09:40→09:55  amp=0.52%  dur=15b  | regime=trend_down  VWAP=below  RSI=42  MACDf=-0.0228  BandPos=-0.65
+    DN 12:54→13:59  amp=0.35%  dur=65b  | regime=trend_down  VWAP=above  RSI=63  MACDf=0.0462  BandPos=+0.67
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-08-19  |  5 top-5 swings  |  17 signals
+  Top-5 swings:  [DN 09:40→09:51 0.59%]  [UP 10:22→10:42 0.57%]  [DN 12:18→13:21 0.51%]  [DN 09:58→10:14 0.45%]  [UP 11:54→12:18 0.32%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:56  UP    vwap_bounce_call                  10             -     -b          -           -      NO_MATCH
+  10:13  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  10:32  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  10:34  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  10:39  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  10:54  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  11:43  UP    regime_or_reversion                9             -     -b          -           -      NO_MATCH
+  11:47  DN    macd_narrowing_put                 8             -     -b          -           -      NO_MATCH
+  12:00  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  12:04  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  12:32  DN    regime_momentum_3bar               3             -     -b          -           -      NO_MATCH
+  12:53  UP    regime_or_reversion                9             -     -b          -           -      NO_MATCH
+  13:10  DN    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  13:19  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  13:20  DN    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  13:21  DN    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  13:23  UP    deep_oversold_bounce              11             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    DN 09:40→09:51  amp=0.59%  dur=11b  | regime=range  VWAP=below  RSI=25  MACDf=-0.0734  BandPos=-1.15
+    UP 10:22→10:42  amp=0.57%  dur=20b  | regime=range  VWAP=below  RSI=39  MACDf=0.0525  BandPos=-0.59
+    DN 12:18→13:21  amp=0.51%  dur=63b  | regime=range  VWAP=above  RSI=70  MACDf=-0.0042  BandPos=+0.99
+    DN 09:58→10:14  amp=0.45%  dur=16b  | regime=range  VWAP=below  RSI=41  MACDf=0.2737  BandPos=-0.16
+    UP 11:54→12:18  amp=0.32%  dur=24b  | regime=range  VWAP=above  RSI=42  MACDf=-0.0399  BandPos=-0.38
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-08-20  |  5 top-5 swings  |  34 signals
+  Top-5 swings:  [DN 09:43→09:52 0.43%]  [DN 12:46→13:41 0.34%]  [DN 11:01→11:11 0.34%]  [UP 10:34→10:46 0.32%]  [UP 10:19→10:23 0.31%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:56  UP    regime_momentum_3bar               3             -     -b          -           -      NO_MATCH
+  09:58  DN    regime_momentum_3bar               0             -     -b          -           -      NO_MATCH
+  10:03  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  10:04  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+  10:11  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  10:16  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  10:18  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+  10:19  UP    vwap_bounce_call                  10             -     -b          -           -      NO_MATCH
+  10:22  UP    trap_false_breakdown               5   UP 10:19 #5     2b        64%         36%          GOOD
+  10:23  DN    vwap_macd_fade                    10             -     -b          -           -      NO_MATCH
+  10:25  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  10:29  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  10:31  UP    trap_false_breakdown               5             -     -b          -           -      NO_MATCH
+  10:41  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  10:42  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  10:55  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  10:58  UP    macd_narrowing_call                8             -     -b          -           -      NO_MATCH
+  11:02  DN    vwap_macd_fade                    11   DN 11:01 #3     0b         0%        100%          GOOD
+  11:03  DN    momentum_exhaustion_put            9   DN 11:01 #3     1b        11%         89%          GOOD
+  11:04  DN    macd_narrowing_put                 9   DN 11:01 #3     2b         2%         98%          GOOD
+  11:09  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  11:10  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  11:13  UP    trap_false_breakdown               9             -     -b          -           -      NO_MATCH
+  11:23  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  11:25  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  11:37  UP    regime_or_reversion               10             -     -b          -           -      NO_MATCH
+  11:47  UP    vwap_bounce_call                  10             -     -b          -           -      NO_MATCH
+  12:17  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  12:33  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+  12:41  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  13:06  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  13:07  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  13:08  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  13:21  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    DN 09:43→09:52  amp=0.43%  dur=9b  | regime=range  VWAP=below  RSI=51  MACDf=-0.0328  BandPos=+0.01
+    DN 12:46→13:41  amp=0.34%  dur=55b  | regime=range  VWAP=above  RSI=69  MACDf=0.0671  BandPos=+0.94
+    UP 10:34→10:46  amp=0.32%  dur=12b  | regime=range  VWAP=below  RSI=43  MACDf=-0.0569  BandPos=-0.47
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-08-21  |  5 top-5 swings  |  17 signals
+  Top-5 swings:  [UP 10:41→11:53 0.76%]  [DN 11:53→13:22 0.35%]  [DN 10:08→10:19 0.34%]  [DN 09:40→10:02 0.24%]  [UP 10:19→10:28 0.24%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:56  UP    vwap_bounce_call                  11             -     -b          -           -      NO_MATCH
+  09:59  DN    regime_momentum_3bar               1             -     -b          -           -      NO_MATCH
+  10:03  DN    regime_momentum_3bar               1             -     -b          -           -      NO_MATCH
+  10:13  DN    vwap_pullback                      1   DN 10:08 #3     4b        39%         61%          GOOD
+  10:16  UP    macd_narrowing_call                8             -     -b          -           -      NO_MATCH
+  10:20  DN    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  10:21  UP    deep_oversold_bounce               9   UP 10:19 #5     1b         6%         94%          GOOD
+  10:47  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  10:57  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  10:58  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  11:24  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  11:29  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  11:32  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  11:43  DN    momentum_exhaustion_put            8             -     -b          -           -      NO_MATCH
+  12:40  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  13:01  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  13:02  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    UP 10:41→11:53  amp=0.76%  dur=72b  | regime=range  VWAP=below  RSI=43  MACDf=-0.0405  BandPos=-0.74
+    DN 11:53→13:22  amp=0.35%  dur=89b  | regime=range  VWAP=above  RSI=76  MACDf=0.0327  BandPos=+0.93
+    DN 09:40→10:02  amp=0.24%  dur=22b  | regime=range  VWAP=below  RSI=41  MACDf=-0.0495  BandPos=-0.38
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-08-24  |  5 top-5 swings  |  14 signals
+  Top-5 swings:  [UP 11:05→11:47 0.53%]  [UP 10:25→10:41 0.42%]  [DN 09:40→09:45 0.41%]  [DN 13:11→13:57 0.31%]  [DN 09:58→10:12 0.26%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:56  UP    regime_momentum_3bar               7             -     -b          -           -      NO_MATCH
+  10:03  DN    vwap_pullback                      1   DN 09:58 #5     4b        76%         24%  LATE(missed)
+  10:04  UP    deep_oversold_bounce               8             -     -b          -           -      NO_MATCH
+  10:31  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  10:32  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  10:33  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  11:03  UP    trap_false_breakdown               8             -     -b          -           -      NO_MATCH
+  11:06  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  11:08  UP    regime_or_reversion                9   UP 11:05 #1     2b         4%         96%          GOOD
+  11:25  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  11:27  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  11:28  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  12:16  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  12:23  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    UP 10:25→10:41  amp=0.42%  dur=16b  | regime=trend_down  VWAP=below  RSI=46  MACDf=0.0419  BandPos=-0.06
+    DN 09:40→09:45  amp=0.41%  dur=5b  | regime=trend_down  VWAP=below  RSI=39  MACDf=-0.0421  BandPos=-0.98
+    DN 13:11→13:57  amp=0.31%  dur=46b  | regime=trend_down  VWAP=above  RSI=68  MACDf=0.1328  BandPos=+1.31
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-08-25  |  5 top-5 swings  |  22 signals
+  Top-5 swings:  [DN 09:48→10:30 0.69%]  [UP 11:04→11:33 0.30%]  [DN 12:31→13:30 0.27%]  [UP 11:48→12:31 0.24%]  [DN 11:33→11:48 0.22%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:56  DN    regime_momentum_3bar               2   DN 09:48 #1     7b        43%         57%          GOOD
+  09:57  DN    vwap_pullback                      1   DN 09:48 #1     8b        48%         52%          GOOD
+  09:58  UP    vwap_bounce_call                  11             -     -b          -           -      NO_MATCH
+  09:59  UP    macd_narrowing_call               10             -     -b          -           -      NO_MATCH
+  10:02  DN    regime_momentum_3bar               1             -     -b          -           -      NO_MATCH
+  10:03  DN    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  10:04  DN    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  10:31  DN    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  11:03  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+  11:04  UP    regime_or_reversion               11             -     -b          -           -      NO_MATCH
+  11:05  UP    vwap_bounce_call                  11   UP 11:04 #2     0b         0%        100%          GOOD
+  11:30  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  11:51  UP    vwap_bounce_call                  10   UP 11:48 #4     2b        12%         88%          GOOD
+  12:04  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  12:44  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  12:45  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  12:46  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  13:03  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  13:06  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  13:07  UP    regime_or_reversion               11             -     -b          -           -      NO_MATCH
+  13:10  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  13:29  UP    regime_or_reversion               11             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    DN 12:31→13:30  amp=0.27%  dur=59b  | regime=range  VWAP=above  RSI=61  MACDf=0.0033  BandPos=+0.80
+    DN 11:33→11:48  amp=0.22%  dur=15b  | regime=range  VWAP=above  RSI=69  MACDf=0.0651  BandPos=+0.97
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-08-26  |  5 top-5 swings  |  25 signals
+  Top-5 swings:  [DN 09:59→10:27 0.57%]  [DN 11:49→12:43 0.39%]  [UP 12:43→13:58 0.39%]  [UP 10:27→11:06 0.38%]  [UP 09:50→09:59 0.24%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:56  UP    regime_or_breakout                 3   UP 09:50 #5     5b        83%         17%  LATE(missed)
+  09:57  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  10:10  DN    trap_false_breakout                4   DN 09:59 #1    10b        31%         69%          GOOD
+  10:11  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  10:14  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  10:15  UP    vwap_bounce_call                  11             -     -b          -           -      NO_MATCH
+  10:52  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  11:18  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  11:19  UP    vwap_bounce_call                  10             -     -b          -           -      NO_MATCH
+  11:26  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  11:29  DN    vwap_macd_fade                    10             -     -b          -           -      NO_MATCH
+  11:30  DN    macd_narrowing_put                 8             -     -b          -           -      NO_MATCH
+  11:35  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  11:42  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  11:44  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  11:45  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  11:46  DN    trap_false_breakout                8             -     -b          -           -      NO_MATCH
+  11:47  DN    regime_or_reversion                8             -     -b          -           -      NO_MATCH
+  11:53  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+  11:54  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  12:39  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  12:41  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  12:42  UP    trap_false_breakdown              11             -     -b          -           -      NO_MATCH
+  12:47  UP    trap_false_breakdown              10   UP 12:43 #3     3b         9%         91%          GOOD
+  13:01  UP    regime_momentum_3bar               3             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    DN 11:49→12:43  amp=0.39%  dur=54b  | regime=range  VWAP=above  RSI=64  MACDf=0.0391  BandPos=+0.72
+    UP 10:27→11:06  amp=0.38%  dur=39b  | regime=range  VWAP=below  RSI=21  MACDf=-0.1484  BandPos=-1.10
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-08-27  |  5 top-5 swings  |  24 signals
+  Top-5 swings:  [UP 09:57→10:27 0.59%]  [DN 09:52→09:57 0.42%]  [DN 09:45→09:49 0.38%]  [DN 11:18→11:48 0.37%]  [UP 11:48→12:03 0.34%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:56  DN    regime_momentum_3bar               3   DN 09:52 #2     3b        32%         68%          GOOD
+  09:58  DN    vwap_pullback                      1   DN 09:52 #2     5b       100%          0%  LATE(missed)
+  09:59  UP    macd_narrowing_call                8   UP 09:57 #1     1b        15%         85%          GOOD
+  10:00  UP    vwap_bounce_call                   9   UP 09:57 #1     2b        27%         73%          GOOD
+  10:28  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  10:35  DN    trap_false_breakout                4             -     -b          -           -      NO_MATCH
+  10:50  DN    vwap_macd_fade                    10             -     -b          -           -      NO_MATCH
+  10:51  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  10:54  DN    trap_false_breakout                5             -     -b          -           -      NO_MATCH
+  11:01  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  11:02  DN    regime_or_reversion                9             -     -b          -           -      NO_MATCH
+  11:17  UP    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  11:30  DN    regime_momentum_3bar               3             -     -b          -           -      NO_MATCH
+  11:35  DN    trap_false_breakout                4             -     -b          -           -      NO_MATCH
+  11:44  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  11:54  DN    macd_narrowing_put                 8             -     -b          -           -      NO_MATCH
+  11:56  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  12:04  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  12:28  DN    vwap_macd_fade                    10             -     -b          -           -      NO_MATCH
+  12:30  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  12:32  DN    regime_or_reversion                9             -     -b          -           -      NO_MATCH
+  13:10  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  13:12  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  13:13  DN    regime_or_reversion                9             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    DN 09:45→09:49  amp=0.38%  dur=4b  | regime=trend_down  VWAP=above  RSI=56  MACDf=0.0103  BandPos=+0.26
+    DN 11:18→11:48  amp=0.37%  dur=30b  | regime=trend_down  VWAP=above  RSI=61  MACDf=-0.0052  BandPos=+0.77
+    UP 11:48→12:03  amp=0.34%  dur=15b  | regime=trend_down  VWAP=below  RSI=27  MACDf=-0.0658  BandPos=-0.83
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-08-28  |  5 top-5 swings  |  19 signals
+  Top-5 swings:  [DN 11:25→12:01 0.86%]  [UP 10:27→11:00 0.66%]  [DN 10:00→10:13 0.55%]  [UP 10:13→10:22 0.50%]  [DN 12:10→12:34 0.38%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:56  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  10:04  DN    vwap_pullback                      1   DN 10:00 #3     3b        45%         55%          GOOD
+  10:05  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+  10:14  DN    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  10:15  UP    deep_oversold_bounce               9   UP 10:13 #4     1b        10%         90%          GOOD
+  10:21  DN    macd_narrowing_put                 7             -     -b          -           -      NO_MATCH
+  10:23  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  10:25  DN    trap_false_breakout                8             -     -b          -           -      NO_MATCH
+  11:26  DN    vwap_macd_fade                    11   DN 11:25 #1     0b         0%        100%          GOOD
+  11:27  DN    macd_narrowing_put                 9   DN 11:25 #1     1b         2%         98%          GOOD
+  11:54  UP    deep_oversold_bounce              11             -     -b          -           -      NO_MATCH
+  12:18  UP    regime_or_reversion               11             -     -b          -           -      NO_MATCH
+  12:20  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  12:21  UP    macd_narrowing_call               11             -     -b          -           -      NO_MATCH
+  12:44  UP    vwap_bounce_call                  10             -     -b          -           -      NO_MATCH
+  13:02  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  13:03  UP    regime_or_reversion               11             -     -b          -           -      NO_MATCH
+  13:04  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  13:24  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    UP 10:27→11:00  amp=0.66%  dur=33b  | regime=range  VWAP=below  RSI=49  MACDf=0.0660  BandPos=+0.17
+    DN 12:10→12:34  amp=0.38%  dur=24b  | regime=range  VWAP=below  RSI=48  MACDf=0.3052  BandPos=+0.46
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-08-31  |  5 top-5 swings  |  30 signals
+  Top-5 swings:  [DN 09:54→10:09 0.30%]  [DN 10:57→12:05 0.25%]  [UP 12:05→12:57 0.25%]  [UP 10:26→10:42 0.25%]  [UP 09:40→09:47 0.24%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:57  DN    regime_momentum_3bar               7   DN 09:54 #1     2b        20%         80%          GOOD
+  10:03  DN    vwap_pullback                      1   DN 09:54 #1     8b        74%         26%  LATE(missed)
+  10:04  UP    macd_narrowing_call                8             -     -b          -           -      NO_MATCH
+  10:05  UP    vwap_bounce_call                  10             -     -b          -           -      NO_MATCH
+  10:11  UP    trap_false_breakdown               7             -     -b          -           -      NO_MATCH
+  10:23  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  10:26  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  10:27  DN    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  10:57  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  10:59  DN    macd_narrowing_put                 9   DN 10:57 #2     1b        21%         79%          GOOD
+  11:18  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  11:19  UP    macd_narrowing_call                7             -     -b          -           -      NO_MATCH
+  11:22  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  11:23  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  11:24  DN    macd_narrowing_put                 8             -     -b          -           -      NO_MATCH
+  11:32  UP    macd_narrowing_call                8             -     -b          -           -      NO_MATCH
+  11:35  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  11:52  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  11:53  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  11:59  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  12:00  UP    regime_or_reversion               11             -     -b          -           -      NO_MATCH
+  12:03  UP    macd_narrowing_call               11             -     -b          -           -      NO_MATCH
+  12:28  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  12:50  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  12:53  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  12:57  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  13:17  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  13:26  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  13:28  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  13:29  UP    macd_narrowing_call               11             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    UP 12:05→12:57  amp=0.25%  dur=52b  | regime=range  VWAP=below  RSI=30  MACDf=-0.0897  BandPos=-0.81
+    UP 10:26→10:42  amp=0.25%  dur=16b  | regime=range  VWAP=below  RSI=36  MACDf=-0.1364  BandPos=-0.99
+    UP 09:40→09:47  amp=0.24%  dur=7b  | regime=range  VWAP=below  RSI=58  MACDf=-0.0315  BandPos=+0.39
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-09-01  |  5 top-5 swings  |  21 signals
+  Top-5 swings:  [DN 11:53→12:34 0.60%]  [UP 10:02→10:48 0.56%]  [UP 11:09→11:53 0.45%]  [UP 09:40→09:50 0.28%]  [DN 10:48→11:09 0.27%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  10:02  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  10:09  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  10:10  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  10:12  DN    trap_false_breakout                5             -     -b          -           -      NO_MATCH
+  10:17  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  10:19  DN    trap_false_breakout                5             -     -b          -           -      NO_MATCH
+  10:32  UP    regime_trend_following             3             -     -b          -           -      NO_MATCH
+  10:33  UP    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  10:34  UP    regime_trend_following             1             -     -b          -           -      NO_MATCH
+  11:01  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  11:24  DN    vwap_macd_fade                    10             -     -b          -           -      NO_MATCH
+  11:26  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  11:28  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  11:30  UP    regime_momentum_3bar               1             -     -b          -           -      NO_MATCH
+  12:32  UP    deep_oversold_bounce               9             -     -b          -           -      NO_MATCH
+  12:56  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  12:58  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  12:59  DN    regime_or_reversion                9             -     -b          -           -      NO_MATCH
+  13:00  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  13:17  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  13:20  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    DN 11:53→12:34  amp=0.60%  dur=41b  | regime=range  VWAP=above  RSI=77  MACDf=-0.0314  BandPos=+0.62
+    UP 10:02→10:48  amp=0.56%  dur=46b  | regime=range  VWAP=below  RSI=46  MACDf=-0.0430  BandPos=-0.51
+    UP 11:09→11:53  amp=0.45%  dur=44b  | regime=range  VWAP=above  RSI=35  MACDf=-0.1357  BandPos=-1.06
+    UP 09:40→09:50  amp=0.28%  dur=10b  | regime=range  VWAP=below  RSI=55  MACDf=-0.0716  BandPos=+0.01
+    DN 10:48→11:09  amp=0.27%  dur=21b  | regime=range  VWAP=above  RSI=78  MACDf=0.0677  BandPos=+1.08
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  2026-09-02  |  5 top-5 swings  |  20 signals
+  Top-5 swings:  [UP 09:57→10:34 0.60%]  [UP 11:01→11:29 0.32%]  [DN 10:34→11:01 0.32%]  [DN 09:40→09:57 0.25%]  [DN 11:29→11:50 0.22%]  
+   Time  Dir   Strategy                      Score  MatchedSwing   Lagb  Captured%  Remaining%       Verdict
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  09:56  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+  09:57  UP    vwap_bounce_call                   9             -     -b          -           -      NO_MATCH
+  10:06  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  10:07  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  10:08  DN    regime_or_reversion                9             -     -b          -           -      NO_MATCH
+  10:15  UP    regime_trend_following             3             -     -b          -           -      NO_MATCH
+  10:17  UP    regime_trend_following             3             -     -b          -           -      NO_MATCH
+  10:45  DN    vwap_macd_fade                    11   DN 10:34 #3    10b         2%         98%          GOOD
+  11:01  DN    vwap_pullback                      1             -     -b          -           -      NO_MATCH
+  11:02  UP    macd_narrowing_call                9   UP 11:01 #2     0b         0%        100%          GOOD
+  11:17  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  11:18  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  11:26  DN    vwap_macd_fade                    11             -     -b          -           -      NO_MATCH
+  12:00  DN    vwap_macd_fade                    10             -     -b          -           -      NO_MATCH
+  12:01  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  12:02  DN    macd_narrowing_put                 9             -     -b          -           -      NO_MATCH
+  12:55  DN    vwap_macd_fade                    10             -     -b          -           -      NO_MATCH
+  12:56  DN    macd_narrowing_put                 7             -     -b          -           -      NO_MATCH
+  13:04  DN    momentum_exhaustion_put            9             -     -b          -           -      NO_MATCH
+  13:10  UP    macd_narrowing_call                9             -     -b          -           -      NO_MATCH
+
+  MISSED swings (no aligned signal):
+    UP 09:57→10:34  amp=0.60%  dur=37b  | regime=range  VWAP=below  RSI=41  MACDf=-0.0652  BandPos=-0.72
+    DN 09:40→09:57  amp=0.25%  dur=17b  | regime=range  VWAP=below  RSI=53  MACDf=0.0498  BandPos=+0.23
+    DN 11:29→11:50  amp=0.22%  dur=21b  | regime=range  VWAP=above  RSI=65  MACDf=0.0392  BandPos=+0.85
+
+
+════════════════════════════════════════════════════════════════════════════════
+                               AGGREGATE SUMMARY                                
+════════════════════════════════════════════════════════════════════════════════
+
+  Days analyzed          : 45
+  Total signals fired    : 927
+  Signals aligned (±10b) : 114  (12% of signals)
+  Signals 'GOOD' (≥30%   : 99  (11% of signals)
+  Win rate (good/aligned): 87%
+
+  Top-5 swings total     : 225
+  Swings captured        : 77  (34% of top-5)
+  Swings missed          : 148  (66% of top-5)
+
+
+────────────────────────────────────────────────────────────────────────────────
+                               STRATEGY BREAKDOWN                             
+  ────────────────────────────────────────────────────────────────────────────
+  Strategy                           Fired  Aligned    Good   Align%   WinRate   Noise%
+  ────────────────────────────────────────────────────────────────────────────
+  vwap_macd_fade                       135        9       9       7%      100%      93%
+  macd_narrowing_call                  121        7       7       6%      100%      94%
+  macd_narrowing_put                   101       11      11      11%      100%      89%
+  momentum_exhaustion_put               99        6       6       6%      100%      94%
+  vwap_pullback                         89       29      18      33%       62%      67%
+  vwap_bounce_call                      77        8       8      10%      100%      90%
+  deep_oversold_bounce                  76        7       7       9%      100%      91%
+  regime_or_reversion                   67        3       3       4%      100%      96%
+  regime_trend_following                56       10       9      18%       90%      82%
+  regime_momentum_3bar                  54       10      10      19%      100%      81%
+  trap_false_breakdown                  27        6       6      22%      100%      78%
+  trap_false_breakout                   18        4       4      22%      100%      78%
+  regime_or_breakout                     5        2       1      40%       50%      60%
+  regime_trend_or_breakout               2        2       0     100%        0%       0%
+  ────────────────────────────────────────────────────────────────────────────
+
+  Note: run with --output FILE to capture the full per-day detail.
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+           MISSED SWING DIAGNOSTICS (aggregate over all missed top-5)         
+  ────────────────────────────────────────────────────────────────────────────
+
+  UP (missed CALL opps)  (77 swings)
+    Avg RSI       : 42.4
+    Avg MACDf     : -0.0589
+    Avg BandPos   : -0.48
+    VWAP below/above : 49 / 28
+    Regime breakdown : {'range': 53, 'trend_down': 20, 'unknown': 1, 'trend_up': 3}
+    RSI < 45      : 61%
+    RSI > 60      : 5%
+    RSI 45-60     : 34%
+    BandPos < -0.3: 69%
+    BandPos > +0.3: 8%
+    MACDf > 0     : 31%
+
+  DN (missed PUT opps)  (70 swings)
+    Avg RSI       : 56.5
+    Avg MACDf     : 0.0698
+    Avg BandPos   : +0.40
+    VWAP below/above : 32 / 38
+    Regime breakdown : {'range': 44, 'trend_down': 22, 'trend_up': 4}
+    RSI < 45      : 23%
+    RSI > 60      : 47%
+    RSI 45-60     : 30%
+    BandPos < -0.3: 19%
+    BandPos > +0.3: 63%
+    MACDf > 0     : 73%
+
+
+────────────────────────────────────────────────────────────────────────────────
+  Date          Signals  Aligned     Good   Top5  Captured  WinRate
+  ────────────────────────────────────────────────────────────────────────
+  2026-07-01         18        1        1      5         1       6%
+  2026-07-02         20        3        3      5         2      15%
+  2026-07-06         23        3        3      5         2      13%
+  2026-07-07         14        3        3      5         2      21%
+  2026-07-08         22        4        4      5         3      18%
+  2026-07-09         27        0        0      5         0       0%
+  2026-07-10         30        5        3      5         4      10%
+  2026-07-13         24        5        5      5         3      21%
+  2026-07-14         21        2        2      5         1      10%
+  2026-07-15         14        2        2      5         2      14%
+  2026-07-16         29        1        1      5         1       3%
+  2026-07-17         25        0        0      5         0       0%
+  2026-07-20         15        4        4      5         2      27%
+  2026-07-21         27        2        2      5         1       7%
+  2026-07-22         23        4        3      5         3      13%
+  2026-07-23         25        5        4      5         2      16%
+  2026-07-24         15        1        1      5         1       7%
+  2026-07-27         17        2        2      5         2      12%
+  2026-07-28         14        1        1      5         1       7%
+  2026-07-29         13        1        1      5         1       8%
+  2026-07-30         16        1        1      5         1       6%
+  2026-07-31          8        0        0      5         0       0%
+  2026-08-03         14        2        0      5         1       0%
+  2026-08-04         20        2        2      5         1      10%
+  2026-08-05         21        4        2      5         3      10%
+  2026-08-06         18        5        4      5         2      22%
+  2026-08-07         34        5        5      5         3      15%
+  2026-08-10         18        0        0      5         0       0%
+  2026-08-11         21        2        2      5         1      10%
+  2026-08-12         20        2        1      5         2       5%
+  2026-08-13         15        1        1      5         1       7%
+  2026-08-14         21        3        3      5         1      14%
+  2026-08-17         16        5        4      5         3      25%
+  2026-08-18         26        5        5      5         3      19%
+  2026-08-19         17        0        0      5         0       0%
+  2026-08-20         34        4        4      5         2      12%
+  2026-08-21         17        2        2      5         2      12%
+  2026-08-24         14        2        1      5         2       7%
+  2026-08-25         22        4        4      5         3      18%
+  2026-08-26         25        3        2      5         3       8%
+  2026-08-27         24        4        3      5         2      12%
+  2026-08-28         19        4        4      5         3      21%
+  2026-08-31         30        3        2      5         2       7%
+  2026-09-01         21        0        0      5         0       0%
+  2026-09-02         20        2        2      5         2      10%
+
+════════════════════════════════════════════════════════════════════════════════
+Analysis complete.
+════════════════════════════════════════════════════════════════════════════════
+

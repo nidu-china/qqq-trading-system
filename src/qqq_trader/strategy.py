@@ -16,10 +16,12 @@ from .domain import (
 )
 from .indicators import (
     MarketContext,
+    atr as _compute_atr,
     bollinger_bands,
     macd_histogram,
     macd_histogram_series,
     rsi,
+    vwap as _compute_vwap,
 )
 from .policy import RULES
 from .volatility import VixFiveMinuteTrend, vix_five_minute_trend
@@ -390,6 +392,10 @@ class StrategyEngine:
         )
         if volume_ratio <= ZERO:
             return None
+        # VWAP: cumulative intraday (RTH bars only for the current session)
+        vwap_val = _compute_vwap(today) if today else ZERO
+        # ATR(14): use recent indicator bars (premarket + RTH) for warm-up stability
+        atr_val = _compute_atr(indicator_bars[-30:], 14)
         trend_bars = today[-RULES.timed_trend_cross_lookback :]
         trend_sides = [
             bar.close >= self._last_boll_middle_by_end[bar.end]
@@ -423,6 +429,8 @@ class StrategyEngine:
             boll_middle_prev2=two_bars_ago_middle,
             boll_lower=lower,
             boll_middle_crosses=boll_middle_crosses,
+            vwap_value=vwap_val,
+            atr_val=atr_val,
         )
         return context, today
 

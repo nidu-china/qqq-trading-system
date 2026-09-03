@@ -149,6 +149,29 @@ def rsi(values: Sequence[Decimal], period: int = 14) -> Decimal:
     )
 
 
+def atr(bars: Sequence[Bar], period: int = 14) -> Decimal:
+    """Return Average True Range using Wilder smoothing.
+
+    Uses the standard True Range definition:
+        TR = max(H-L, |H-prev_C|, |L-prev_C|)
+    Returns ZERO when there are fewer than ``period + 1`` bars.
+    """
+    if len(bars) < period + 1:
+        return ZERO
+    true_ranges: list[Decimal] = []
+    for i in range(1, len(bars)):
+        hl = bars[i].high - bars[i].low
+        hc = abs(bars[i].high - bars[i - 1].close)
+        lc = abs(bars[i].low - bars[i - 1].close)
+        true_ranges.append(max(hl, hc, lc))
+    if len(true_ranges) < period:
+        return ZERO
+    result = sum(true_ranges[:period], ZERO) / Decimal(period)
+    for tr in true_ranges[period:]:
+        result = (result * Decimal(period - 1) + tr) / Decimal(period)
+    return result
+
+
 def bollinger_bands(
     values: Sequence[Decimal],
     period: int = 20,

@@ -448,6 +448,7 @@ class EventDrivenBacktester:
         trade_start: date | None = None,
         warmup_bars: list[Bar] | None = None,
         reset_daily_context: bool = False,
+        enable_pyramid_scaling: bool = False,
     ) -> BacktestResult:
         result = BacktestResult(starting_equity, starting_equity)
         available = sorted(
@@ -675,6 +676,53 @@ class EventDrivenBacktester:
                 if quote.bid is None:
                     record_equity(bar.end)
                     continue
+
+                # ── Pyramid add: scale into winning position ─────────────────
+                if (
+                    enable_pyramid_scaling
+                    and position.pyramid_stage < 2
+                    and position.pyramid_target_qty > 0
+                    and quote.ask is not None
+                    and open_trade is not None
+                ):
+                    pyramid_fn = getattr(self.strategy, "pyramid_add_decision", None)
+                    if callable(pyramid_fn):
+                        add_result = pyramid_fn(position)
+                        if add_result is not None:
+                            add_qty, add_reason = add_result
+                            add_price = quote.ask
+                            old_qty = position.quantity
+                            new_qty = old_qty + add_qty
+                            # Weighted-average entry price
+                            avg_entry = (
+                                position.entry_price * Decimal(old_qty)
+                                + add_price * Decimal(add_qty)
+                            ) / Decimal(new_qty)
+                            position.entry_price = avg_entry
+                            position.quantity = new_qty
+                            open_trade.quantity += add_qty
+                            position.pyramid_stage += 1
+                            # Update stop to reflect new average
+                            position.stop_price = avg_entry * (
+                                Decimal(1) - RULES.option_stop_loss_pct
+                            )
+                            result.signal_records.append({
+                                "id": f"pyramid:{add_reason}:{bar.end.isoformat()}",
+                                "action": "buy",
+                                "decision_at": bar.end.isoformat(),
+                                "direction": position.direction.value,
+                                "symbol": position.symbol,
+                                "price": str(add_price),
+                                "quantity": add_qty,
+                                "status": "executed",
+                                "reason": add_reason,
+                                "indicators": {
+                                    "pyramid_stage": str(position.pyramid_stage),
+                                    "total_qty": str(new_qty),
+                                    "avg_entry": str(avg_entry),
+                                },
+                            })
+
                 day_realized_pnl = realized - day_start_realized
                 unrealized_pnl = (quote.bid - position.entry_price) * Decimal(
                     100
@@ -826,6 +874,9 @@ class EventDrivenBacktester:
                 synthetic = None
                 record_equity(bar.end)
                 continue
+            full_target_quantity = quantity
+            if enable_pyramid_scaling:
+                quantity = max(1, round(full_target_quantity * Decimal("0.30")))
             entry_price = quote.ask
             result.record_signal(
                 signal,
@@ -858,6 +909,8 @@ class EventDrivenBacktester:
                 entry_spot=signal.spot,
                 highest_bid=entry_price,
                 entry_vwap=signal.vwap,
+                pyramid_stage=0,
+                pyramid_target_qty=full_target_quantity if enable_pyramid_scaling else 0,
             )
             record_entry = getattr(self.strategy, "record_entry", None)
             if callable(record_entry):

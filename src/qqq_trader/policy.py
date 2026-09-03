@@ -15,7 +15,7 @@ class StrategyRules:
     phase_collect_start: time = time(9, 30)
     phase_collect_end: time = time(9, 40)
     phase_opening_end: time = time(10, 0)
-    phase_main_end: time = time(12, 0)
+    phase_main_end: time = time(13, 30)   # signals allowed until 13:30; forced close stays at 13:55
 
     # BOLL/MACD 开盘子窗口
     timed_opening_last_signal: time = time(9, 45)
