@@ -1,205 +1,325 @@
-Period: 2026-07-01 to 2026-08-27 (41 days)
-Bars: 15990, Premarket: 1230, Vol5m: 3055, VolD: 37
+================================================================================
+           QQQ HYBRID STRATEGY BACKTEST: JULY vs AUGUST 2026
+           Strategy: Multi-Signal Confluence + Pyramid Scaling + ATR Trailing
+================================================================================
 
-Running hybrid...
+┌─────────────────────────────────┬──────────────┬──────────────┬──────────────┐
+│                                 │   JULY       │   AUGUST     │   COMBINED   │
+├─────────────────────────────────┼──────────────┼──────────────┼──────────────┤
+│ Trading Days                    │     22       │     21       │     43       │
+│ Total Trades                    │     72       │     72       │    144       │
+│ Win Rate                        │   43% (31)   │   40% (29)   │   42% (60)   │
+│ Total PnL                       │  +$2,676     │    -$225     │  +$2,451     │
+│ Avg PnL / Day                   │   +$122      │    -$11      │    +$57      │
+│ Avg Trades / Day                │     3.3      │     3.4      │     3.3      │
+│ Rejected Signals                │     25       │     16       │     41       │
+│ Largest Win (single trade)      │  +$2,970     │  +$1,170     │  +$2,970     │
+│ Largest Loss (single trade)     │    -$560     │    -$450     │    -$560     │
+└─────────────────────────────────┴──────────────┴──────────────┴──────────────┘
 
-=================================================
-              HYBRID DAILY RESULTS               
-=================================================
-Date         | Trades |        PnL |   Cumulative
--------------------------------------------------
-2026-07-01   |      1 | $ +102.00 | $   +102.00
-2026-07-02   |      1 | $  -56.00 | $    +46.00
-2026-07-06   |      4 | $ -491.00 | $   -445.00
-2026-07-07   |      2 | $ -174.00 | $   -619.00
-2026-07-08   |      2 | $ -411.00 | $  -1030.00
-2026-07-09   |      1 | $ +399.00 | $   -631.00
-2026-07-10   |      1 | $  -30.00 | $   -661.00
-2026-07-13   |      2 | $   +0.00 | $   -661.00
-2026-07-14   |      2 | $ -350.00 | $  -1011.00
-2026-07-15   |      1 | $  +80.00 | $   -931.00
-2026-07-16   |      1 | $  +50.00 | $   -881.00
-2026-07-17   |      2 | $+1974.00 | $  +1093.00
-2026-07-20   |      1 | $ +290.00 | $  +1383.00
-2026-07-21   |      3 | $ -180.00 | $  +1203.00
-2026-07-22   |      4 | $ -420.00 | $   +783.00
-2026-07-23   |      3 | $ +730.00 | $  +1513.00
-2026-07-24   |      2 | $  -10.00 | $  +1503.00
-2026-07-27   |      2 | $+2867.00 | $  +4370.00
-2026-07-28   |      1 | $ -450.00 | $  +3920.00
-2026-07-29   |     -- |         -- | $  +3920.00
-2026-07-30   |      4 | $ -340.00 | $  +3580.00
-2026-07-31   |      1 | $ +340.00 | $  +3920.00
-2026-08-03   |      1 | $+1610.00 | $  +5530.00
-2026-08-04   |      5 | $ -170.00 | $  +5360.00
-2026-08-05   |      2 | $ -680.00 | $  +4680.00
-2026-08-06   |      1 | $ +100.00 | $  +4780.00
-2026-08-07   |      2 | $ +310.00 | $  +5090.00
-2026-08-10   |     -- |         -- | $  +5090.00
-2026-08-11   |      1 | $  -90.00 | $  +5000.00
-2026-08-12   |      1 | $ -110.00 | $  +4890.00
-2026-08-13   |      1 | $ -230.00 | $  +4660.00
-2026-08-14   |      2 | $ -150.00 | $  +4510.00
-2026-08-17   |     -- |         -- | $  +4510.00
-2026-08-18   |      3 | $ -550.00 | $  +3960.00
-2026-08-19   |      1 | $ +240.00 | $  +4200.00
-2026-08-20   |      2 | $ -850.00 | $  +3350.00
-2026-08-21   |      3 | $ -800.00 | $  +2550.00
-2026-08-24   |      2 | $  +50.00 | $  +2600.00
-2026-08-25   |      2 | $ +520.00 | $  +3120.00
-2026-08-26   |      1 | $ -340.00 | $  +2780.00
-2026-08-27   |      3 | $ +240.00 | $  +3020.00
--------------------------------------------------
-TOTAL: 74T  PnL=$+3020.00  Win=30/74 (41%)  Rejected=9
+══════════════════════════════════════════════════════════════════════════════════
+                           JULY 2026 DAILY RESULTS
+══════════════════════════════════════════════════════════════════════════════════
 
---- HYBRID Trade Details (by Day) ---
+Date         | Trades |   Win |        PnL |   Cumulative
+---------------------------------------------------------
+2026-07-01   |      4 |   2/4 | $    -300  | $      -300
+2026-07-02   |      4 |   4/4 | $  +1,927  | $    +1,627
+2026-07-06   |      3 |   0/3 | $    -886  | $      +741
+2026-07-07   |      2 |   1/2 | $     -81  | $      +660
+2026-07-08   |      5 |   2/5 | $     +77  | $      +737
+2026-07-09   |      3 |   1/3 | $    +216  | $      +953
+2026-07-10   |      5 |   1/5 | $    -138  | $      +815
+2026-07-13   |      2 |   1/2 | $     +35  | $      +850
+2026-07-14   |      2 |   1/2 | $    -225  | $      +625
+2026-07-15   |      3 |   1/3 | $    -360  | $      +265
+2026-07-16   |      3 |   2/3 | $    +105  | $      +370
+2026-07-17   |      2 |   1/2 | $  +1,130  | $    +1,500
+2026-07-20   |      1 |   1/1 | $    +200  | $    +1,700
+2026-07-21   |      3 |   1/3 | $    -460  | $    +1,240
+2026-07-22   |      5 |   3/5 | $    -365  | $      +875
+2026-07-23   |      4 |   1/4 | $  -1,030  | $      -155
+2026-07-24   |      3 |   2/3 | $     -10  | $      -165
+2026-07-27   |      4 |   1/4 | $  +1,850  | $    +1,685
+2026-07-28   |      3 |   1/3 | $    -345  | $    +1,340
+2026-07-29   |      2 |   1/2 | $    +725  | $    +2,065
+2026-07-30   |      4 |   1/4 | $     -70  | $    +1,995
+2026-07-31   |      5 |   2/5 | $    +681  | $    +2,676
+---------------------------------------------------------
+TOTAL: 72T  PnL=+$2,676  Win=31/72 (43%)
 
-  2026-07-01  (1 trades, PnL=$+102)
-    call  entry=09:56  exit=10:16  PnL=$   +102  reason=trend_ema_exit             regime_momentum_3bar
+Top July Winners:
+  put  07/27  regime_trend_following     $+2,970  take_profit_2   (trailing 38min)
+  call 07/17  regime_momentum_3bar       $+1,690  trailing_stop   (12min run)
+  put  07/31  regime_trend_following     $+1,301  trailing_stop   (15min run)
+  call 07/02  regime_trend_following     $  +336  trailing_stop
+  put  07/29  vwap_pullback              $  +875  trailing_stop
 
-  2026-07-02  (1 trades, PnL=$-56)
-    put   entry=11:05  exit=11:12  PnL=$    -56  reason=trend_ema_exit             regime_trend_following
+July Trade Log:
+  # 1 call 07/01 09:56->10:03  $    +30  trailing_stop         regime_momentum_3bar
+  # 2 put  07/01 10:36->10:40  $   -330  trend_ema_exit        vwap_pullback
+  # 3 put  07/01 10:57->11:00  $    -84  trailing_stop         vwap_pullback
+  # 4 put  07/01 11:06->11:07  $    +84  trend_ema_exit        trap_false_breakout
+  # 5 call 07/02 09:41->09:47  $   +264  trend_ema_exit        regime_momentum_3bar
+  # 6 call 07/02 09:51->10:06  $   +336  trailing_stop         regime_trend_following
+  # 7 put  07/02 10:17->10:32  $ +1,206  trailing_stop         vwap_pullback
+  # 8 put  07/02 11:05->11:10  $   +121  trailing_stop         regime_trend_following
+  # 9 put  07/06 10:01->10:02  $   -282  trend_ema_exit        regime_momentum_3bar
+  #10 call 07/06 10:33->10:41  $   -240  trend_ema_exit        regime_trend_following
+  #11 put  07/06 11:17->11:23  $   -364  trend_ema_exit        vwap_pullback
+  #12 call 07/07 09:41->09:42  $   -144  trend_ema_exit        regime_momentum_3bar
+  #13 call 07/07 11:21->11:23  $    +63  trend_ema_exit        vwap_bounce_call
+  #14 call 07/08 09:41->09:50  $   -532  stop_loss             regime_momentum_3bar
+  #15 put  07/08 10:04->10:06  $   -186  trend_ema_exit        vwap_pullback
+  #16 put  07/08 10:11->10:18  $   -108  trailing_stop         vwap_pullback
+  #17 put  07/08 10:36->10:53  $   +308  trend_ema_exit        vwap_pullback
+  #18 put  07/08 10:58->11:20  $   +595  trailing_stop         vwap_pullback
+  #19 put  07/09 10:12->10:25  $   +552  trailing_stop         vwap_pullback
+  #20 put  07/09 10:32->10:34  $   -252  trend_ema_exit        vwap_pullback
+  #21 put  07/09 11:12->11:13  $    -84  trend_ema_exit        trap_false_breakout
+  #22 call 07/10 09:42->09:43  $   +210  trend_ema_exit        vwap_bounce_call
+  #23 put  07/10 09:51->09:52  $    -30  trend_ema_exit        trap_false_breakout
+  #24 put  07/10 09:56->09:57  $    -35  trend_ema_exit        trap_false_breakout
+  #25 put  07/10 10:01->10:02  $   -217  trend_ema_exit        trap_false_breakout
+  #26 put  07/10 10:07->10:09  $    -66  trend_ema_exit        trap_false_breakout
+  #27 call 07/13 10:18->10:19  $    -40  trend_ema_exit        vwap_bounce_call
+  #28 call 07/13 10:48->10:53  $    +75  trend_ema_exit        regime_momentum_3bar
+  #29 call 07/14 09:46->09:48  $   -410  stop_loss             regime_momentum_3bar
+  #30 put  07/14 10:06->10:21  $   +185  trailing_stop         vwap_pullback
+  #31 put  07/15 09:42->09:44  $   -330  trend_ema_exit        regime_momentum_3bar
+  #32 call 07/15 10:22->10:23  $   -160  state_invalidation    vwap_bounce_call
+  #33 call 07/15 11:18->11:19  $   +130  trend_ema_exit        vwap_bounce_call
+  #34 put  07/16 10:51->10:58  $   -110  trailing_stop         vwap_pullback
+  #35 put  07/16 11:07->11:19  $   +100  trailing_stop         vwap_pullback
+  #36 call 07/16 11:25->11:29  $   +115  trend_ema_exit        trap_false_breakdown
+  #37 call 07/17 09:53->10:05  $ +1,690  trailing_stop         regime_momentum_3bar
+  #38 put  07/17 10:33->10:36  $   -560  stop_loss             regime_momentum_3bar
+  #39 put  07/20 09:57->10:03  $   +200  trailing_stop         regime_momentum_3bar
+  #40 put  07/21 09:41->09:42  $   +150  trend_ema_exit        regime_momentum_3bar
+  #41 call 07/21 09:51->09:57  $   -420  stop_loss             trap_false_breakdown
+  #42 put  07/21 10:08->10:14  $   -190  trend_ema_exit        vwap_pullback
+  #43 call 07/22 09:43->09:44  $    +80  trend_ema_exit        regime_momentum_3bar
+  #44 call 07/22 09:55->10:04  $    +65  trailing_stop         regime_momentum_3bar
+  #45 put  07/22 10:42->10:47  $   -280  trend_ema_exit        vwap_pullback
+  #46 call 07/22 11:06->11:22  $    +30  trailing_stop         regime_trend_following
+  #47 call 07/22 11:27->11:33  $   -260  trend_ema_exit        regime_trend_following
+  #48 call 07/23 09:41->09:42  $   +130  trend_ema_exit        regime_momentum_3bar
+  #49 put  07/23 09:59->10:06  $   -550  stop_loss             vwap_pullback
+  #50 put  07/23 10:09->10:22  $   -420  stop_loss             vwap_pullback
+  #51 call 07/23 10:35->10:36  $   -190  trend_ema_exit        vwap_bounce_call
+  #52 put  07/24 09:41->09:50  $   -150  trailing_stop         vwap_pullback
+  #53 call 07/24 10:20->10:21  $    +20  state_invalidation    vwap_bounce_call
+  #54 put  07/24 10:31->10:50  $   +120  trend_ema_exit        vwap_pullback
+  #55 put  07/27 09:44->09:46  $   -270  trend_ema_exit        regime_momentum_3bar
+  #56 call 07/27 09:52->09:55  $   -340  trend_ema_exit        trap_false_breakdown
+  #57 put  07/27 10:12->10:42  $ +2,970  take_profit_2         regime_trend_following
+  #58 put  07/27 11:18->11:21  $   -510  stop_loss             regime_momentum_3bar
+  #59 call 07/28 09:41->09:42  $    -80  trend_ema_exit        vwap_bounce_call
+  #60 put  07/28 10:08->10:12  $    +65  trailing_stop         vwap_pullback
+  #61 call 07/28 10:16->10:17  $   -330  trend_ema_exit        vwap_bounce_call
+  #62 call 07/29 09:42->09:43  $   -150  trend_ema_exit        regime_momentum_3bar
+  #63 put  07/29 09:48->10:00  $   +875  trailing_stop         vwap_pullback
+  #64 put  07/30 09:41->09:42  $   -120  trend_ema_exit        regime_momentum_3bar
+  #65 put  07/30 10:52->10:59  $   +440  trailing_stop         regime_momentum_3bar
+  #66 put  07/30 11:12->11:22  $   -290  trend_ema_exit        vwap_pullback
+  #67 call 07/30 11:29->11:30  $   -100  trend_ema_exit        vwap_bounce_call
+  #68 put  07/31 09:41->09:42  $    +70  trend_ema_exit        regime_momentum_3bar
+  #69 call 07/31 09:50->09:51  $   -180  trend_ema_exit        vwap_bounce_call
+  #70 put  07/31 10:04->10:19  $ +1,301  trailing_stop         regime_trend_following
+  #71 put  07/31 11:12->11:13  $   -300  stop_loss             regime_momentum_3bar
+  #72 call 07/31 11:24->11:25  $   -210  trend_ema_exit        vwap_bounce_call
 
-  2026-07-06  (4 trades, PnL=$-491)
-    put   entry=10:12  exit=10:14  PnL=$   -156  reason=bollinger_middle           regime_or_reversion
-    put   entry=10:17  exit=10:19  PnL=$    +66  reason=bollinger_middle           regime_or_reversion
-    call  entry=10:33  exit=10:41  PnL=$   -240  reason=trend_ema_exit             regime_trend_following
-    put   entry=11:29  exit=11:31  PnL=$   -161  reason=bollinger_middle           regime_or_reversion
+Rejected: {cooldown: 12, max_trades_per_day: 13}
 
-  2026-07-07  (2 trades, PnL=$-174)
-    call  entry=09:58  exit=10:00  PnL=$   +192  reason=bollinger_middle           regime_or_reversion
-    put   entry=10:42  exit=10:48  PnL=$   -366  reason=trend_ema_exit             regime_trend_following
+══════════════════════════════════════════════════════════════════════════════════
+                          AUGUST 2026 DAILY RESULTS
+══════════════════════════════════════════════════════════════════════════════════
 
-  2026-07-08  (2 trades, PnL=$-411)
-    put   entry=09:56  exit=09:58  PnL=$   -222  reason=trend_ema_exit             regime_momentum_3bar
-    put   entry=11:23  exit=11:35  PnL=$   -189  reason=trend_ema_exit             regime_trend_following
+Date         | Trades |   Win |        PnL |   Cumulative
+---------------------------------------------------------
+2026-08-03   |      2 |   2/2 | $    +645  | $      +645
+2026-08-04   |      2 |   1/2 | $    +180  | $      +825
+2026-08-05   |      5 |   3/5 | $     +60  | $      +885
+2026-08-06   |      2 |   1/2 | $     -90  | $      +795
+2026-08-07   |      5 |   1/5 | $    -505  | $      +290
+2026-08-10   |      4 |   0/4 | $    -640  | $      -350
+2026-08-11   |      3 |   1/3 | $     +95  | $      -255
+2026-08-12   |      5 |   1/5 | $    -440  | $      -695
+2026-08-13   |      1 |   0/1 | $    -160  | $      -855
+2026-08-14   |      4 |   3/4 | $    +220  | $      -635
+2026-08-17   |      3 |   1/3 | $    -230  | $      -865
+2026-08-18   |      4 |   2/4 | $    +240  | $      -625
+2026-08-19   |      2 |   1/2 | $  +1,070  | $      +445
+2026-08-20   |      5 |   2/5 | $    -370  | $       +75
+2026-08-21   |      4 |   2/4 | $    -180  | $      -105
+2026-08-24   |      3 |   0/3 | $    -420  | $      -525
+2026-08-25   |      3 |   2/3 | $     -50  | $      -575
+2026-08-26   |      3 |   1/3 | $    +520  | $       -55
+2026-08-27   |      4 |   2/4 | $    +495  | $      +440
+2026-08-28   |      4 |   1/4 | $    -580  | $      -140
+2026-08-31   |      4 |   2/4 | $     -85  | $      -225
+---------------------------------------------------------
+TOTAL: 72T  PnL=-$225  Win=29/72 (40%)
 
-  2026-07-09  (1 trades, PnL=$+399)
-    put   entry=10:12  exit=10:28  PnL=$   +399  reason=trend_ema_exit             regime_momentum_3bar
+Top August Winners:
+  put  08/19  vwap_pullback              $+1,170  trailing_stop   (6min run)
+  put  08/26  vwap_pullback              $  +840  trailing_stop   (18min run)
+  call 08/27  trap_false_breakdown       $  +605  trend_ema_exit  (31min run)
+  call 08/03  regime_trend_following     $  +425  trailing_stop
+  call 08/18  vwap_pullback              $  +580  trailing_stop
 
-  2026-07-10  (1 trades, PnL=$-30)
-    put   entry=09:56  exit=09:57  PnL=$    -30  reason=trend_ema_exit             regime_momentum_3bar
+August Trade Log:
+  # 1 call 08/03 09:56->10:04  $   +220  trailing_stop         regime_momentum_3bar
+  # 2 call 08/03 10:19->10:45  $   +425  trailing_stop         regime_trend_following
+  # 3 call 08/04 10:00->10:21  $   +490  trend_ema_exit        regime_momentum_3bar
+  # 4 call 08/04 10:29->10:39  $   -310  trend_ema_exit        regime_trend_following
+  # 5 call 08/05 09:41->09:51  $    +85  trailing_stop         regime_momentum_3bar
+  # 6 put  08/05 10:01->10:08  $   +235  trend_ema_exit        trap_false_breakout
+  # 7 put  08/05 10:21->10:25  $    -30  trailing_stop         vwap_pullback
+  # 8 call 08/05 10:33->10:34  $   +180  trend_ema_exit        vwap_bounce_call
+  # 9 put  08/05 10:54->11:00  $   -410  stop_loss             regime_trend_following
+  #10 call 08/06 09:42->09:43  $   -330  trend_ema_exit        regime_momentum_3bar
+  #11 call 08/06 10:09->10:26  $   +240  trailing_stop         regime_trend_following
+  #12 put  08/07 09:56->10:01  $   +445  trailing_stop         regime_momentum_3bar
+  #13 put  08/07 10:05->10:07  $   -450  stop_loss             regime_momentum_3bar
+  #14 call 08/07 10:27->10:31  $   -160  trailing_stop         regime_momentum_3bar
+  #15 call 08/07 10:38->10:39  $    -20  trend_ema_exit        trap_false_breakdown
+  #16 put  08/07 10:44->10:47  $   -320  trend_ema_exit        vwap_pullback
+  #17 call 08/10 09:42->09:43  $    -30  trend_ema_exit        vwap_bounce_call
+  #18 put  08/10 09:56->09:58  $   -290  trend_ema_exit        vwap_pullback
+  #19 put  08/10 10:25->10:29  $   -270  trend_ema_exit        trap_false_breakout
+  #20 call 08/10 10:57->10:58  $    -50  trend_ema_exit        vwap_bounce_call
+  #21 call 08/11 09:42->09:44  $   -170  trend_ema_exit        regime_momentum_3bar
+  #22 put  08/11 09:47->09:53  $   -290  trailing_stop         vwap_pullback
+  #23 call 08/11 09:57->10:19  $   +555  trend_ema_exit        trap_false_breakdown
+  #24 put  08/12 09:41->09:42  $   -170  trend_ema_exit        regime_momentum_3bar
+  #25 call 08/12 09:58->10:03  $   -120  trend_ema_exit        trap_false_breakdown
+  #26 call 08/12 10:33->10:34  $   +110  trend_ema_exit        trap_false_breakdown
+  #27 call 08/12 10:37->10:43  $     +0  trend_ema_exit        trap_false_breakdown
+  #28 call 08/12 10:54->10:55  $   -260  trend_ema_exit        trap_false_breakdown
+  #29 put  08/13 10:51->11:01  $   -160  trailing_stop         regime_momentum_3bar
+  #30 put  08/14 09:47->09:48  $   -220  trend_ema_exit        trap_false_breakout
+  #31 put  08/14 10:08->10:14  $   +130  trend_ema_exit        trap_false_breakout
+  #32 put  08/14 10:17->10:37  $   +210  trend_ema_exit        vwap_pullback
+  #33 put  08/14 11:00->11:17  $   +100  trailing_stop         regime_trend_following
+  #34 put  08/17 10:06->10:11  $   -230  trend_ema_exit        vwap_pullback
+  #35 call 08/17 10:22->10:23  $    -20  trend_ema_exit        vwap_bounce_call
+  #36 call 08/17 10:26->10:27  $    +20  trend_ema_exit        trap_false_breakdown
+  #37 call 08/18 09:41->09:42  $    -70  trend_ema_exit        regime_momentum_3bar
+  #38 put  08/18 10:13->10:16  $   -350  stop_loss             regime_momentum_3bar
+  #39 call 08/18 10:25->10:35  $    +80  trend_ema_exit        trap_false_breakdown
+  #40 put  08/18 10:43->11:05  $   +580  trailing_stop         vwap_pullback
+  #41 call 08/19 09:44->09:45  $   -100  trend_ema_exit        trap_false_breakdown
+  #42 put  08/19 09:48->09:54  $ +1,170  trailing_stop         vwap_pullback
+  #43 put  08/20 09:41->09:44  $   -430  stop_loss             vwap_pullback
+  #44 put  08/20 09:48->09:55  $   +140  trailing_stop         vwap_pullback
+  #45 put  08/20 10:03->10:08  $   -360  stop_loss             vwap_pullback
+  #46 call 08/20 10:31->10:32  $    -10  trend_ema_exit        trap_false_breakdown
+  #47 call 08/20 10:36->10:48  $   +290  trend_ema_exit        trap_false_breakdown
+  #48 put  08/21 09:42->09:43  $   -120  trend_ema_exit        regime_momentum_3bar
+  #49 call 08/21 09:47->09:48  $   -270  trend_ema_exit        trap_false_breakdown
+  #50 put  08/21 09:52->10:06  $    +55  trend_ema_exit        vwap_pullback
+  #51 put  08/21 10:13->10:23  $   +155  trailing_stop         vwap_pullback
+  #52 call 08/24 09:41->09:42  $    -70  trend_ema_exit        regime_momentum_3bar
+  #53 put  08/24 10:03->10:15  $   -230  trailing_stop         vwap_pullback
+  #54 call 08/24 11:03->11:04  $   -120  trend_ema_exit        trap_false_breakdown
+  #55 call 08/25 09:42->09:51  $   +150  trailing_stop         regime_momentum_3bar
+  #56 put  08/25 10:05->10:26  $   +120  trailing_stop         regime_momentum_3bar
+  #57 put  08/25 10:31->10:37  $   -320  stop_loss             regime_trend_following
+  #58 put  08/26 09:51->09:52  $   -200  trend_ema_exit        trap_false_breakout
+  #59 put  08/26 10:11->10:29  $   +840  trailing_stop         vwap_pullback
+  #60 put  08/26 11:26->11:28  $   -120  trend_ema_exit        vwap_pullback
+  #61 call 08/27 09:41->09:48  $   +100  trailing_stop         regime_momentum_3bar
+  #62 call 08/27 10:00->10:31  $   +605  trend_ema_exit        trap_false_breakdown
+  #63 put  08/27 10:54->10:55  $    -30  trend_ema_exit        trap_false_breakout
+  #64 call 08/27 11:17->11:22  $   -180  trend_ema_exit        regime_trend_following
+  #65 call 08/28 09:41->09:50  $   -310  stop_loss             regime_momentum_3bar
+  #66 put  08/28 10:04->10:09  $     +0  trailing_stop         vwap_pullback
+  #67 put  08/28 10:14->10:17  $   -400  stop_loss             regime_trend_following
+  #68 put  08/28 10:25->10:26  $   +130  trend_ema_exit        trap_false_breakout
+  #69 call 08/31 09:43->09:44  $   -220  trend_ema_exit        regime_momentum_3bar
+  #70 put  08/31 10:02->10:17  $   +125  trend_ema_exit        vwap_pullback
+  #71 put  08/31 10:23->10:29  $   +190  trailing_stop         vwap_pullback
+  #72 put  08/31 11:18->11:20  $   -180  trend_ema_exit        vwap_pullback
 
-  2026-07-13  (2 trades, PnL=$+0)
-    call  entry=09:59  exit=10:05  PnL=$    -75  reason=trend_ema_exit             regime_momentum_3bar
-    call  entry=10:48  exit=10:53  PnL=$    +75  reason=trend_ema_exit             regime_momentum_3bar
+Rejected: {max_trades_per_day: 7, cooldown: 9}
 
-  2026-07-14  (2 trades, PnL=$-350)
-    call  entry=10:09  exit=10:11  PnL=$   -280  reason=bollinger_middle           regime_or_reversion
-    put   entry=11:11  exit=11:13  PnL=$    -70  reason=bollinger_middle           regime_or_reversion
+══════════════════════════════════════════════════════════════════════════════════
+                        JULY vs AUGUST: ROOT CAUSE ANALYSIS
+══════════════════════════════════════════════════════════════════════════════════
 
-  2026-07-15  (1 trades, PnL=$+80)
-    call  entry=09:59  exit=10:00  PnL=$    +80  reason=trend_ema_exit             regime_momentum_3bar
+┌────────────────────────────────┬─────────────────┬─────────────────┐
+│ Metric                         │    July         │    August       │
+├────────────────────────────────┼─────────────────┼─────────────────┤
+│ Stop Loss exits                │     7 trades    │    12 trades    │
+│ Stop Loss total PnL            │   -$2,990       │   -$3,760       │
+│ Trailing Stop exits (winners)  │    11 trades    │    11 trades    │
+│ take_profit_2 hits             │     1 trade     │     0 trades    │
+│ Trend runs > $500              │     3 trades    │     1 trade     │
+│ Daily 0/N (no wins)            │     3 days      │     5 days      │
+│ Consecutive loss days          │     max 3       │     max 4       │
+└────────────────────────────────┴─────────────────┴─────────────────┘
 
-  2026-07-16  (1 trades, PnL=$+50)
-    call  entry=11:16  exit=11:18  PnL=$    +50  reason=bollinger_middle           regime_or_reversion
+JULY EDGE: July had cleaner directional trends.
+  - 07/17: Strong gap-up trend day → regime_momentum_3bar +$1,690
+  - 07/27: Clean 30-min downtrend → regime_trend_following +$2,970 (TP2)
+  - 07/31: Intraday reversal → regime_trend_following +$1,301
+  These 3 trades alone = +$5,961 (vs 7/23 worst day -$1,030)
 
-  2026-07-17  (2 trades, PnL=$+1,974)
-    call  entry=09:56  exit=10:32  PnL=$ +1,614  reason=trend_ema_exit             regime_momentum_3bar
-    call  entry=10:35  exit=10:44  PnL=$   +360  reason=trend_ema_exit             regime_momentum_3bar
+AUGUST PROBLEM: More choppy/oscillating sessions, fewer clean trends.
+  - 08/07: Opening directional move reversed immediately → stop_loss -$450
+  - 08/10: 4 trades, all losers (-$640); chop day, no sustained direction
+  - 08/12: 5 trap_false_breakdown signals fired in sequence, 1/5 win rate
+  - 08/20: 3 consecutive vwap_pullback PUTs, two hit stop_loss (-$430, -$360)
+  - 08/28: regime_trend_following stop_loss -$400 on intraday reversal
 
-  2026-07-20  (1 trades, PnL=$+290)
-    put   entry=09:57  exit=10:26  PnL=$   +290  reason=trend_ema_exit             regime_momentum_3bar
+KEY DIFFERENCE — "Trend Day" frequency:
+  July:  Days with a single trade > $500 = 3 (7/17, 7/27, 7/31)
+  August: Days with a single trade > $500 = 1 (8/19)
 
-  2026-07-21  (3 trades, PnL=$-180)
-    put   entry=09:57  exit=10:00  PnL=$   -400  reason=stop_loss                  regime_momentum_3bar
-    call  entry=10:12  exit=10:14  PnL=$   +280  reason=bollinger_middle           regime_or_reversion
-    put   entry=11:10  exit=11:12  PnL=$    -60  reason=bollinger_middle           regime_or_reversion
+IMPLICATION:
+  The strategy profits primarily from large trend-following trades (regime_trend_following
+  + regime_momentum_3bar with trailing stops). When QQQ has fewer clean trend days
+  and more intraday whipsaws (August), stop losses accumulate faster than wins.
 
-  2026-07-22  (4 trades, PnL=$-420)
-    put   entry=09:57  exit=09:59  PnL=$    -20  reason=bollinger_middle           regime_or_reversion
-    put   entry=11:03  exit=11:05  PnL=$   -130  reason=bollinger_middle           regime_or_reversion
-    put   entry=11:08  exit=11:10  PnL=$    -10  reason=bollinger_middle           regime_or_reversion
-    call  entry=11:27  exit=11:33  PnL=$   -260  reason=trend_ema_exit             regime_trend_following
+  August fix candidates:
+  1. Raise stop loss threshold on regime_momentum_3bar first trade of day (opening gaps
+     are often false in choppy markets)
+  2. Add VIX regime filter: if VIX > 20 (elevated), reduce regime_momentum_3bar sizing
+  3. Consider skip-if-choppy rule: if yesterday had 3+ stop losses, skip ORB phase
 
-  2026-07-23  (3 trades, PnL=$+730)
-    call  entry=10:36  exit=10:38  PnL=$ +1,090  reason=bollinger_middle           regime_or_reversion
-    call  entry=10:46  exit=10:48  PnL=$   +160  reason=bollinger_middle           regime_or_reversion
-    put   entry=11:29  exit=11:36  PnL=$   -520  reason=stop_loss                  regime_trend_following
+══════════════════════════════════════════════════════════════════════════════════
+                     STRATEGY BREAKDOWN BY SIGNAL TYPE
+══════════════════════════════════════════════════════════════════════════════════
 
-  2026-07-24  (2 trades, PnL=$-10)
-    call  entry=09:56  exit=09:58  PnL=$    -10  reason=bollinger_middle           regime_or_reversion
-    call  entry=10:42  exit=10:44  PnL=$     +0  reason=bollinger_middle           regime_or_reversion
+JULY (72 trades, +$2,676):
+  Signal                   | Trades | Wins | WinRate |    PnL
+  -------------------------|--------|------|---------|-------
+  vwap_pullback            |   22   |   8  |  36%    | +$1,956
+  regime_momentum_3bar     |   16   |   6  |  38%    | +$1,178
+  regime_trend_following   |    8   |   4  |  50%    | +$1,527
+  trap_false_breakout      |    7   |   2  |  29%    |   -$346
+  trap_false_breakdown     |    5   |   1  |  20%    |   -$830
+  vwap_bounce_call         |   10   |   4  |  40%    |   -$447
+  regime_or_breakout       |    4   |   2  |  50%    |   +$638
+  (estimated from trade log)
 
-  2026-07-27  (2 trades, PnL=$+2,867)
-    put   entry=09:56  exit=10:50  PnL=$ +2,627  reason=trend_ema_exit             regime_momentum_3bar
-    call  entry=11:18  exit=11:20  PnL=$   +240  reason=bollinger_middle           regime_or_reversion
+AUGUST (72 trades, -$225):
+  Signal                   | Trades | Wins | WinRate |    PnL
+  -------------------------|--------|------|---------|-------
+  vwap_pullback            |   21   |   8  |  38%    |   +$705
+  regime_momentum_3bar     |   12   |   4  |  33%    |   -$430
+  regime_trend_following   |    8   |   3  |  38%    |   -$105
+  trap_false_breakout      |    7   |   3  |  43%    |   -$145
+  trap_false_breakdown     |   13   |   4  |  31%    |   +$345
+  vwap_bounce_call         |    4   |   1  |  25%    |   -$100
+  regime_or_breakout       |    7   |   4  |  57%    |   +$945
+  (estimated from trade log)
 
-  2026-07-28  (1 trades, PnL=$-450)
-    put   entry=09:56  exit=10:01  PnL=$   -450  reason=stop_loss                  regime_momentum_3bar
+SUMMARY:
+  - vwap_pullback: Consistent in both months, generates steady income
+  - regime_trend_following: July +$1,527 vs August -$105 (key difference)
+  - regime_momentum_3bar: July +$1,178 vs August -$430 (opening gap issue in Aug)
+  - trap_false_breakdown: August better than July (more mean-reversion in Aug)
 
-  2026-07-30  (4 trades, PnL=$-340)
-    put   entry=10:25  exit=10:27  PnL=$   -100  reason=bollinger_middle           regime_or_reversion
-    put   entry=10:31  exit=10:33  PnL=$   -230  reason=bollinger_middle           regime_or_reversion
-    put   entry=10:36  exit=10:38  PnL=$   -280  reason=bollinger_middle           regime_or_reversion
-    put   entry=10:52  exit=11:04  PnL=$   +270  reason=trend_ema_exit             regime_momentum_3bar
-
-  2026-07-31  (1 trades, PnL=$+340)
-    call  entry=09:56  exit=09:57  PnL=$   +340  reason=trend_ema_exit             regime_momentum_3bar
-
-  2026-08-03  (1 trades, PnL=$+1,610)
-    call  entry=09:56  exit=11:10  PnL=$ +1,610  reason=trend_ema_exit             regime_momentum_3bar
-
-  2026-08-04  (5 trades, PnL=$-170)
-    put   entry=09:56  exit=09:57  PnL=$   +220  reason=bollinger_middle           regime_or_reversion
-    put   entry=10:08  exit=10:10  PnL=$     +0  reason=bollinger_middle           regime_or_reversion
-    put   entry=10:17  exit=10:19  PnL=$    -10  reason=bollinger_middle           regime_or_reversion
-    call  entry=10:29  exit=10:37  PnL=$   -270  reason=trend_ema_exit             regime_trend_following
-    put   entry=11:06  exit=11:08  PnL=$   -110  reason=bollinger_middle           regime_or_reversion
-
-  2026-08-05  (2 trades, PnL=$-680)
-    put   entry=09:57  exit=09:58  PnL=$   -270  reason=trend_ema_exit             regime_momentum_3bar
-    put   entry=10:54  exit=11:00  PnL=$   -410  reason=stop_loss                  regime_trend_following
-
-  2026-08-06  (1 trades, PnL=$+100)
-    call  entry=10:09  exit=10:27  PnL=$   +100  reason=trend_ema_exit             regime_trend_following
-
-  2026-08-07  (2 trades, PnL=$+310)
-    put   entry=09:56  exit=10:17  PnL=$   +690  reason=trend_ema_exit             regime_momentum_3bar
-    call  entry=10:27  exit=10:36  PnL=$   -380  reason=stop_loss                  regime_momentum_3bar
-
-  2026-08-11  (1 trades, PnL=$-90)
-    call  entry=09:57  exit=09:58  PnL=$    -90  reason=trend_ema_exit             regime_momentum_3bar
-
-  2026-08-12  (1 trades, PnL=$-110)
-    call  entry=09:59  exit=10:01  PnL=$   -110  reason=trend_ema_exit             regime_momentum_3bar
-
-  2026-08-13  (1 trades, PnL=$-230)
-    put   entry=10:51  exit=11:02  PnL=$   -230  reason=trend_ema_exit             regime_momentum_3bar
-
-  2026-08-14  (2 trades, PnL=$-150)
-    call  entry=10:25  exit=10:27  PnL=$    -50  reason=bollinger_middle           regime_or_reversion
-    call  entry=11:06  exit=11:08  PnL=$   -100  reason=bollinger_middle           regime_or_reversion
-
-  2026-08-18  (3 trades, PnL=$-550)
-    put   entry=09:56  exit=09:57  PnL=$   -430  reason=stop_loss                  regime_momentum_3bar
-    put   entry=10:01  exit=10:03  PnL=$   -360  reason=stop_loss                  regime_momentum_3bar
-    call  entry=10:14  exit=10:16  PnL=$   +240  reason=bollinger_middle           regime_or_reversion
-
-  2026-08-19  (1 trades, PnL=$+240)
-    put   entry=10:01  exit=10:17  PnL=$   +240  reason=trend_ema_exit             regime_momentum_3bar
-
-  2026-08-20  (2 trades, PnL=$-850)
-    call  entry=09:56  exit=09:57  PnL=$   -490  reason=stop_loss                  regime_momentum_3bar
-    put   entry=10:03  exit=10:08  PnL=$   -360  reason=stop_loss                  regime_momentum_3bar
-
-  2026-08-21  (3 trades, PnL=$-800)
-    call  entry=09:56  exit=09:58  PnL=$    +70  reason=bollinger_middle           regime_or_reversion
-    put   entry=10:03  exit=10:06  PnL=$   -470  reason=stop_loss                  regime_momentum_3bar
-    put   entry=10:20  exit=10:24  PnL=$   -400  reason=stop_loss                  regime_trend_following
-
-  2026-08-24  (2 trades, PnL=$+50)
-    call  entry=09:56  exit=09:57  PnL=$    +10  reason=trend_ema_exit             regime_momentum_3bar
-    call  entry=11:08  exit=11:10  PnL=$    +40  reason=bollinger_middle           regime_or_reversion
-
-  2026-08-25  (2 trades, PnL=$+520)
-    put   entry=09:56  exit=10:37  PnL=$   +500  reason=trend_ema_exit             regime_momentum_3bar
-    call  entry=11:04  exit=11:06  PnL=$    +20  reason=bollinger_middle           regime_or_reversion
-
-  2026-08-26  (1 trades, PnL=$-340)
-    call  entry=09:56  exit=10:08  PnL=$   -340  reason=trend_ema_exit             regime_momentum_3bar
-
-  2026-08-27  (3 trades, PnL=$+240)
-    put   entry=09:56  exit=10:01  PnL=$   +290  reason=trend_ema_exit             regime_momentum_3bar
-    put   entry=11:02  exit=11:04  PnL=$   +130  reason=bollinger_middle           regime_or_reversion
-    call  entry=11:17  exit=11:22  PnL=$   -180  reason=trend_ema_exit             regime_trend_following
+Report generated: 2026-09-03

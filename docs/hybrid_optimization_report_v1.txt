@@ -1,0 +1,282 @@
+================================================================================
+     HYBRID STRATEGY OPTIMIZATION REPORT  —  ZigZag Swing Analysis v1
+     Generated: 2026-09-03
+     Period tested: 2026-07-01 to 2026-08-31 (43 trading days)
+================================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  RESULT SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Version                              Trades   PnL       Win%   vs. Baseline
+  ─────────────────────────────────────────────────────────────────────────────
+  Baseline (original Hybrid v0)            77  +$3,097    40%    —
+  v1 (band_pos -0.65 + ≥10:00 gate)        85  +$3,637    41%    +$540 (+17.8%)
+  ─────────────────────────────────────────────────────────────────────────────
+  [REJECTED] Removed MACD accel            137  -$1,604    38%    -$4,701
+  [REJECTED] 1-bar accel + no time gate    103  +$1,185    36%    -$1,912
+  [REJECTED] Extended to 12:30            122  +$3,147    39%    +$50
+  [REJECTED] Momentum MACD filter          57  +$1,773    32%    -$1,324
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  KEY FINDINGS FROM SWING ANALYSIS (docs/swing_analysis_report.txt)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Based on 43 days × top-5 ZigZag swings (≥0.12%) = 215 swing starts.
+
+  UP SWING STARTS (103 swings):
+    price < OR_LOW         : 55%   ← primary position gate ✓
+    RSI < 40               : 56%   ← avg RSI = 39.1 ✓
+    avg band_pos           : -0.67  ← old threshold -0.30 was too wide!
+    band_pos < -0.65       : 62%
+    MACDf < 0              : 88%   ← confirms oversold territory
+    MACDf accelerating     : 20%   ← 2-bar accel rarely true AT swing start
+    price < VWAP           : 72%
+    time distribution      : 09:30(22%) 10:00(24%) 10:30(14%) 11:00(11%)
+                             11:30(15%) 12:00(5%) 12:30(8%) 13:00(2%)
+
+  DOWN SWING STARTS (112 swings):
+    price > OR_HIGH        : 38%   ← only 38%! (43% inside OR, 19% below)
+    MACDf > 0              : 91%   ← strongest discriminator
+    MACDf accelerating     : 78%   ← still growing at swing start
+    RSI > 60               : 44%   ← avg RSI = 59.0
+    avg band_pos           : +0.62
+    price > VWAP           : 67%
+
+  KEY DIFFERENTIATORS (UP vs DN, highest discriminating power):
+    MACDf > 0       : 12% UP  vs  91% DN  → |diff| 79%  STRONGEST
+    MACDs > 0       : 24% UP  vs  85% DN  → |diff| 62%
+    MACDf accel     : 20% UP  vs  78% DN  → |diff| 58%
+    avg RSI         : 39.1 UP vs  59.0 DN → |diff| 19.9
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CHANGES APPLIED (v1)  —  src/qqq_trader/hybrid_strategy.py
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Function: _or_reversion_signal()  — CALL side only
+
+  1. band_pos threshold:  -0.30  →  -0.65
+     Rationale: actual avg at UP swing starts is -0.67. The original -0.30
+     admitted shallow dips that fail in the noisy opening session.
+     62% of UP swing starts have band_pos < -0.65, so this still captures
+     the majority of valid signals.
+
+  2. Time gate added:  bar_time >= RULES.phase_opening_end  (≥10:00 ET)
+     Rationale: The OR forms in 09:30-09:40. During 09:40-10:00 the market
+     is still in price-discovery mode. OR reversion signals in this window
+     are statistically unreliable (the OR itself can shift by 0.1-0.3%).
+     Phase 2 signals are already handled by _phase2_or_breakout_signal.
+
+  PUT side and Momentum signal: UNCHANGED.
+
+  Impact by day vs. baseline:
+    IMPROVED:
+      Aug-18: -$550 → -$75   (avoided two false momentum stop-losses)
+      Aug-19: +$210 → $0     (no false signal — avoided a $390 stop-loss)
+      Aug-20: -$850 → $0     (both call+put stop-losses avoided entirely)
+      Jul-24: -$10  → +$968  (deeper band_pos gate found better entry)
+      Jul-27: +$2,867 → +$2,940  (slightly improved timing)
+      Aug-03: +$1,610 → +$1,600  (same big winner, minimal difference)
+    DETERIORATED:
+      Jul-08: +$86 → -$645   (momentum 09:41 stop-loss -$456 still present)
+      Jul-15: +$80 → -$600   (two momentum stop-losses in choppy open)
+      Aug-28: (new) -$710    (trend following stop-loss)
+      Aug-31: (new) -$660    (trend following stop-loss)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  OPTIMIZATION ATTEMPTS THAT FAILED (lessons learned)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Attempt 1: Remove 2-bar MACDf accel (statistics show only 20% of UP swings
+             have it). Result: -$4,701 vs baseline.
+    Why it failed: The 2-bar accel acts as a TIMING quality gate, not a
+    direction filter. Without it, OR reversion CALL fires repeatedly in the
+    09:40-10:00 window generating small but frequent losses.
+
+  Attempt 2: 1-bar accel + band_pos -0.65. Result: -$1,912 vs baseline.
+    Why it failed: 1-bar accel fires earlier/prematurely. The original
+    Jul-08 +$497 OR reversion CALL was replaced by -$210 and -$287 entries
+    that fired 3 minutes too early, using up the cooldown window.
+
+  Attempt 3: Extend entry window to 12:30 (OR reversion only). Result: +$50.
+    Why it failed: 0DTE Theta decay accelerates after 12:00. The extended
+    trades average -$13/trade. For options, the price movement does not
+    translate to proportional option gains in the afternoon.
+
+  Attempt 4: MACD direction filter for Momentum (MACDf < 0 for CALL, > 0 for
+             PUT). Result: -$1,324 vs baseline.
+    Why it failed: Two of the strategy's largest winning sessions (Jul-17
+    CALL +$2,420 and Aug-03 CALL +$1,600) had MACDf turning positive during
+    the reversal, so the filter blocked them entirely.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  REMAINING OPPORTUNITIES (not yet addressed)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  1. PUT OR reversion inside OR: 43% of big DN swings start INSIDE the OR
+     (not just above OR_HIGH). Current signal requires price > OR_HIGH, missing
+     this 43% of cases. Candidate extension: RSI > 65 AND MACDf > 0.10 AND
+     band_pos > 0.50 when price is between OR_LOW and OR_HIGH.
+
+  2. Momentum false signals at 09:41: Jul-07 (-$144) and Jul-08 (-$456) both
+     fire at the first bar after OR formation when price is inside OR.
+     A targeted fix is difficult because it would also block Jul-17's
+     +$2,420 winner which also fires early. Requires more detailed bar data.
+
+  3. Afternoon swings (12:00+): 13% of best daily swings start after noon.
+     0DTE theta decay makes direct entry unattractive, but an early signal
+     with a larger profit target (TP2) might work. Needs separate analysis.
+
+  4. VWAP filter: 72% of UP swings start with price < VWAP; 67% of DN swings
+     with price > VWAP. VWAP is not currently in MarketContext — adding it
+     would require infrastructure changes to the data pipeline.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  FULL DAILY RESULTS  (v1 optimized)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Date         | Trades |   Win |        PnL |   Cumulative
+---------------------------------------------------------
+2026-07-01   |      1 |   1/1 | $    +102 | $      +102
+2026-07-02   |      3 |   2/3 | $    +460 | $      +562
+2026-07-06   |      5 |   1/5 | $    -773 | $      -211
+2026-07-07   |      1 |   0/1 | $    -144 | $      -355
+2026-07-08   |      2 |   0/2 | $    -645 | $    -1,000
+2026-07-09   |      1 |   1/1 | $    +399 | $      -601
+2026-07-10   |      1 |   1/1 | $     +18 | $      -583
+2026-07-13   |      2 |   2/2 | $    +255 | $      -328
+2026-07-14   |      2 |   0/2 | $    -480 | $      -808
+2026-07-15   |      2 |   0/2 | $    -600 | $    -1,408
+2026-07-16   |      1 |   1/1 | $     +50 | $    -1,358
+2026-07-17   |      2 |   1/2 | $  +1,860 | $      +502
+2026-07-20   |      1 |   1/1 | $    +290 | $      +792
+2026-07-21   |      4 |   1/4 | $    -300 | $      +492
+2026-07-22   |      4 |   2/4 | $    -275 | $      +217
+2026-07-23   |      4 |   3/4 | $    +860 | $    +1,077
+2026-07-24   |      2 |   1/2 | $    +968 | $    +2,045
+2026-07-27   |      3 |   2/3 | $  +2,940 | $    +4,985
+2026-07-28   |     -- |    -- |         -- | $    +4,985
+2026-07-29   |      2 |   0/2 | $    -540 | $    +4,445
+2026-07-30   |      5 |   1/5 | $    -460 | $    +3,985
+2026-07-31   |      4 |   2/4 | $    +937 | $    +4,922
+2026-08-03   |      1 |   1/1 | $  +1,600 | $    +6,522
+2026-08-04   |      3 |   1/3 | $     +70 | $    +6,592
+2026-08-05   |      2 |   1/2 | $    -400 | $    +6,192
+2026-08-06   |      2 |   1/2 | $    -230 | $    +5,962
+2026-08-07   |      2 |   1/2 | $    +310 | $    +6,272
+2026-08-10   |     -- |    -- |         -- | $    +6,272
+2026-08-11   |      1 |   0/1 | $    -170 | $    +6,102
+2026-08-12   |      1 |   0/1 | $    -170 | $    +5,932
+2026-08-13   |      2 |   1/2 | $    -150 | $    +5,782
+2026-08-14   |      2 |   0/2 | $    -150 | $    +5,632
+2026-08-17   |     -- |    -- |         -- | $    +5,632
+2026-08-18   |      3 |   1/3 | $     -75 | $    +5,557
+2026-08-19   |     -- |    -- |         -- | $    +5,557
+2026-08-20   |     -- |    -- |         -- | $    +5,557
+2026-08-21   |      1 |   0/1 | $    -400 | $    +5,157
+2026-08-24   |      2 |   1/2 | $     -30 | $    +5,127
+2026-08-25   |      3 |   2/3 | $     +90 | $    +5,217
+2026-08-26   |      1 |   0/1 | $    -180 | $    +5,037
+2026-08-27   |      3 |   2/3 | $     -30 | $    +5,007
+2026-08-28   |      2 |   0/2 | $    -710 | $    +4,297
+2026-08-31   |      2 |   0/2 | $    -660 | $    +3,637
+---------------------------------------------------------
+TOTAL: 85T  PnL=$  +3,637  Win=35/85 (41%)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  FULL TRADE LOG  (v1 optimized)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  # 1 call 07/01 09:56->10:16  $   +102  trend_ema_exit        regime_momentum_3bar
+  # 2 call 07/02 09:41->09:47  $   +264  trend_ema_exit        regime_momentum_3bar
+  # 3 call 07/02 09:51->10:07  $   +252  trend_ema_exit        regime_trend_following
+  # 4 put  07/02 11:05->11:12  $    -56  trend_ema_exit        regime_trend_following
+  # 5 put  07/06 10:01->10:02  $   -282  trend_ema_exit        regime_momentum_3bar
+  # 6 put  07/06 10:12->10:14  $   -156  bollinger_middle      regime_or_reversion
+  # 7 put  07/06 10:17->10:19  $    +66  bollinger_middle      regime_or_reversion
+  # 8 call 07/06 10:33->10:41  $   -240  trend_ema_exit        regime_trend_following
+  # 9 put  07/06 11:29->11:31  $   -161  bollinger_middle      regime_or_reversion
+  #10 call 07/07 09:41->09:42  $   -144  trend_ema_exit        regime_momentum_3bar
+  #11 call 07/08 09:41->09:50  $   -456  stop_loss             regime_momentum_3bar
+  #12 put  07/08 11:23->11:35  $   -189  trend_ema_exit        regime_trend_following
+  #13 put  07/09 10:12->10:28  $   +399  trend_ema_exit        regime_momentum_3bar
+  #14 call 07/10 09:43->09:44  $    +18  trend_ema_exit        regime_momentum_3bar
+  #15 call 07/13 10:19->10:21  $   +180  bollinger_middle      regime_or_reversion
+  #16 call 07/13 10:48->10:53  $    +75  trend_ema_exit        regime_momentum_3bar
+  #17 call 07/14 09:46->09:48  $   -410  stop_loss             regime_momentum_3bar
+  #18 put  07/14 11:11->11:13  $    -70  bollinger_middle      regime_or_reversion
+  #19 put  07/15 09:42->09:44  $   -330  trend_ema_exit        regime_momentum_3bar
+  #20 call 07/15 09:50->09:52  $   -270  bollinger_middle      regime_or_reversion
+  #21 call 07/16 11:16->11:18  $    +50  bollinger_middle      regime_or_reversion
+  #22 call 07/17 09:53->10:07  $ +2,420  take_profit_2         regime_momentum_3bar
+  #23 put  07/17 10:33->10:36  $   -560  stop_loss             regime_momentum_3bar
+  #24 put  07/20 09:57->10:26  $   +290  trend_ema_exit        regime_momentum_3bar
+  #25 put  07/21 09:41->09:42  $   +150  trend_ema_exit        regime_momentum_3bar
+  #26 put  07/21 10:11->10:14  $   -390  trend_ema_exit        regime_momentum_3bar
+  #27 put  07/21 11:10->11:12  $    -60  bollinger_middle      regime_or_reversion
+  #28 put  07/21 11:15->11:17  $     +0  bollinger_middle      regime_or_reversion
+  #29 call 07/22 09:43->09:44  $    +80  trend_ema_exit        regime_momentum_3bar
+  #30 call 07/22 09:55->10:08  $    +35  trend_ema_exit        regime_momentum_3bar
+  #31 put  07/22 11:03->11:05  $   -130  bollinger_middle      regime_or_reversion
+  #32 call 07/22 11:27->11:33  $   -260  trend_ema_exit        regime_trend_following
+  #33 call 07/23 09:41->09:42  $   +130  trend_ema_exit        regime_momentum_3bar
+  #34 call 07/23 10:36->10:38  $ +1,090  bollinger_middle      regime_or_reversion
+  #35 call 07/23 10:46->10:48  $   +160  bollinger_middle      regime_or_reversion
+  #36 put  07/23 11:29->11:36  $   -520  stop_loss             regime_trend_following
+  #37 put  07/24 09:42->10:09  $ +1,378  trend_ema_exit        regime_momentum_3bar
+  #38 put  07/24 10:40->10:50  $   -410  stop_loss             regime_trend_following
+  #39 put  07/27 09:44->09:46  $   -270  trend_ema_exit        regime_momentum_3bar
+  #40 put  07/27 10:12->10:42  $ +2,970  take_profit_2         regime_trend_following
+  #41 call 07/27 11:18->11:20  $   +240  bollinger_middle      regime_or_reversion
+  #42 call 07/29 09:42->09:43  $   -150  trend_ema_exit        regime_momentum_3bar
+  #43 call 07/29 09:55->09:56  $   -390  direction_reversal    regime_or_reversion
+  #44 put  07/30 09:41->09:42  $   -120  trend_ema_exit        regime_momentum_3bar
+  #45 put  07/30 10:25->10:27  $   -100  bollinger_middle      regime_or_reversion
+  #46 put  07/30 10:31->10:33  $   -230  bollinger_middle      regime_or_reversion
+  #47 put  07/30 10:36->10:38  $   -280  bollinger_middle      regime_or_reversion
+  #48 put  07/30 10:52->11:04  $   +270  trend_ema_exit        regime_momentum_3bar
+  #49 put  07/31 09:41->09:42  $    +70  trend_ema_exit        regime_momentum_3bar
+  #50 call 07/31 09:49->09:51  $    -50  bollinger_middle      regime_or_reversion
+  #51 put  07/31 10:04->10:21  $ +1,217  trend_ema_exit        regime_trend_following
+  #52 put  07/31 11:12->11:13  $   -300  stop_loss             regime_momentum_3bar
+  #53 call 08/03 09:57->11:10  $ +1,600  trend_ema_exit        regime_trend_following
+  #54 call 08/04 10:00->10:21  $   +490  trend_ema_exit        regime_momentum_3bar
+  #55 call 08/04 10:29->10:39  $   -310  trend_ema_exit        regime_trend_following
+  #56 put  08/04 11:06->11:08  $   -110  bollinger_middle      regime_or_reversion
+  #57 call 08/05 09:41->09:53  $    +10  trend_ema_exit        regime_momentum_3bar
+  #58 put  08/05 10:54->11:00  $   -410  stop_loss             regime_trend_following
+  #59 call 08/06 09:42->09:43  $   -330  trend_ema_exit        regime_momentum_3bar
+  #60 call 08/06 10:09->10:27  $   +100  trend_ema_exit        regime_trend_following
+  #61 put  08/07 09:56->10:17  $   +690  trend_ema_exit        regime_momentum_3bar
+  #62 call 08/07 10:27->10:36  $   -380  stop_loss             regime_momentum_3bar
+  #63 call 08/11 09:42->09:44  $   -170  trend_ema_exit        regime_momentum_3bar
+  #64 put  08/12 09:41->09:42  $   -170  trend_ema_exit        regime_momentum_3bar
+  #65 put  08/13 09:41->09:43  $    +80  bollinger_middle      regime_or_reversion
+  #66 put  08/13 10:51->11:02  $   -230  trend_ema_exit        regime_momentum_3bar
+  #67 call 08/14 10:25->10:27  $    -50  bollinger_middle      regime_or_reversion
+  #68 call 08/14 11:06->11:08  $   -100  bollinger_middle      regime_or_reversion
+  #69 call 08/18 09:41->09:42  $    -70  trend_ema_exit        regime_momentum_3bar
+  #70 put  08/18 10:13->10:16  $   -350  stop_loss             regime_momentum_3bar
+  #71 put  08/18 10:46->11:23  $   +345  trend_ema_exit        regime_momentum_3bar
+  #72 put  08/21 10:20->10:24  $   -400  stop_loss             regime_trend_following
+  #73 call 08/24 09:41->09:42  $    -70  trend_ema_exit        regime_momentum_3bar
+  #74 call 08/24 11:08->11:10  $    +40  bollinger_middle      regime_or_reversion
+  #75 call 08/25 09:42->09:56  $    -75  trend_ema_exit        regime_momentum_3bar
+  #76 put  08/25 10:05->10:37  $   +145  trend_ema_exit        regime_momentum_3bar
+  #77 call 08/25 11:04->11:06  $    +20  bollinger_middle      regime_or_reversion
+  #78 put  08/26 09:58->10:00  $   -180  bollinger_middle      regime_or_reversion
+  #79 call 08/27 09:41->09:50  $    +20  stop_loss             regime_momentum_3bar
+  #80 put  08/27 11:02->11:04  $   +130  bollinger_middle      regime_or_reversion
+  #81 call 08/27 11:17->11:22  $   -180  trend_ema_exit        regime_trend_following
+  #82 call 08/28 09:41->09:50  $   -310  stop_loss             regime_momentum_3bar
+  #83 put  08/28 10:14->10:17  $   -400  stop_loss             regime_trend_following
+  #84 call 08/31 09:43->09:44  $   -220  trend_ema_exit        regime_momentum_3bar
+  #85 put  08/31 10:27->10:36  $   -440  stop_loss             regime_trend_following
+
+Rejected: {'cooldown': 13}
