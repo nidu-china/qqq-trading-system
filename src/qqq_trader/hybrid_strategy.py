@@ -852,6 +852,10 @@ class HybridEngine:
         # Chop filter: too many directional reversals in recent bars → skip trend entry
         if self._is_too_choppy():
             return None
+        # Day-level chop filter: if session shows very low directional persistence
+        # (net/gross < 20%), regime may have been falsely classified as TREND
+        if self._is_day_choppy(min_bars=10, threshold=0.20):
+            return None
         half_width = max(ctx.boll_upper - ctx.boll_middle, Decimal("0.000001"))
         band_position = (ctx.current_close - ctx.boll_middle) / half_width
         minimum_volume = RULES.regime_trend_min_volume_ratio
