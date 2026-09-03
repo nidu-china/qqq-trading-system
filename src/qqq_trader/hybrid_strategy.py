@@ -173,6 +173,30 @@ class HybridEngine:
                 reversals += 1
         return reversals > max_reversals
 
+    def _is_day_choppy(self, min_bars: int = 10, threshold: float = 0.20) -> bool:
+        """Return True if today's session so far shows low directional persistence.
+
+        Computes net / gross move ratio over today's bars:
+          net   = |close[-1] - open[0]|       (one-way progress)
+          gross = sum(|bar.close - bar.open|)  (total effort)
+
+        Analysis of 43 trading days shows:
+          Bad days (high stop-loss rate): ratio 0-16%
+          Good days (trending):           ratio 11-39%
+
+        A ratio below `threshold` (default 20%) with ≥ `min_bars` suggests
+        the market is oscillating rather than trending → skip momentum entries.
+        """
+        bars = self._today_bars
+        if len(bars) < min_bars:
+            return False
+        gross = sum(abs(b.close - b.open) for b in bars)
+        if gross == 0:
+            return False
+        net = abs(bars[-1].close - bars[0].open)
+        return float(net / gross) < threshold
+        return reversals > max_reversals
+
     def _raw_regime(self) -> MarketState:
         """Classify the latest completed bar without future information."""
         ctx = self.last_context
@@ -901,6 +925,11 @@ class HybridEngine:
 
         ctx = self.last_context
         assert ctx is not None
+
+        # Skip on choppy sessions: if today's net/gross move ratio is low,
+        # momentum entries are unreliable (8/10, 8/12, 8/17 analysis: 0-16% ratio)
+        if self._is_day_choppy(min_bars=10, threshold=0.20):
+            return None
 
         last_3 = self._today_bars[-3:]
         all_rising = all(
