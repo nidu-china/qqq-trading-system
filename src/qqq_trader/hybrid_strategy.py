@@ -95,7 +95,7 @@ class HybridEngine:
     def record_profitable_exit(self, direction: Direction, exited_at: datetime) -> None:
         self.indicators.record_profitable_exit(direction, exited_at)
 
-    def record_stop_loss(self, direction: Direction) -> None:
+    def record_stop_loss(self, direction: Direction, strategy: str = "") -> None:
         """Called after a stop-loss exit.
 
         After 2 stop-losses in the same direction, that direction is blocked

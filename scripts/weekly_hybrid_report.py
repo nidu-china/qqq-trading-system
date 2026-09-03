@@ -37,6 +37,8 @@ parser.add_argument("--start", type=str, default=None, help="Explicit start date
 parser.add_argument("--end",   type=str, default=None, help="Explicit end date (YYYY-MM-DD)")
 parser.add_argument("--daily-reset", action="store_true",
                     help="Reset indicator state each day using premarket (09:00-09:29) bars as warmup.")
+parser.add_argument("--pyramid", action="store_true",
+                    help="Enable pyramid scaling: enter at 30pct, add 40pct at +0.25 ATR, final 30pct at +0.50 ATR.")
 args = parser.parse_args()
 
 # ── Load data ────────────────────────────────────────────────────────────────
@@ -97,11 +99,12 @@ else:
 
 # ── Run backtest ─────────────────────────────────────────────────────────────
 mode_label = "daily-reset (premarket warmup)" if args.daily_reset else "cumulative (cross-day)"
+pyramid_label = " + pyramid(30/40/30)" if args.pyramid else ""
 print("=" * 80)
 print(f"{'HYBRID WEEKLY BACKTEST':^80}")
 print("=" * 80)
 print(f"Period : {start}  to  {end}  ({len(target_dates)} days)")
-print(f"Bars   : {len(period_bars)} RTH  +  {len(warmup_bars)} premarket  Mode: {mode_label}")
+print(f"Bars   : {len(period_bars)} RTH  +  {len(warmup_bars)} premarket  Mode: {mode_label}{pyramid_label}")
 print()
 
 s = Settings(trading_mode="replay", strategy_mode="hybrid")
@@ -110,6 +113,7 @@ r = tester.run(
     run_bars, {}, Decimal("100000"), vix_5m, vix_d,
     trade_start=start,
     reset_daily_context=args.daily_reset,
+    enable_pyramid_scaling=args.pyramid,
 )
 
 # ── Daily summary ─────────────────────────────────────────────────────────────
