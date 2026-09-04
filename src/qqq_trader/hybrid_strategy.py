@@ -965,6 +965,9 @@ class HybridEngine:
         # Chop filter: too many reversals → wait for consistent momentum
         if self._is_too_choppy():
             return None
+        # Day-level chop filter: session-wide low directionality → skip OR breakout
+        if self._is_day_choppy():
+            return None
         ctx = self.last_context
         assert ctx is not None
         macd_curr = self._macd_fast
