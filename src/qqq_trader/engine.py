@@ -541,9 +541,22 @@ class TradingEngine:
             await self._publish_trade_signal(
                 request, signal.direction, signal.bar_end, indicators
             )
-            filled = await self.executor.entry(
-                request, self.market.latest_quote, ceiling_price=entry_ceiling
-            )
+            try:
+                filled = await self.executor.entry(
+                    request, self.market.latest_quote, ceiling_price=entry_ceiling
+                )
+            except Exception as exc:
+                self.log.error(
+                    "entry raised unexpected exception | %s | resetting state=READY | %s",
+                    request.symbol, exc,
+                )
+                await self.journal.event(
+                    "entry_exception",
+                    "entry raised unexpected exception; state reset to READY",
+                    {"symbol": request.symbol, "error": str(exc)},
+                )
+                self.state = SystemState.READY
+                return
             fully_filled = filled is not None and filled.filled_quantity > 0
             await self.journal.trade_signal_status(
                 request.intent_id, "executed" if fully_filled else "failed"
@@ -667,12 +680,38 @@ class TradingEngine:
                     "triggered_at": decision_at.isoformat(),
                 },
             )
-            filled = await self.executor.emergency_exit(
-                request,
-                self.market.latest_quote,
-            )
+            try:
+                filled = await self.executor.emergency_exit(
+                    request,
+                    self.market.latest_quote,
+                )
+            except Exception as exc:
+                self.log.error(
+                    "emergency_exit raised unexpected exception | %s | resetting state=OPEN | %s",
+                    request.symbol, exc,
+                )
+                await self.journal.event(
+                    "exit_exception",
+                    "emergency_exit raised unexpected exception; state reset to OPEN",
+                    {"symbol": request.symbol, "error": str(exc)},
+                )
+                self.state = SystemState.OPEN
+                return
         else:
-            filled = await self.executor.exit(request, self.market.latest_quote)
+            try:
+                filled = await self.executor.exit(request, self.market.latest_quote)
+            except Exception as exc:
+                self.log.error(
+                    "exit raised unexpected exception | %s | resetting state=OPEN | %s",
+                    request.symbol, exc,
+                )
+                await self.journal.event(
+                    "exit_exception",
+                    "exit raised unexpected exception; state reset to OPEN",
+                    {"symbol": request.symbol, "error": str(exc)},
+                )
+                self.state = SystemState.OPEN
+                return
         successful = filled is not None and filled.filled_quantity > 0
         await self.journal.trade_signal_status(
             request.intent_id, "executed" if successful else "failed"
