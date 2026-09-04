@@ -560,7 +560,22 @@ class LongbridgeBroker:
 
     async def cancel_order(self, order_id: str) -> None:
         self._log.info("cancel order | order_id=%s", order_id)
-        await self.session.trade.cancel_order(order_id)
+        try:
+            await self.session.trade.cancel_order(order_id)
+        except Exception as exc:
+            # Code 601011 = "Order has been cancelled" — the order is already in a
+            # terminal state so there is nothing left to do; treat as a no-op.
+            # This can happen when:
+            #   • the repricing loop cancels an order that was concurrently cancelled
+            #     by a shutdown handler or an external party, or
+            #   • _wait_terminal returns before the broker confirms the cancellation.
+            if "601011" in str(exc):
+                self._log.warning(
+                    "cancel_order no-op | order_id=%s | already cancelled: %s",
+                    order_id, exc,
+                )
+            else:
+                raise
 
     async def order(self, order_id: str) -> BrokerOrder:
         _RATE_LIMIT_CODE = 429002
