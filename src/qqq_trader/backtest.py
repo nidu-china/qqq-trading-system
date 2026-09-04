@@ -611,6 +611,13 @@ class EventDrivenBacktester:
             bar for bar in all_intraday_bars
             if time_type(9, 0) <= bar.start.astimezone(NY_TZ).time() < time_type(16, 0)
         ]
+        # ── Performance: limit available list size to avoid O(n²) sort cost ───
+        # Each bar, evaluate() and _one_minute_context() call sorted() over the
+        # full available list. Indicators only need ~500 bars max (MACD/BOLL/EMA),
+        # so capping at 650 keeps correctness while eliminating the quadratic growth.
+        _MAX_AVAIL = 650
+        # Per-day VIX bar cache: avoid rescanning all 3000+ VIX bars every minute
+        _vix_day_bars: dict = {}
         for bar in ordered:
             if cancel_check is not None and cancel_check():
                 cancelled = True
@@ -652,9 +659,21 @@ class EventDrivenBacktester:
                         )
                     ]
             available.append(bar)
+            # Trim available to the most recent _MAX_AVAIL bars so that sorted()
+            # inside evaluate()/_one_minute_context() stays O(650) instead of O(n).
+            if len(available) > _MAX_AVAIL:
+                available = available[-_MAX_AVAIL:]
+            # Build/reuse a per-day slice of VIX bars so we never scan all 3000+
+            # rows on every minute bar (was the second biggest O(n) hotspot).
+            if trading_day not in _vix_day_bars:
+                _vix_day_bars[trading_day] = [
+                    b for b in (volatility_bars or [])
+                    if b.end.astimezone(NY_TZ).date() == trading_day
+                ]
+            _today_vix = _vix_day_bars[trading_day]
             set_volatility_context = getattr(self.strategy, "set_volatility_context", None)
             if callable(set_volatility_context):
-                set_volatility_context(volatility_bars or [], bar.end)
+                set_volatility_context(_today_vix, bar.end)
             signal = self.strategy.evaluate(available)
 
             if position is not None:
@@ -665,7 +684,7 @@ class EventDrivenBacktester:
                 elif synthetic is not None:
                     implied_volatility, iv_source = self._synthetic_iv(
                         available,
-                        volatility_bars or [],
+                        _today_vix,
                         option_frames,
                         bar.end,
                         position.direction,

@@ -74,12 +74,18 @@ class RiskEngine:
         day_realized_pnl: Decimal,
         unrealized_pnl: Decimal = Decimal(0),
     ) -> bool:
-        """Return True if daily loss limit has been exceeded.
+        """Return True if daily realized losses have exceeded the circuit-breaker.
 
-        No hard daily loss limit is currently configured, so this always
-        returns False.  Add a `daily_loss_limit` setting to enable it.
+        Compares realized PnL (unrealized excluded to avoid whipsaw halts on
+        open positions) against max_daily_loss_pct × day_opening_equity.
+        Set max_daily_loss_pct = 0 to disable.
         """
-        return False
+        limit_pct = self.rules.max_daily_loss_pct
+        if limit_pct <= 0:
+            return False
+        limit = -day_opening_equity * limit_pct
+        # Only realized losses count — avoids halting on transient mark-to-market dips
+        return day_realized_pnl <= limit
 
     def quote_problem(self, quote: Quote, now: datetime) -> str | None:
         rules = self.rules

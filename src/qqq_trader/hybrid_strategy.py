@@ -433,17 +433,25 @@ class HybridEngine:
         macd_accel_2bar = self._macd_fast > self._macd_fast_prev > self._macd_fast_prev2
 
         # CALL: deeply oversold bounce below VWAP.
-        # Use 1-bar MACD turn (not 3-bar) to fire earlier, closer to swing start.
-        # RSI ≤ 43 covers 62% of missed UP swings (avg RSI=41); bullish bar + new
-        # close high distinguish real bounces from drift-lower continuations.
+        # Use 1-bar MACD turn to fire one bar earlier than the old 2-bar version.
+        # RSI ≤ 43 covers 62% of missed UP swings (avg RSI=41).
+        # Timing note: _macd_narrowing_call (called earlier in evaluate) covers
+        # the AT-bottom entry when MACD is still negative; vwap_bounce_call is a
+        # 1-bar-later confirmation entry (MACD just turned + bullish candle).
+        # Removed the old "curr_bar.close > prev_bar.close" (new-close-high) guard
+        # which added a second bar of lag; the bullish candle alone is sufficient
+        # confirmation once MACD has already turned.
         macd_turning_up_1bar = self._macd_fast > self._macd_fast_prev
+        # Chop guard: on ultra-oscillating days (e.g. 8/10: 14 swings, net/gross<20%),
+        # pure mean-reversion CALL entries reverse immediately. Skip when day is choppy.
+        _call_chop_ok = not self._is_day_choppy(min_bars=10, threshold=0.25)
         if (
-            ctx.current_close < vwap_val
+            _call_chop_ok
+            and ctx.current_close < vwap_val
             and band_pos <= Decimal("-0.60")                       # near lower Bollinger band (avg missed=-0.58)
             and ctx.rsi_val <= Decimal("43")                       # deeply oversold (covers 62% of missed UPs)
-            and macd_turning_up_1bar                               # MACD just started turning up
-            and curr_bar.close > curr_bar.open                     # bullish candle
-            and curr_bar.close > prev_bar.close                    # making new close high
+            and macd_turning_up_1bar                               # MACD just turned up (1-bar confirmation)
+            and curr_bar.close > curr_bar.open                     # bullish candle confirms direction
             and volume_ok
             and self.last_state is not MarketState.TREND_DOWN
             and Direction.CALL not in self._direction_blocked
@@ -503,8 +511,12 @@ class HybridEngine:
             ctx.current_close > vwap_val                           # above VWAP (67% of DN starts)
             and self._macd_fast > ZERO                             # MACD positive (91% of DN starts)
             and macd_accel_2bar                                    # still accelerating (78% of DN starts)
-            and band_pos >= Decimal("0.50")                        # tightened: near upper band
-            and Decimal("65") <= ctx.rsi_val <= Decimal("80")     # overbought (tightened from 55)
+            and band_pos >= Decimal("0.55")                        # raised 0.40→0.55: avg BandPos=+0.55
+                                                                   # at DN starts — require near-average
+                                                                   # extension, not just barely above mid
+            and Decimal("65") <= ctx.rsi_val <= Decimal("80")     # raised 60→65: filter neutral-RSI noise
+                                                                   # (only 24% of DN swings have RSI<60
+                                                                   #  with high band_pos — unreliable)
             and volume_ok
             and self.last_state is not MarketState.TREND_UP        # not in confirmed strong uptrend
             and Direction.PUT not in self._direction_blocked
@@ -597,8 +609,9 @@ class HybridEngine:
 
         if (
             ctx.current_close < vwap_val            # below VWAP (67% of missed UPs)
-            and band_pos <= Decimal("-0.60")         # tightened: avg BandPos=-0.49 at missed UPs
-            and ctx.rsi_val <= Decimal("35")         # tightened: avg RSI=42 at missed UPs
+            and band_pos <= Decimal("-0.60")         # avg BandPos=-0.49 at missed UPs
+            and ctx.rsi_val <= Decimal("38")         # ≤38 per docstring (was over-tightened to 35;
+                                                     # avg RSI=42 at missed UPs → ≤38 covers ~45%)
             and curr_bar.close > curr_bar.open       # bullish bar (exhaustion hint)
             and volume_ok
             and Direction.CALL not in self._direction_blocked
@@ -946,14 +959,14 @@ class HybridEngine:
         """Pure momentum entry: 3 consecutive rising/falling bars.
 
         ZigZag analysis (43 days, 215 top-5 swings) shows two opening patterns:
-          CALL: oversold flush (RSI~39, price below OR, MACDf negative at start)
-          PUT:  overbought push  (RSI~59, MACDf positive at start)
-        Both are captured reliably by the 3-bar rule + volume confirmation.
+          CALL: oversold flush  (RSI avg=40, 82% have RSI<50, 83% below Boll middle)
+          PUT:  overbought push (RSI avg=58, 78% have RSI>50, 83% above Boll middle,
+                                 87% have MACDf>0)
 
-        Note: adding MACD direction gates here was tested but rejected — both
-        the Jul-17 CALL (extreme bounce, MACDf turned positive mid-reversal) and
-        the Aug-03 CALL (strong opening trend, MACDf positive throughout) would
-        have been blocked, losing the strategy's two largest winning sessions.
+        Note: MACD direction gate is added for PUT only — for CALL it was tested
+        and rejected because both the Jul-17 bounce (MACDf turned positive mid-reversal)
+        and Aug-03 opening-trend (MACDf positive throughout) would have been blocked,
+        losing the two largest winning sessions.
         """
         if len(self._today_bars) < 4:
             return None
@@ -961,9 +974,9 @@ class HybridEngine:
         ctx = self.last_context
         assert ctx is not None
 
-        # Skip on choppy sessions: if today's net/gross move ratio is low,
-        # momentum entries are unreliable (8/10, 8/12, 8/17 analysis: 0-16% ratio)
-        if self._is_day_choppy(min_bars=10, threshold=0.20):
+        # Skip on choppy sessions: raised threshold to 25% (was 20%) for better
+        # discrimination on oscillating days (8/10, 8/12, 8/17 analysis: 0–16% ratio).
+        if self._is_day_choppy(min_bars=10, threshold=0.25):
             return None
 
         last_3 = self._today_bars[-3:]
@@ -976,10 +989,29 @@ class HybridEngine:
 
         volume_ok = ctx.rvol_val >= RULES.regime_trend_min_volume_ratio * Decimal("0.9")
 
-        if all_rising and volume_ok and ctx.rsi_val < RULES.timed_call_rsi_max:
+        # Band position: positive = above Boll middle, negative = below
+        half_width = ctx.boll_upper - ctx.boll_middle
+        band_pos = (
+            (ctx.current_close - ctx.boll_middle) / half_width
+            if half_width > ZERO else ZERO
+        )
+
+        if (
+            all_rising
+            and volume_ok
+            and ctx.rsi_val <= Decimal("50")        # tightened: 82% of UP swings have RSI<50
+            and band_pos <= Decimal("-0.20")        # tightened: 0→-0.20 to require clear below-middle
+                                                    # position (58% of UP swings have band_pos<-0.65)
+        ):
             return self._signal(Direction.CALL, "regime_momentum_3bar", spot)
 
-        if all_falling and volume_ok and ctx.rsi_val > RULES.timed_put_rsi_min:
+        if (
+            all_falling
+            and volume_ok
+            and ctx.rsi_val >= Decimal("50")        # tightened: 78% of DN swings have RSI>50
+            and band_pos >= ZERO                    # 83% of DN swings are above Boll middle
+            and self._macd_fast > ZERO              # 87% of DN swings start with MACDf>0
+        ):
             return self._signal(Direction.PUT, "regime_momentum_3bar", spot)
 
         return None
@@ -1196,30 +1228,93 @@ class HybridEngine:
             self._min_signal_score = max(self._min_signal_score, 7)
 
         # ── Signal selection ─────────────────────────────────────────────────
+        # ZigZag analysis (43 days, 108 UP / 117 DN starts):
+        #   UP swings: 54% below OR_LOW, 87% MACDf<0, avg RSI=40, avg BandPos=-0.62
+        #   DN swings: 87% MACDf>0, 66% EMA bull, avg RSI=58, avg BandPos=+0.55
+        # Signal chain ordered by decreasing structural confidence within each regime.
         signal: Signal | None = None
 
         if state in {MarketState.TREND_UP, MarketState.TREND_DOWN}:
-            # Trend regime: Phase 2 uses OR breakout, Phase 3+ uses band_pos ≥ 0.65
+            # Trend regime: OR breakout (phase-2) or band-extended entry (phase-3+)
             signal = self._trend_signal(spot)
-            # VWAP pullback: secondary entry when trend signal doesn't fire
+            # VWAP pullback: pullback-to-VWAP continuation or oversold bounce
             if signal is None:
                 signal = self._vwap_pullback_signal(spot)
+            # MACD-fade: disabled — Aug 1-29 showed 33% WR, -$220 (3 trades); net drag
+            # if signal is None:
+            #     signal = self._vwap_macd_fade_signal(spot)
 
         elif state is MarketState.RANGE:
-            # Range/oscillation regime: VWAP-based signals.
-            # regime_or_reversion removed (4% alignment, 96% noise)
-            # vwap_macd_fade/momentum_exhaustion/deep_oversold/macd_narrowing: all <10% alignment, removed
-            signal = self._vwap_pullback_signal(spot)
+            # Range/oscillation regime: full mean-reversion signal chain.
+            # Note: _range_signal (outer Bollinger reversion) deliberately omitted
+            # here — it fires on almost every outer-band touch (high-noise, 3%
+            # swing alignment) and monopolises signal slots, blocking higher-quality
+            # MACD/RSI-based reversals.
+            #
+            # Priority design:
+            #  • PUT signals only fire when price > VWAP → no slot competition with
+            #    CALL signals that require price < VWAP.
+            #  • deep_oversold_bounce (RSI≤38) is placed BEFORE vwap_pullback/
+            #    vwap_bounce_call (RSI≤43) so that the deepest oversold setups are
+            #    tagged with their own strategy name and are not absorbed by the less
+            #    strict vwap_bounce_call gate.  The two signals are complementary:
+            #      deep_oversold_bounce : RSI ≤ 38, no MACD requirement  (at-bottom)
+            #      vwap_bounce_call     : RSI ≤ 43, MACD turning up      (confirmed)
+            #
+            # PUT — MACD-fade: disabled — Aug 1-29 showed 33% WR, -$220 net drag
+            # signal = self._vwap_macd_fade_signal(spot)
+            # CALL — deep oversold bounce: RSI≤38, BandPos≤-0.60, relaxed MACD gate
+            if signal is None:
+                signal = self._deep_oversold_bounce_call(spot)
+            # VWAP structural: vwap_bounce_call (RSI≤43, MACD confirming) or
+            # vwap_pullback (EMA downtrend PUT continuation)
+            if signal is None:
+                signal = self._vwap_pullback_signal(spot)
+            # 3-bar momentum: 3 consecutive rising/falling bars — 19% alignment rate.
+            # Added to RANGE regime because 3-bar patterns in a range regime signal
+            # a range BREAKOUT, which aligns with ZigZag swing starts.  The internal
+            # chop filter (_is_day_choppy) prevents overfiring on truly oscillating days.
+            if signal is None:
+                signal = self._momentum_signal(spot)
+            # CALL — fires AT the swing bottom: MACD still negative but narrowing
+            # (covers 70% of missed UP starts; complements vwap_bounce_call which
+            #  requires MACD to have already turned up and fires 1-2 bars later)
+            if signal is None:
+                signal = self._macd_narrowing_call(spot)
+            # PUT — post-peak exhaustion and MACD-narrowing PUT removed:
+            # Both showed 25-33% WR in August oscillating conditions (accumulated
+            # -$850 drag). Primary PUT coverage now comes from vwap_macd_fade
+            # (high-bar entry), vwap_pullback, and trap_false_breakdown.
+            # OR-anchored reversion: below OR_LOW → CALL, above OR_HIGH → PUT
+            if signal is None:
+                signal = self._or_reversion_signal(spot)
 
         else:  # MarketState.UNKNOWN
             if local_time < RULES.phase_opening_end:
                 # Phase 2 UNKNOWN: OR breakout takes priority over regime signals
                 signal = self._phase2_or_breakout_signal(spot)
+            # PUT — MACD-fade: disabled — Aug 1-29 showed 33% WR, -$220 net drag
+            # if signal is None:
+            #     signal = self._vwap_macd_fade_signal(spot)
+            # CALL — deep oversold bounce: RSI≤38, no MACD gate (fires at the bottom
+            # before MACD has turned; placed before vwap_pullback so RSI≤38 setups
+            # are not absorbed by vwap_bounce_call's looser RSI≤43 gate)
+            if signal is None:
+                signal = self._deep_oversold_bounce_call(spot)
+            # VWAP structural: vwap_bounce_call (confirmed MACD turn) or vwap_pullback
             if signal is None:
                 signal = self._vwap_pullback_signal(spot)
-            # Momentum: last resort when no other signal fires
+            # 3-bar momentum: 19% swing alignment rate among top performers;
+            # placed after structural VWAP signals, before lower-quality MACD signals
             if signal is None:
                 signal = self._momentum_signal(spot)
+            # CALL — fires AT the swing bottom (MACD still negative but narrowing)
+            if signal is None:
+                signal = self._macd_narrowing_call(spot)
+            # PUT — post-peak exhaustion and MACD-narrowing PUT removed (see RANGE comment)
+            # OR-anchored reversion: last structural option before trap check
+            if signal is None:
+                signal = self._or_reversion_signal(spot)
 
         # Trap signal: applicable in any regime after primary signals exhausted
         if signal is None:
@@ -1239,7 +1334,14 @@ class HybridEngine:
             "regime_trend_following", "regime_trend_or_breakout",
             "regime_or_breakout", "regime_momentum_3bar",
             "vwap_pullback",           # EMA downtrend + VWAP rejection gate
-            "vwap_bounce_call",        # RSI≤40 + BandPos≤-0.45 + bullish bar + new high gate
+            "vwap_bounce_call",        # RSI≤43 + BandPos≤-0.60 + MACD turn + bullish candle gate
+            # New mean-reversion signals have scores 7-11 (well above floor=4) due
+            # to their strict RSI/BandPos/MACD multi-gate — score acts as quality gate.
+            # "macd_narrowing_call"    → score gate suffices (RSI+BandPos+VWAP = 6-8 pts)
+            # "deep_oversold_bounce"   → score gate suffices (RSI≤35 + BandPos + VWAP = 7-8 pts)
+            # "vwap_macd_fade"         → score gate suffices (MACD+VWAP+BandPos+RSI = 9-10 pts)
+            # "momentum_exhaustion_put"→ score gate suffices
+            # "macd_narrowing_put"     → score gate suffices
         }
         # regime_or_reversion has 94% noise rate — require a stricter score threshold
         _OR_REVERSION_MIN_SCORE = 6

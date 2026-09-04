@@ -79,6 +79,9 @@ class StrategyRules:
     max_premium_fraction: Decimal = Decimal("0.50")
     max_contracts: int = 10
     option_stop_loss_pct: Decimal = Decimal("0.25")
+    # Daily loss circuit-breaker: halt new entries once realized losses exceed this
+    # fraction of day-opening equity. 0 = disabled.
+    max_daily_loss_pct: Decimal = Decimal("0")  # 0 = disabled; set e.g. 0.006 to halt at 0.6%/day
     tp1_profit_pct: Decimal = Decimal("1.0")
     tp2_profit_pct: Decimal = Decimal("2.5")
     trailing_activation_profit_pct: Decimal = Decimal("0.25")
@@ -180,6 +183,7 @@ def rules_from_settings(settings) -> StrategyRules:
         "phase_opening_end", "phase_main_end",
         # 风控
         "max_premium_fraction", "max_contracts", "max_trades_per_day",
+        "max_daily_loss_pct",
         "cooldown_minutes", "fee_per_contract",
         "slippage_quote", "option_stop_loss_pct", "tp1_profit_pct",
         "tp2_profit_pct", "trailing_activation_profit_pct",
@@ -212,3 +216,8 @@ def rules_from_settings(settings) -> StrategyRules:
     if "max_trades_per_day" in overrides:
         overrides["timed_max_trades_per_day"] = overrides["max_trades_per_day"]
     return StrategyRules(**overrides)
+
+
+
+
+
