@@ -195,7 +195,38 @@ class HybridEngine:
             return False
         net = abs(bars[-1].close - bars[0].open)
         return float(net / gross) < threshold
-        return reversals > max_reversals
+
+    def _is_day_trending_up(self, min_bars: int = 10, threshold: float = 0.25) -> bool:
+        """Return True if today's session shows a net upward directional bias.
+
+        Uses the signed net / gross ratio (net is positive when close > open).
+        A ratio above `threshold` (default 25%) in the UP direction suggests
+        the market is consistently moving up → trap_false_breakout (PUT) is risky.
+        """
+        bars = self._today_bars
+        if len(bars) < min_bars:
+            return False
+        gross = sum(abs(b.close - b.open) for b in bars)
+        if gross == 0:
+            return False
+        net = bars[-1].close - bars[0].open   # signed: positive = up
+        return net > 0 and float(net / gross) > threshold
+
+    def _is_day_trending_down(self, min_bars: int = 10, threshold: float = 0.25) -> bool:
+        """Return True if today's session shows a net downward directional bias.
+
+        Symmetric to _is_day_trending_up but in the DOWN direction.
+        A ratio above threshold in the DOWN direction → trap_false_breakdown
+        (CALL) is risky because the day is clearly bearish.
+        """
+        bars = self._today_bars
+        if len(bars) < min_bars:
+            return False
+        gross = sum(abs(b.close - b.open) for b in bars)
+        if gross == 0:
+            return False
+        net = bars[-1].close - bars[0].open   # signed: negative = down
+        return net < 0 and float(-net / gross) > threshold
 
     def _raw_regime(self) -> MarketState:
         """Classify the latest completed bar without future information."""
