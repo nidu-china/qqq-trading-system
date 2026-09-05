@@ -461,15 +461,19 @@ class HybridEngine:
         # PUT: price tests VWAP from below in downtrend, gets rejected.
         # Require MACD still accelerating negative → rejects entries where the
         # swing momentum has already peaked and MACD is starting to flatten.
-        macd_still_falling = self._macd_fast < self._macd_fast_prev
+        # 2-bar falling: ensures MACD has been declining for ≥2 bars (not a 1-bar
+        # false start where MACD just barely ticked negative then stabilises/reverses).
+        # RSI ≤ 48: prevents entries when price has recovered significantly (RSI 50-55
+        # means price is near its recent average, not showing fresh selling pressure).
+        macd_falling_2bar = self._macd_fast < self._macd_fast_prev < self._macd_fast_prev2
         if (
             self._ema_fast < self._ema_slow                        # EMA downtrend confirmed
             and prev_bar.high >= vwap_val - atr_val * Decimal("0.5")  # prior bar reached VWAP zone
             and ctx.current_close < vwap_val                       # now rejected below VWAP
             and curr_bar.close < curr_bar.open                     # bearish candle
             and self._macd_fast < ZERO                             # MACD still negative
-            and macd_still_falling                                 # MACD still accelerating ↓
-            and RULES.timed_put_rsi_min < ctx.rsi_val <= Decimal("55")
+            and macd_falling_2bar                                  # 2-bar sustained decline (not 1-bar false start)
+            and RULES.timed_put_rsi_min < ctx.rsi_val <= Decimal("48")  # tightened from 55 → 48
             and volume_ok
             and self.last_state is not MarketState.TREND_UP
             and Direction.PUT not in self._direction_blocked
@@ -758,8 +762,15 @@ class HybridEngine:
         bar_range = prev_bar.high - prev_bar.low
 
         # ── False breakout above OR_HIGH → PUT ──────────────────────────────
+        # Persistence filter: if ≥3 of the 5 bars before the trigger bar already
+        # closed above OR_HIGH, the "breakout" is a sustained trend, not a false spike.
+        _pre_above_orhigh = sum(
+            1 for b in self._today_bars[-7:-2]
+            if b.close > self._or_high
+        )
         if (
             prev_bar.high > self._or_high                         # prior bar poked above
+            and _pre_above_orhigh <= 2                            # brief excursion, not trend
             and self.last_state is not MarketState.TREND_UP       # not in strong uptrend
             and curr_bar.close < self._or_high                    # price retreated
             and macd_curr <= macd_prev                            # MACD weakening
@@ -779,8 +790,15 @@ class HybridEngine:
                 return sig
 
         # ── False breakdown below OR_LOW → CALL ─────────────────────────────
+        # Persistence filter: if ≥3 of the 5 bars before the trigger bar already
+        # closed below OR_LOW, the "breakdown" is a real trend, not a false dip.
+        _pre_below_orlow = sum(
+            1 for b in self._today_bars[-7:-2]
+            if b.close < self._or_low
+        )
         if (
             prev_bar.low < self._or_low                           # prior bar poked below
+            and _pre_below_orlow <= 2                             # brief excursion, not trend
             and self.last_state is not MarketState.TREND_DOWN     # not in strong downtrend
             and curr_bar.close > self._or_low                     # price recovered
             and macd_curr >= macd_prev                            # MACD strengthening
@@ -996,21 +1014,28 @@ class HybridEngine:
             if half_width > ZERO else ZERO
         )
 
+        # regime_momentum_3bar: DISABLED
+        # Tested with multiple threshold levels; the signal systematically competes
+        # with higher-quality slots (trap_false_breakdown, vwap_pullback, macd_narrowing_call)
+        # and destroys value:
+        #   loose  (RSI≤70, no band): 20% WR, -$540 on 1-week test
+        #   medium (RSI≤55 CALL / ≥45 PUT): 29% WR, -$175 direct + -$1,010 slot competition = -$1,185
+        #   tight  (RSI≤50 CALL / ≥50 PUT + band_pos): 0 trades, no direct effect
+        # Keeping tight-gate to preserve as a latent pattern for future re-evaluation.
         if (
             all_rising
             and volume_ok
-            and ctx.rsi_val <= Decimal("50")        # tightened: 82% of UP swings have RSI<50
-            and band_pos <= Decimal("-0.20")        # tightened: 0→-0.20 to require clear below-middle
-                                                    # position (58% of UP swings have band_pos<-0.65)
+            and ctx.rsi_val <= Decimal("50")        # effectively never fires (3 rising bars push RSI up)
+            and band_pos <= Decimal("-0.20")
         ):
             return self._signal(Direction.CALL, "regime_momentum_3bar", spot)
 
         if (
             all_falling
             and volume_ok
-            and ctx.rsi_val >= Decimal("50")        # tightened: 78% of DN swings have RSI>50
-            and band_pos >= ZERO                    # 83% of DN swings are above Boll middle
-            and self._macd_fast > ZERO              # 87% of DN swings start with MACDf>0
+            and ctx.rsi_val >= Decimal("50")        # effectively never fires (3 falling bars push RSI down)
+            and band_pos >= ZERO
+            and self._macd_fast > ZERO
         ):
             return self._signal(Direction.PUT, "regime_momentum_3bar", spot)
 
@@ -1130,6 +1155,7 @@ class HybridEngine:
         # ≥10:00 gate: the OR settles in 09:30-09:40; in 09:40-10:00 the market
         # is still in price-discovery mode — OR reversion signals there are
         # statistically unreliable and better handled by _phase2_or_breakout_signal.
+        vwap_or = ctx.vwap_value
         macd_accel_2bar = macd_curr > macd_prev > macd_prev2
         if (
             bar_time >= RULES.phase_opening_end   # ≥10:00 — skip opening settle
@@ -1138,6 +1164,9 @@ class HybridEngine:
             and ctx.rsi_val <= Decimal("40")       # avg RSI = 39 at UP starts
             and macd_accel_2bar                    # 2-bar recovery: timing quality gate
             and volume_ok
+            # VWAP alignment: if VWAP has dropped below OR_LOW, the day IS trending
+            # down and OR-reversion CALLs have no structural support.
+            and (vwap_or <= ZERO or vwap_or >= self._or_low)
         ):
             return self._signal(Direction.CALL, "regime_or_reversion", spot)
 
@@ -1152,6 +1181,9 @@ class HybridEngine:
             and ctx.rsi_val >= Decimal("60")       # avg RSI = 59 at DN starts
             and macd_decel_2bar
             and volume_ok
+            # VWAP alignment: if VWAP has risen above OR_HIGH, the day IS trending
+            # up and OR-reversion PUTs have no structural support.
+            and (vwap_or <= ZERO or vwap_or <= self._or_high)
         ):
             return self._signal(Direction.PUT, "regime_or_reversion", spot)
 

@@ -599,7 +599,15 @@ class EventDrivenBacktester:
                 synthetic = None
                 last_real_quote = None
                 last_mark_bid = None
-                cooldown_until = timestamp + timedelta(minutes=RULES.cooldown_minutes)
+                # Use a longer cool-down after stop-loss to prevent rapid re-entry
+                # in the same losing direction (e.g. 3 consecutive vwap_pullback PUTs
+                # on a sharp reversal day).
+                _cd_mins = (
+                    RULES.stop_loss_cooldown_minutes
+                    if decision.reason is ExitReason.STOP_LOSS
+                    else RULES.cooldown_minutes
+                )
+                cooldown_until = timestamp + timedelta(minutes=_cd_mins)
 
         # Include 09:00-09:30 premarket for indicator warmup on trading days
         from datetime import time as time_type

@@ -43,6 +43,7 @@ class StrategyRules:
     timed_reversal_window: int = 5
 
     cooldown_minutes: int = 3
+    stop_loss_cooldown_minutes: int = 30  # longer cool-down after a stop-loss hit
     max_trades_per_day: int = 5
     signal_ttl_seconds: int = 90
     entry_reprices: int = 2
@@ -184,7 +185,7 @@ def rules_from_settings(settings) -> StrategyRules:
         # 风控
         "max_premium_fraction", "max_contracts", "max_trades_per_day",
         "max_daily_loss_pct",
-        "cooldown_minutes", "fee_per_contract",
+        "cooldown_minutes", "stop_loss_cooldown_minutes", "fee_per_contract",
         "slippage_quote", "option_stop_loss_pct", "tp1_profit_pct",
         "tp2_profit_pct", "trailing_activation_profit_pct",
         "trailing_giveback_pct", "stale_minutes",
