@@ -445,8 +445,15 @@ class HybridEngine:
         # Chop guard: on ultra-oscillating days (e.g. 8/10: 14 swings, net/gross<20%),
         # pure mean-reversion CALL entries reverse immediately. Skip when day is choppy.
         _call_chop_ok = not self._is_day_choppy(min_bars=10, threshold=0.25)
+        # Time gate for CALL bounce: skip the first 30 min of RTH (09:30-09:59).
+        # Very early oversold reversals are unreliable; the real bounce confirmation
+        # needs the market to have settled past the opening volatility window.
+        # NOTE: hardcoded time(10, 0) — RULES.phase_opening_end is set to 09:40 in
+        #       .env (OR collection end), NOT 10:00 as the policy default might suggest.
+        bar_time_vbc = ctx.bar_end.astimezone(NY_TZ).time().replace(tzinfo=None)
         if (
             _call_chop_ok
+            and bar_time_vbc >= time(10, 0)                        # ≥10:00 — skip early price-discovery
             and ctx.current_close < vwap_val
             and band_pos <= Decimal("-0.60")                       # near lower Bollinger band (avg missed=-0.58)
             and ctx.rsi_val <= Decimal("43")                       # deeply oversold (covers 62% of missed UPs)
@@ -466,8 +473,15 @@ class HybridEngine:
         # RSI ≤ 48: prevents entries when price has recovered significantly (RSI 50-55
         # means price is near its recent average, not showing fresh selling pressure).
         macd_falling_2bar = self._macd_fast < self._macd_fast_prev < self._macd_fast_prev2
+        # Time gate: skip the first 14 min of RTH (09:30-09:43) for PUT entries.
+        # The very-first bars after OR are most prone to whipsaws before direction is
+        # established.  The 09:44 floor still allows early morning PUT entries
+        # (e.g. 09:45, 09:48 profitable trades) while blocking the 09:41 spike entries
+        # that hit stop-loss without any structural confirmation.
+        bar_time_vp = ctx.bar_end.astimezone(NY_TZ).time().replace(tzinfo=None)
         if (
-            self._ema_fast < self._ema_slow                        # EMA downtrend confirmed
+            bar_time_vp >= time(9, 44)                             # ≥09:44 — skip first 14 min
+            and self._ema_fast < self._ema_slow                    # EMA downtrend confirmed
             and prev_bar.high >= vwap_val - atr_val * Decimal("0.5")  # prior bar reached VWAP zone
             and ctx.current_close < vwap_val                       # now rejected below VWAP
             and curr_bar.close < curr_bar.open                     # bearish candle
@@ -605,6 +619,15 @@ class HybridEngine:
             return None
         if len(self._today_bars) < 3:
             return None
+        # Time gate: skip entries before 10:00 ET (first 30 min of RTH).
+        # Very early oversold readings are unreliable — the market is still in
+        # price-discovery mode and extreme RSI dips often precede further declines
+        # rather than reversals.
+        # NOTE: Use hardcoded time(10, 0) — RULES.phase_opening_end is loaded
+        #       from .env as 09:40 (OR collection end), not the strategy gate.
+        bar_time_dob = ctx.bar_end.astimezone(NY_TZ).time().replace(tzinfo=None)
+        if bar_time_dob < time(10, 0):
+            return None
 
         curr_bar = self._today_bars[-1]
         volume_ok = ctx.rvol_val >= RULES.regime_trend_min_volume_ratio
@@ -657,6 +680,7 @@ class HybridEngine:
         half_width = max(ctx.boll_upper - ctx.boll_middle, Decimal("0.0001"))
         band_pos = (ctx.current_close - ctx.boll_middle) / half_width
 
+        curr_bar_mnc = self._today_bars[-1]
         macd_narrowing_from_below = (
             self._macd_fast < ZERO                      # still negative
             and self._macd_fast > self._macd_fast_prev  # but less negative (narrowing)
@@ -665,8 +689,9 @@ class HybridEngine:
         if (
             ctx.current_close < vwap_val
             and macd_narrowing_from_below
-            and band_pos <= Decimal("-0.45")         # tightened: avg=-0.49 at missed UPs
+            and band_pos <= Decimal("-0.52")         # tightened from -0.45: deeper oversold only
             and ctx.rsi_val <= Decimal("42")         # tightened: avg=42.2 at missed UPs
+            and curr_bar_mnc.close > curr_bar_mnc.open  # bullish candle — price bounced within bar
             and volume_ok
             and self.last_state is not MarketState.TREND_DOWN
             and Direction.CALL not in self._direction_blocked
@@ -796,8 +821,16 @@ class HybridEngine:
             1 for b in self._today_bars[-7:-2]
             if b.close < self._or_low
         )
+        # Time gate: skip the first 5 minutes after OR completion (09:40-09:44).
+        # At 09:44 there are only 4 post-OR bars; the persistence filter has
+        # insufficient data (looks back 5-7 bars into OR period), and the breakdown
+        # might be a genuine trend start rather than a false dip.
+        # NOTE: hardcoded time(9, 45) — independent of RULES.phase_opening_end
+        #       which is set to 09:40 (OR end) in .env.
+        bar_time_tfd = ctx.bar_end.astimezone(NY_TZ).time().replace(tzinfo=None)
         if (
-            prev_bar.low < self._or_low                           # prior bar poked below
+            bar_time_tfd >= time(9, 45)                           # ≥09:45 — skip first 5 min post-OR
+            and prev_bar.low < self._or_low                       # prior bar poked below
             and _pre_below_orlow <= 2                             # brief excursion, not trend
             and self.last_state is not MarketState.TREND_DOWN     # not in strong downtrend
             and curr_bar.close > self._or_low                     # price recovered
