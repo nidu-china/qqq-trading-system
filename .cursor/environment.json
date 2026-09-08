@@ -1,0 +1,19 @@
+{
+  "name": "QQQ 0DTE Trading System",
+  "user": "ubuntu",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    {
+      "name": "trader",
+      "command": "bash /workspace/.cursor/run-trader.sh",
+      "description": "Trading engine + read-only web API/UI on port 8000 (paper mode). Ensures MariaDB and migrations are ready before launching."
+    }
+  ],
+  "ports": [
+    {
+      "name": "web",
+      "port": 8000
+    }
+  ]
+}
