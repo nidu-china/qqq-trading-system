@@ -66,12 +66,26 @@ class OrderExecutor:
             quote = await quote_supplier(request.symbol)
             if quote.bid is None:
                 break
-            next_price = min(
-                tick_price(current.limit_price + RULES.slippage_quote),
+            last_attempt = attempt == attempts - 2
+            next_price = self._next_entry_limit(
+                current.limit_price,
                 ceiling,
+                quote,
+                last_attempt=last_attempt,
             )
-            if next_price <= 0 or next_price > ceiling:
+            if next_price <= 0:
                 break
+            self._log.info(
+                "entry reprice | %s | attempt=%d/%d | %s -> %s | ceiling=%s | bid=%s ask=%s",
+                request.symbol,
+                attempt + 2,
+                attempts,
+                current.limit_price,
+                next_price,
+                ceiling,
+                quote.bid,
+                quote.ask,
+            )
             current = replace(
                 request,
                 quantity=request.quantity - total_filled,
@@ -94,6 +108,32 @@ class OrderExecutor:
             {"intent": str(request.intent_id)},
         )
         return None
+
+    @staticmethod
+    def _next_entry_limit(
+        current_limit: Decimal,
+        ceiling: Decimal,
+        quote,
+        last_attempt: bool,
+    ) -> Decimal:
+        """Step the buy limit toward a fillable price.
+
+        First miss: climb at least to the live bid (leave the deep-discount
+        zone). Last attempt: lift the live offer, capped a little above the
+        original ask ceiling so a quote that ticked up can still fill.
+        """
+        stepped = tick_price(current_limit + RULES.slippage_quote)
+        live_bid = quote.bid if quote.bid and quote.bid > 0 else current_limit
+        live_ask = quote.ask if quote.ask and quote.ask > 0 else None
+        if last_attempt:
+            live_ceiling = (
+                tick_price(live_ask + RULES.slippage_quote)
+                if live_ask is not None
+                else ceiling
+            )
+            hard_cap = tick_price(ceiling + 2 * RULES.slippage_quote)
+            return min(max(ceiling, live_ceiling), hard_cap)
+        return min(ceiling, max(stepped, tick_price(live_bid)))
 
     async def exit(
         self,

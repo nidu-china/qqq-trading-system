@@ -1007,71 +1007,11 @@ class HybridEngine:
         return None
 
     def _momentum_signal(self, spot: Decimal | None) -> Signal | None:
-        """Pure momentum entry: 3 consecutive rising/falling bars.
+        """3-bar momentum — disabled.
 
-        ZigZag analysis (43 days, 215 top-5 swings) shows two opening patterns:
-          CALL: oversold flush  (RSI avg=40, 82% have RSI<50, 83% below Boll middle)
-          PUT:  overbought push (RSI avg=58, 78% have RSI>50, 83% above Boll middle,
-                                 87% have MACDf>0)
-
-        Note: MACD direction gate is added for PUT only — for CALL it was tested
-        and rejected because both the Jul-17 bounce (MACDf turned positive mid-reversal)
-        and Aug-03 opening-trend (MACDf positive throughout) would have been blocked,
-        losing the two largest winning sessions.
+        A 3-bar cluster is a poke, not an accepted break. Sep 2026 leaked
+        2 PUT trades (0% WR, -$712) through the leftover tight-gate branch.
         """
-        if len(self._today_bars) < 4:
-            return None
-
-        ctx = self.last_context
-        assert ctx is not None
-
-        # Skip on choppy sessions: raised threshold to 25% (was 20%) for better
-        # discrimination on oscillating days (8/10, 8/12, 8/17 analysis: 0–16% ratio).
-        if self._is_day_choppy(min_bars=10, threshold=0.25):
-            return None
-
-        last_3 = self._today_bars[-3:]
-        all_rising = all(
-            last_3[i].close > last_3[i - 1].close for i in range(1, len(last_3))
-        )
-        all_falling = all(
-            last_3[i].close < last_3[i - 1].close for i in range(1, len(last_3))
-        )
-
-        volume_ok = ctx.rvol_val >= RULES.regime_trend_min_volume_ratio * Decimal("0.9")
-
-        # Band position: positive = above Boll middle, negative = below
-        half_width = ctx.boll_upper - ctx.boll_middle
-        band_pos = (
-            (ctx.current_close - ctx.boll_middle) / half_width
-            if half_width > ZERO else ZERO
-        )
-
-        # regime_momentum_3bar: DISABLED
-        # Tested with multiple threshold levels; the signal systematically competes
-        # with higher-quality slots (trap_false_breakdown, vwap_pullback, macd_narrowing_call)
-        # and destroys value:
-        #   loose  (RSI≤70, no band): 20% WR, -$540 on 1-week test
-        #   medium (RSI≤55 CALL / ≥45 PUT): 29% WR, -$175 direct + -$1,010 slot competition = -$1,185
-        #   tight  (RSI≤50 CALL / ≥50 PUT + band_pos): 0 trades, no direct effect
-        # Keeping tight-gate to preserve as a latent pattern for future re-evaluation.
-        if (
-            all_rising
-            and volume_ok
-            and ctx.rsi_val <= Decimal("50")        # effectively never fires (3 rising bars push RSI up)
-            and band_pos <= Decimal("-0.20")
-        ):
-            return self._signal(Direction.CALL, "regime_momentum_3bar", spot)
-
-        if (
-            all_falling
-            and volume_ok
-            and ctx.rsi_val >= Decimal("50")        # effectively never fires (3 falling bars push RSI down)
-            and band_pos >= ZERO
-            and self._macd_fast > ZERO
-        ):
-            return self._signal(Direction.PUT, "regime_momentum_3bar", spot)
-
         return None
 
     def _phase2_or_breakout_signal(self, spot: Decimal | None) -> Signal | None:
@@ -1335,12 +1275,9 @@ class HybridEngine:
             # vwap_pullback (EMA downtrend PUT continuation)
             if signal is None:
                 signal = self._vwap_pullback_signal(spot)
-            # 3-bar momentum: 3 consecutive rising/falling bars — 19% alignment rate.
-            # Added to RANGE regime because 3-bar patterns in a range regime signal
-            # a range BREAKOUT, which aligns with ZigZag swing starts.  The internal
-            # chop filter (_is_day_choppy) prevents overfiring on truly oscillating days.
-            if signal is None:
-                signal = self._momentum_signal(spot)
+            # 3-bar momentum: disabled — Sep 2026 PUT leak 0% WR, -$712
+            # if signal is None:
+            #     signal = self._momentum_signal(spot)
             # CALL — fires AT the swing bottom: MACD still negative but narrowing
             # (covers 70% of missed UP starts; complements vwap_bounce_call which
             #  requires MACD to have already turned up and fires 1-2 bars later)
@@ -1369,10 +1306,9 @@ class HybridEngine:
             # VWAP structural: vwap_bounce_call (confirmed MACD turn) or vwap_pullback
             if signal is None:
                 signal = self._vwap_pullback_signal(spot)
-            # 3-bar momentum: 19% swing alignment rate among top performers;
-            # placed after structural VWAP signals, before lower-quality MACD signals
-            if signal is None:
-                signal = self._momentum_signal(spot)
+            # 3-bar momentum: disabled — Sep 2026 PUT leak 0% WR, -$712
+            # if signal is None:
+            #     signal = self._momentum_signal(spot)
             # CALL — fires AT the swing bottom (MACD still negative but narrowing)
             if signal is None:
                 signal = self._macd_narrowing_call(spot)
@@ -1397,7 +1333,7 @@ class HybridEngine:
         # Trend regime signals are exempt (regime confirmation acts as the gate).
         _SCORE_EXEMPT_STRATEGIES = {
             "regime_trend_following", "regime_trend_or_breakout",
-            "regime_or_breakout", "regime_momentum_3bar",
+            "regime_or_breakout",
             "vwap_pullback",           # EMA downtrend + VWAP rejection gate
             "vwap_bounce_call",        # RSI≤43 + BandPos≤-0.60 + MACD turn + bullish candle gate
             # New mean-reversion signals have scores 7-11 (well above floor=4) due
@@ -1468,7 +1404,6 @@ class HybridEngine:
                 "regime_trend_following",
                 "regime_trend_or_breakout",
                 "regime_or_breakout",
-                "regime_momentum_3bar",
                 "vwap_pullback",
             )
             and position.entry_spot is not None

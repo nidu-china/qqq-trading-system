@@ -16,6 +16,7 @@ from qqq_trader.adapters.longbridge import (
 from qqq_trader.domain import BrokerOrder, OrderRequest, OrderSide, Quote
 from qqq_trader.execution import OrderExecutor
 from qqq_trader.persistence import MemoryJournal
+from qqq_trader.policy import RULES
 
 
 class PartialBroker:
@@ -64,8 +65,65 @@ async def test_repricing_only_submits_unfilled_remainder():
     assert [request.quantity for request in broker.requests] == [4, 2]
     assert [request.limit_price for request in broker.requests] == [
         Decimal("1"),
-        Decimal("1.02"),
+        Decimal("1") + RULES.slippage_quote,
     ]
+
+
+class UnfilledBroker:
+    def __init__(self):
+        self.requests = []
+        self.orders = {}
+
+    async def submit_limit(self, request):
+        self.requests.append(request)
+        order = BrokerOrder(
+            str(len(self.requests)),
+            request.intent_id,
+            request.symbol,
+            request.side,
+            request.quantity,
+            0,
+            request.limit_price,
+            "canceled",
+            datetime.now(timezone.utc),
+        )
+        self.orders[order.order_id] = order
+        return order
+
+    async def order(self, order_id):
+        return self.orders[order_id]
+
+    async def cancel_order(self, order_id):
+        pass
+
+
+@pytest.mark.asyncio
+async def test_entry_reprices_to_live_bid_then_ask_ceiling():
+    """Reproduce 2026-09-10 live miss: start at bid-0.10, never reached ask.
+
+    Snapshot: bid=1.48 ask=1.49, first limit=1.38, 3 attempts, step=0.02.
+    Old policy submitted 1.38 / 1.40 / 1.42 and abandoned.
+    New policy must climb to the live bid, then lift the offer.
+    """
+    broker = UnfilledBroker()
+    executor = OrderExecutor(broker, MemoryJournal(), make_settings())
+    now = datetime.now(timezone.utc)
+
+    async def quote_supplier(symbol):
+        return Quote(
+            symbol, now, Decimal("1.48"), Decimal("1.48"), Decimal("1.49"), 200, 500
+        )
+
+    result = await executor.entry(
+        OrderRequest("QQQ260910P707000.US", OrderSide.BUY, 10, Decimal("1.38")),
+        quote_supplier,
+        ceiling_price=Decimal("1.51"),
+    )
+    assert result is None
+    assert len(broker.requests) == 3
+    assert broker.requests[0].limit_price == Decimal("1.38")
+    assert broker.requests[1].limit_price == Decimal("1.48")
+    assert broker.requests[2].limit_price >= Decimal("1.51")
 
 
 @pytest.mark.asyncio

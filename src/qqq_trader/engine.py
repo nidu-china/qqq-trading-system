@@ -525,12 +525,17 @@ class TradingEngine:
             # while the ask-based ceiling guarantees we can always get filled.
             entry_ask = quote.ask or (quote.bid + RULES.slippage_quote)
             entry_ceiling = tick_price(entry_ask + RULES.slippage_quote)
+            entry_start = tick_price(quote.bid - RULES.entry_initial_discount)
             request = OrderRequest(
                 symbol=contract.symbol,
                 side=OrderSide.BUY,
                 quantity=quantity,
-                limit_price=tick_price(quote.bid - RULES.entry_initial_discount),
+                limit_price=entry_start,
                 reason=f"entry_{signal.strategy}",
+            )
+            self.log.info(
+                "entry pricing | bid=%s ask=%s start=%s ceiling=%s | qty=%d",
+                quote.bid, entry_ask, entry_start, entry_ceiling, quantity,
             )
             indicators = {
                 **signal.indicators,
