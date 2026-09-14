@@ -1,6 +1,6 @@
 """Backtest validation: multi-signal confluence system (A–G).
 
-Runs the full HybridEngine across all available data and breaks down
+Runs the full StrategyEngine across all available data and breaks down
 performance by:
   - Strategy (signal type)
   - Signal confluence score bucket (0-6, 7-9, 10+)

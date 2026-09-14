@@ -113,8 +113,8 @@ STRATEGY_PARAMS: dict[str, dict[str, Any]] = {
             _p("stale_minutes", "超时平仓(分)", "int", min=1, max=60),
         ],
     },
-    "boll_macd": {
-        "label": "BOLL/MACD 策略",
+    "hybrid": {
+        "label": "Hybrid 策略",
         "params": [
             _p("timed_opening_last_signal", "开盘爆量截止", "time"),
             _p("timed_opening_flat", "开盘强平时间", "time"),
@@ -138,16 +138,8 @@ STRATEGY_PARAMS: dict[str, dict[str, Any]] = {
             _p("timed_normal_fresh_macd_volume_multiplier", "普通MACD量比乘数", step=0.05),
             _p("timed_reversal_min_bars", "反转确认根数", "int", min=1, max=10),
             _p("timed_reversal_window", "反转检测窗口", "int", min=2, max=20),
-        ],
-    },
-    "trend": {
-        "label": "Trend ORB 策略",
-        "params": [
-            _p("trend_entry_end", "入场截止", "time"),
             _p("trend_ema_fast", "EMA 快线周期", "int", min=2, max=50),
             _p("trend_ema_slow", "EMA 慢线周期", "int", min=3, max=100),
-            _p("trend_breakout_confirm_bars", "突破确认根数", "int", min=1, max=10),
-            _p("trend_max_vwap_crosses", "最大VWAP穿越", "int", min=1, max=10),
             _p("trend_ema_exit_bars", "EMA退出确认根数", "int", min=1, max=10),
         ],
     },

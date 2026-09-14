@@ -1,7 +1,7 @@
 """Signal-to-Swing alignment analysis.
 
 For each trading day:
-  1. Run HybridEngine on 1-minute bars (same as live/backtest)
+  1. Run StrategyEngine on 1-minute bars (same as live/backtest)
   2. Collect every signal emitted
   3. Run ZigZag to find the top-5 swings by amplitude
   4. For each signal, measure alignment with the nearest same-direction swing:
@@ -26,7 +26,7 @@ import sys
 sys.path.insert(0, "src")
 sys.path.insert(0, "tests")
 
-from qqq_trader.hybrid_strategy import HybridEngine
+from qqq_trader.strategy import StrategyEngine
 from qqq_trader.indicators import bollinger_bands, ema_series, macd_histogram, rsi, vwap_series
 from qqq_trader.persistence import ParquetMarketStore
 
@@ -145,7 +145,7 @@ if args.days > 0:
 print(f"  Analyzing {len(trading_dates)} days: {trading_dates[0]} to {trading_dates[-1]}\n")
 
 settings = make_settings()
-engine   = HybridEngine(settings)
+engine   = StrategyEngine(settings)
 
 # ─── Per-day statistics ───────────────────────────────────────────────────────
 W = 130

@@ -1,8 +1,8 @@
-"""One-shot script: remove all non-trap cooldown logic from hybrid_strategy.py."""
+"""One-shot script: remove all non-trap cooldown logic from strategy.py."""
 import re
 from pathlib import Path
 
-src = Path("src/qqq_trader/hybrid_strategy.py").read_text(encoding="utf-8")
+src = Path("src/qqq_trader/strategy.py").read_text(encoding="utf-8")
 
 attrs_to_remove = [
     "vwap_bounce_bar", "vwap_fade_bar", "momentum_exhaustion_bar",
@@ -161,5 +161,5 @@ for line in reset_block.split("\n"):
     if "_last_" in line and "_bar" in line:
         print(" ", line)
 
-Path("src/qqq_trader/hybrid_strategy.py").write_text(src, encoding="utf-8")
+Path("src/qqq_trader/strategy.py").write_text(src, encoding="utf-8")
 print("\nSaved.")

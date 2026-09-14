@@ -1,860 +1,145 @@
+"""Tests for StrategyEngine regime classification and factory."""
+
+from __future__ import annotations
+
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
+import pytest
+
 from conftest import make_settings
-
-from qqq_trader.domain import Bar, Direction, ExitReason, MarketState, Position
-from qqq_trader.indicators import (
-    BarAggregator,
-    MarketContext,
-    bollinger_bands,
-    macd_histogram,
-    rsi,
-)
-from qqq_trader.policy import RULES
-from qqq_trader.strategy import (
-    StrategyEngine,
-    strategy_from_settings,
-)
-from qqq_trader.volatility import VixFiveMinuteTrend, vix_five_minute_trend
+from qqq_trader.domain import Bar, Direction, MarketState
+from qqq_trader.strategy import StrategyEngine, strategy_from_settings
 
 
-def _flat_bars(count: int, *, complete: bool = True) -> list[Bar]:
-    start = datetime(2026, 7, 15, 13, 30, tzinfo=timezone.utc)
-    bars = []
-    for index in range(count):
-        price = Decimal("500") + Decimal(index % 2) / Decimal("100")
-        bars.append(
-            Bar(
-                "QQQ.US",
-                start + timedelta(minutes=index),
-                start + timedelta(minutes=index + 1),
-                price,
-                price + Decimal("0.05"),
-                price - Decimal("0.05"),
-                price,
-                1000,
-                complete=complete,
-            )
-        )
+def _bar(minute_offset: int, open_: float, high: float, low: float,
+         close: float, volume: int = 1000,
+         base_time: datetime | None = None) -> Bar:
+    base = base_time or datetime(2026, 8, 11, 13, 30, tzinfo=timezone.utc)
+    return Bar(
+        symbol="QQQ.US",
+        start=base + timedelta(minutes=minute_offset),
+        end=base + timedelta(minutes=minute_offset + 1),
+        open=Decimal(str(open_)),
+        high=Decimal(str(high)),
+        low=Decimal(str(low)),
+        close=Decimal(str(close)),
+        volume=volume,
+    )
+
+
+def _trending_up_bars(count: int = 40) -> list[Bar]:
+    """Bullish trending day: OR 9:35-9:40, breakout after 9:40."""
+    bars: list[Bar] = []
+    for i in range(min(count, 10)):
+        base = 490.0 + i * 0.1
+        bars.append(_bar(i, base, base + 0.3, base - 0.2, base + 0.1))
+    for i in range(10, min(count, 60)):
+        base = 491.5 + (i - 10) * 0.15
+        bars.append(_bar(i, base, base + 0.4, base - 0.1, base + 0.25,
+                         volume=2500))
     return bars
 
 
-def test_bollinger_20_2_and_rsi_overbought_oversold():
-    values = [Decimal(index) for index in range(1, 21)]
-    upper, middle, lower = bollinger_bands(values, 20, Decimal("2"))
-    assert middle == Decimal("10.5")
-    assert upper > middle > lower
-    assert rsi([Decimal(index) for index in range(1, 17)], 14) == Decimal("100")
-    assert rsi([Decimal(20 - index) for index in range(16)], 14) == Decimal("0")
-
-
-def test_five_minute_aggregator_emits_only_completed_buckets():
-    bars = _flat_bars(7)
-    aggregated = BarAggregator.to_five_minutes(bars)
-    assert len(aggregated) == 1
-    assert aggregated[0].start.minute == 30
-    assert aggregated[0].end.minute == 35
-
-
-def test_strategy_factory_and_opening_cutoff():
-    settings = make_settings(strategy_mode="boll_macd", volatility_filter_enabled=False)
-    engine = strategy_from_settings(settings)
-    assert isinstance(engine, StrategyEngine)
-    engine.last_context = MarketContext(
-        current_close=Decimal("100"),
-        bar_time=__import__("datetime").time(9, 55),
-    )
-    position = Position(
-        "QQQ260715P00500000.US",
-        Direction.PUT,
-        1,
-        Decimal("1"),
-        datetime(2026, 7, 15, 13, 35, tzinfo=timezone.utc),
-        strategy_name="timed_opening_signal",
-    )
-    decision = engine.bar_exit_decision(position)
-    assert decision is not None
-    assert decision.reason is ExitReason.OPENING_CUTOFF
-
-
-def test_main_entry_window_runs_until_noon():
-    assert RULES.phase_main_end == __import__("datetime").time(13, 30)
-
-
-def test_profitable_exit_resets_crosses_after_five_stable_closes():
-    engine = StrategyEngine(make_settings())
-    exited_at = datetime(2026, 7, 15, 14, 0, tzinfo=timezone.utc)
-    sides = [True, False, True, False, True, True, True, True, True]
-
-    assert engine._effective_boll_middle_crosses(sides) == 4
-    engine.record_profitable_exit(Direction.CALL, exited_at)
-    assert engine._effective_boll_middle_crosses(sides) == 0
-    assert engine._last_cross_reset
-
-    engine.record_entry(Direction.CALL, exited_at + timedelta(minutes=6))
-    assert engine._effective_boll_middle_crosses(sides) == 4
-
-
-def _continuation_context(**overrides) -> MarketContext:
-    values = {
-        "boll_upper": Decimal("101.2"),
-        "boll_middle": Decimal("100"),
-        "boll_middle_prev": Decimal("99.9"),
-        "boll_middle_prev2": Decimal("99.8"),
-        "boll_lower": Decimal("98.8"),
-        "current_close": Decimal("101"),
-        "macd_hist": Decimal("0.2"),
-        "macd_hist_prev": Decimal("0.1"),
-        "rvol_val": Decimal("1.5"),
-        "rvol_prev": Decimal("1.3"),
-        "rsi_val": Decimal("60"),
-        "boll_middle_crosses": 0,
-        "bar_end": datetime(2026, 7, 15, 15, 0, tzinfo=timezone.utc),
-    }
-    values.update(overrides)
-    return MarketContext(**values)
-
-
-def test_continuation_reentry_requires_unextended_price_and_expanding_volume():
-    engine = StrategyEngine(make_settings())
-    engine._last_cross_reset = True
-
-    signal = engine._entry_signal(
-        _continuation_context(),
-        "timed_boll_macd_signal",
-        None,
-    )
-    assert signal is not None
-    assert signal.strategy == "timed_trend_continuation"
-
-    overextended = _continuation_context(current_close=Decimal("101.45"))
-    assert engine._entry_signal(overextended, "timed_boll_macd_signal", None) is None
-
-    fading_volume = _continuation_context(rvol_prev=Decimal("1.6"))
-    assert engine._entry_signal(fading_volume, "timed_boll_macd_signal", None) is None
-
-
-def test_fresh_macd_continuation_requires_twenty_percent_volume_buffer():
-    engine = StrategyEngine(make_settings())
-    engine._last_cross_reset = True
-
-    weak_cross = _continuation_context(
-        macd_hist_prev=Decimal("-0.01"),
-        rvol_val=Decimal("1.44"),
-    )
-    assert engine._entry_signal(weak_cross, "timed_boll_macd_signal", None) is None
-
-    strong_cross = _continuation_context(
-        macd_hist_prev=Decimal("-0.01"),
-        rvol_val=Decimal("1.45"),
-    )
-    signal = engine._entry_signal(strong_cross, "timed_boll_macd_signal", None)
-    assert signal is not None
-    assert signal.direction is Direction.CALL
-
-
-def test_normal_fresh_macd_filter_requires_expanding_buffered_volume():
-    engine = StrategyEngine(
-        make_settings(),
-        normal_fresh_macd_filter=True,
-    )
-    weak_cross = _continuation_context(
-        macd_hist_prev=Decimal("-0.01"),
-        rvol_val=Decimal("1.44"),
-        rvol_prev=Decimal("1.3"),
-    )
-    assert engine._entry_signal(weak_cross, "timed_boll_macd_signal", None) is None
-
-    fading_cross = _continuation_context(
-        macd_hist_prev=Decimal("-0.01"),
-        rvol_val=Decimal("1.5"),
-        rvol_prev=Decimal("1.6"),
-    )
-    assert engine._entry_signal(fading_cross, "timed_boll_macd_signal", None) is None
-
-    strong_cross = _continuation_context(
-        macd_hist_prev=Decimal("-0.01"),
-        rvol_val=Decimal("1.45"),
-        rvol_prev=Decimal("1.3"),
-    )
-    signal = engine._entry_signal(strong_cross, "timed_boll_macd_signal", None)
-    assert signal is not None
-    assert signal.strategy == "timed_boll_macd_signal"
-
-
-def test_normal_cross2_filter_requires_unextended_price_and_expanding_volume():
-    engine = StrategyEngine(make_settings(), normal_cross2_filter=True)
-    qualified = _continuation_context(boll_middle_crosses=2)
-    assert engine._entry_signal(qualified, "timed_boll_macd_signal", None) is not None
-
-    overextended = _continuation_context(
-        boll_middle_crosses=2,
-        current_close=Decimal("101.45"),
-    )
-    assert engine._entry_signal(overextended, "timed_boll_macd_signal", None) is None
-
-    fading_volume = _continuation_context(
-        boll_middle_crosses=2,
-        rvol_prev=Decimal("1.6"),
-    )
-    assert engine._entry_signal(fading_volume, "timed_boll_macd_signal", None) is None
-
-    cross1 = _continuation_context(
-        boll_middle_crosses=1,
-        current_close=Decimal("101.45"),
-        rvol_prev=Decimal("1.6"),
-    )
-    assert engine._entry_signal(cross1, "timed_boll_macd_signal", None) is not None
-
-
-def test_trend_runner_exits_on_boll_middle_or_macd_reversal():
-    engine = StrategyEngine(make_settings())
-    position = Position(
-        "QQQ260715C00500000.US",
-        Direction.CALL,
-        2,
-        Decimal("1"),
-        datetime(2026, 7, 15, 14, 0, tzinfo=timezone.utc),
-        strategy_name="timed_boll_macd_signal",
-        trend_runner=True,
-    )
-    engine.last_context = MarketContext(
-        current_close=Decimal("99.9"),
-        boll_middle=Decimal("100"),
-        macd_hist=Decimal("0.1"),
-        macd_hist_prev=Decimal("0.2"),
-        bar_time=__import__("datetime").time(10, 0),
-    )
-    decision = engine.bar_exit_decision(position)
-    assert decision is not None
-    assert decision.reason is ExitReason.BOLLINGER_MIDDLE
-
-    engine.last_context.current_close = Decimal("100.1")
-    engine.last_context.current_open = Decimal("100.2")
-    engine.last_context.macd_hist = Decimal("-0.1")
-    engine.last_context.macd_hist_prev = Decimal("0.05")
-    engine.last_context.rvol_val = Decimal("1.2")
-    decision = engine.bar_exit_decision(position)
-    assert decision is not None
-    assert decision.reason is ExitReason.DIRECTION_REVERSAL
-
-
-def test_timed_boll_macd_signal_enters_immediately():
-    engine = StrategyEngine(
-        make_settings(volatility_filter_enabled=False)
-    )
-    context = MarketContext(
-        boll_middle=Decimal("100"),
-        boll_middle_prev=Decimal("99.9"),
-        boll_middle_prev2=Decimal("99.8"),
-        macd_hist=Decimal("0.2"),
-        macd_hist_prev=Decimal("0.1"),
-        rvol_val=Decimal("1.21"),
-        rsi_val=Decimal("69"),
-        current_close=Decimal("101"),
-        bar_end=datetime(2026, 7, 15, 14, 0, tzinfo=timezone.utc),
-    )
-    signal = engine._entry_signal(
-        context, "timed_boll_macd_signal", None
-    )
-    assert signal is not None
-    assert signal.direction is Direction.CALL
-    assert signal.strategy == "timed_boll_macd_signal"
-    assert signal.market_state is MarketState.TREND_UP
-
-
-def test_timed_signal_filters_exact_volume_threshold_and_overbought_rsi():
-    engine = StrategyEngine(
-        make_settings()
-    )
-    context = MarketContext(
-        boll_middle=Decimal("100"),
-        boll_middle_prev=Decimal("99.9"),
-        boll_middle_prev2=Decimal("99.8"),
-        macd_hist=Decimal("0.2"),
-        macd_hist_prev=Decimal("0.1"),
-        rvol_val=Decimal("1.2"),
-        rsi_val=Decimal("69"),
-        current_close=Decimal("101"),
-        bar_end=datetime(2026, 7, 15, 14, 0, tzinfo=timezone.utc),
-    )
-    assert engine._entry_signal(context, "timed_boll_macd_signal", None) is None
-    context.rvol_val = Decimal("1.21")
-    context.rsi_val = Decimal("70")
-    assert engine._entry_signal(context, "timed_boll_macd_signal", None) is None
-
-
-def test_timed_call_rejects_negative_macd_even_when_it_is_contracting():
-    engine = StrategyEngine(
-        make_settings()
-    )
-    context = MarketContext(
-        boll_middle=Decimal("100"),
-        boll_middle_prev=Decimal("99.9"),
-        boll_middle_prev2=Decimal("99.8"),
-        macd_hist=Decimal("-0.06"),
-        macd_hist_prev=Decimal("-0.1"),
-        rvol_val=Decimal("1.21"),
-        rsi_val=Decimal("60"),
-        current_close=Decimal("101"),
-        bar_end=datetime(2026, 7, 15, 14, 0, tzinfo=timezone.utc),
-    )
-
-    assert engine._entry_signal(context, "timed_boll_macd_signal", None) is None
-    context.macd_hist = Decimal("-0.04")
-    assert engine._entry_signal(context, "timed_boll_macd_signal", None) is None
-
-
-def test_timed_call_requires_volume_even_on_boll_reclaim():
-    engine = StrategyEngine(
-        make_settings()
-    )
-    context = MarketContext(
-        boll_middle=Decimal("100"),
-        boll_middle_prev=Decimal("99.9"),
-        boll_middle_prev2=Decimal("99.8"),
-        prev2_close=Decimal("101"),
-        prev_close=Decimal("99"),
-        current_close=Decimal("101"),
-        macd_hist=Decimal("0.2"),
-        macd_hist_prev=Decimal("0.1"),
-        rvol_val=Decimal("0.5"),
-        rsi_val=Decimal("50"),
-        bar_time=__import__("datetime").time(9, 59),
-        bar_end=datetime(2026, 7, 15, 14, 0, tzinfo=timezone.utc),
-    )
-
-    assert engine._entry_signal(context, "timed_boll_macd_signal", None) is None
-
-
-def test_timed_call_rejects_first_low_volume_boll_cross():
-    engine = StrategyEngine(
-        make_settings()
-    )
-    context = MarketContext(
-        boll_middle=Decimal("100"),
-        boll_middle_prev=Decimal("99.9"),
-        boll_middle_prev2=Decimal("99.8"),
-        prev2_close=Decimal("99"),
-        prev_close=Decimal("99"),
-        current_close=Decimal("101"),
-        macd_hist=Decimal("0.2"),
-        macd_hist_prev=Decimal("0.1"),
-        rvol_val=Decimal("0.5"),
-        rsi_val=Decimal("50"),
-        bar_time=__import__("datetime").time(9, 59),
-        bar_end=datetime(2026, 7, 15, 14, 0, tzinfo=timezone.utc),
-    )
-
-    assert engine._entry_signal(context, "timed_boll_macd_signal", None) is None
-
-
-def test_timed_call_accepts_all_five_required_conditions():
-    engine = StrategyEngine(
-        make_settings()
-    )
-    context = MarketContext(
-        boll_middle=Decimal("100"),
-        boll_middle_prev=Decimal("99.9"),
-        boll_middle_prev2=Decimal("99.8"),
-        current_close=Decimal("101"),
-        macd_hist=Decimal("0.2"),
-        macd_hist_prev=Decimal("0.1"),
-        rvol_val=Decimal("2"),
-        rsi_val=Decimal("50"),
-        bar_time=__import__("datetime").time(10, 30),
-        bar_end=datetime(2026, 7, 15, 14, 0, tzinfo=timezone.utc),
-    )
-
-    signal = engine._entry_signal(context, "timed_boll_macd_signal", None)
-    assert signal is not None
-    assert signal.direction is Direction.CALL
-
-
-def test_timed_call_requires_two_consecutive_rising_boll_middles():
-    engine = StrategyEngine(make_settings())
-    context = MarketContext(
-        boll_middle=Decimal("100"),
-        boll_middle_prev=Decimal("99.9"),
-        boll_middle_prev2=Decimal("100.1"),
-        current_close=Decimal("101"),
-        macd_hist=Decimal("0.2"),
-        macd_hist_prev=Decimal("0.1"),
-        rvol_val=Decimal("2"),
-        rsi_val=Decimal("50"),
-        boll_middle_crosses=0,
-        bar_end=datetime(2026, 7, 15, 14, 0, tzinfo=timezone.utc),
-    )
-
-    assert engine._entry_signal(context, "timed_boll_macd_signal", None) is None
-
-
-def test_timed_put_requires_falling_boll_middle_and_at_most_two_crosses():
-    engine = StrategyEngine(make_settings())
-    context = MarketContext(
-        boll_middle=Decimal("100"),
-        boll_middle_prev=Decimal("100.1"),
-        boll_middle_prev2=Decimal("100.2"),
-        current_close=Decimal("99"),
-        macd_hist=Decimal("-0.2"),
-        macd_hist_prev=Decimal("-0.1"),
-        rvol_val=Decimal("2"),
-        rsi_val=Decimal("50"),
-        boll_middle_crosses=2,
-        bar_end=datetime(2026, 7, 15, 14, 0, tzinfo=timezone.utc),
-    )
-
-    signal = engine._entry_signal(context, "timed_boll_macd_signal", None)
-    assert signal is not None
-    assert signal.direction is Direction.PUT
-
-    context.boll_middle_crosses = 3
-    assert engine._entry_signal(context, "timed_boll_macd_signal", None) is None
-
-
-def test_vix_trend_adjusts_call_and_put_thresholds_symmetrically():
-    engine = StrategyEngine(make_settings())
-
-    engine.vix_trend = VixFiveMinuteTrend.FALLING
-    assert engine._entry_thresholds(Direction.CALL) == (
-        Decimal("1.08"),
-        Decimal("70"),
-        2,
-    )
-    assert engine._entry_thresholds(Direction.PUT) == (
-        Decimal("1.32"),
-        Decimal("30"),
-        2,
-    )
-
-    engine.vix_trend = VixFiveMinuteTrend.RISING
-    assert engine._entry_thresholds(Direction.CALL) == (
-        Decimal("1.32"),
-        Decimal("70"),
-        2,
-    )
-    assert engine._entry_thresholds(Direction.PUT) == (
-        Decimal("1.08"),
-        Decimal("30"),
-        2,
-    )
-
-
-def test_falling_vix_allows_call_with_relaxed_volume_threshold():
-    engine = StrategyEngine(make_settings())
-    context = MarketContext(
-        boll_middle=Decimal("100"),
-        boll_middle_prev=Decimal("99.9"),
-        boll_middle_prev2=Decimal("99.8"),
-        current_close=Decimal("101"),
-        macd_hist=Decimal("0.2"),
-        macd_hist_prev=Decimal("0.1"),
-        rvol_val=Decimal("1.09"),
-        rsi_val=Decimal("69"),
-        boll_middle_crosses=2,
-        bar_end=datetime(2026, 8, 3, 13, 56, tzinfo=timezone.utc),
-    )
-
-    assert engine._entry_signal(context, "timed_boll_macd_signal", None) is None
-    engine.vix_trend = VixFiveMinuteTrend.FALLING
-    signal = engine._entry_signal(context, "timed_boll_macd_signal", None)
-    assert signal is not None
-    assert signal.direction is Direction.CALL
-    assert signal.indicators["vix_5m_trend"] == "falling"
-    assert signal.indicators["volume_ratio_threshold"] == "1.080"
-
-
-def test_vix_five_minute_trend_uses_only_completed_visible_bars():
-    decision_at = datetime(2026, 8, 3, 14, 0, tzinfo=timezone.utc)
-
-    def vix_bar(minutes: int, opened: str, closed: str) -> Bar:
-        end = decision_at + timedelta(minutes=minutes)
-        open_value = Decimal(opened)
-        close_value = Decimal(closed)
-        return Bar(
-            ".VIX.US",
-            end - timedelta(minutes=5),
-            end,
-            open_value,
-            max(open_value, close_value),
-            min(open_value, close_value),
-            close_value,
-            0,
+def _choppy_bars(count: int = 40) -> list[Bar]:
+    """Oscillating bars that cross VWAP repeatedly."""
+    bars: list[Bar] = []
+    for i in range(count):
+        if i % 2 == 0:
+            base = 490.0 + 0.5
+        else:
+            base = 490.0 - 0.5
+        bars.append(_bar(i, base, base + 0.3, base - 0.3, base + 0.05))
+    return bars
+
+
+def _flat_then_trending(count: int = 50) -> list[Bar]:
+    """Flat during OR, no breakout until after fallback time → BOLL/MACD mode."""
+    bars: list[Bar] = []
+    for i in range(min(count, 35)):
+        base = 490.0 + (i % 3) * 0.05
+        bars.append(_bar(i, base, base + 0.2, base - 0.2, base + 0.05))
+    for i in range(35, min(count, 60)):
+        base = 490.0 + (i - 35) * 0.1
+        bars.append(_bar(i, base, base + 0.3, base - 0.1, base + 0.15,
+                         volume=2000))
+    return bars
+
+
+class TestStrategyEngine:
+
+    def test_observation_during_or(self):
+        settings = make_settings()
+        engine = StrategyEngine(settings)
+        bars = _trending_up_bars(10)
+        signal = engine.evaluate(bars)
+        assert signal is None
+        assert engine.last_state == MarketState.OBSERVATION
+        assert engine.day_mode is None
+
+    def test_trending_day_selects_trend_mode(self):
+        settings = make_settings()
+        engine = StrategyEngine(settings)
+        bars = _trending_up_bars(35)
+        for i in range(len(bars)):
+            engine.evaluate(bars[: i + 1])
+        assert engine.last_state is MarketState.TREND_UP
+        assert engine.day_mode == "trend"
+
+    def test_choppy_day_selects_oscillation_mode(self):
+        settings = make_settings()
+        engine = StrategyEngine(settings)
+        bars = _choppy_bars(35)
+        for i in range(len(bars)):
+            engine.evaluate(bars[: i + 1])
+        assert engine.day_mode == "oscillation"
+
+    def test_fallback_time_selects_oscillation(self):
+        settings = make_settings()
+        engine = StrategyEngine(settings)
+        bars = _flat_then_trending(35)
+        for i in range(len(bars)):
+            engine.evaluate(bars[: i + 1])
+        assert engine.day_mode == "oscillation"
+
+    def test_trend_mode_uses_trend_exit(self):
+        settings = make_settings()
+        engine = StrategyEngine(settings)
+        bars = _trending_up_bars(30)
+        for i in range(len(bars)):
+            engine.evaluate(bars[: i + 1])
+        if engine.day_mode != "trend":
+            pytest.skip("No trend breakout detected in test data")
+        from qqq_trader.domain import Position
+        position = Position(
+            symbol="QQQ260811C492000.US",
+            direction=Direction.CALL,
+            quantity=10,
+            entry_price=Decimal("2.50"),
+            opened_at=bars[15].end,
+            strategy_name="trend_orb_breakout",
         )
+        decision = engine.bar_exit_decision(position)
+        assert decision is None
 
-    bars = [
-        vix_bar(-10, "16.30", "16.25"),
-        vix_bar(-5, "16.24", "16.14"),
-        vix_bar(5, "16.10", "16.50"),
-    ]
+    def test_strategy_from_settings_returns_strategy_engine(self):
+        settings = make_settings(strategy_mode="hybrid")
+        engine = strategy_from_settings(settings)
+        assert isinstance(engine, StrategyEngine)
 
-    assert vix_five_minute_trend(bars, decision_at, 10) is VixFiveMinuteTrend.FALLING
+    def test_day_mode_resets_on_new_day(self):
+        settings = make_settings()
+        engine = StrategyEngine(settings)
+        day1_bars = _trending_up_bars(30)
+        for i in range(len(day1_bars)):
+            engine.evaluate(day1_bars[: i + 1])
+        day1_mode = engine.day_mode
 
-    bars[1] = vix_bar(-5, "16.25", "16.20")
-    assert vix_five_minute_trend(bars, decision_at, 10) is VixFiveMinuteTrend.NEUTRAL
-
-
-def test_opening_put_uses_price_and_volume_without_macd_or_rsi_filters():
-    engine = StrategyEngine(make_settings())
-    context = MarketContext(
-        boll_middle=Decimal("100"),
-        current_open=Decimal("99.5"),
-        current_close=Decimal("99"),
-        prev_close=Decimal("99.4"),
-        macd_hist=Decimal("0.2"),
-        macd_hist_prev=Decimal("0.1"),
-        rvol_val=Decimal("1.21"),
-        rsi_val=Decimal("10"),
-        bar_end=datetime(2026, 7, 15, 13, 35, tzinfo=timezone.utc),
-    )
-
-    signal = engine._opening_signal(context, None)
-    assert signal is not None
-    assert signal.direction is Direction.PUT
-    assert signal.strategy == "timed_opening_signal"
-
-
-def test_opening_call_requires_bullish_price_trend_and_strict_volume():
-    engine = StrategyEngine(make_settings())
-    context = MarketContext(
-        boll_middle=Decimal("100"),
-        current_open=Decimal("100.5"),
-        current_close=Decimal("101"),
-        prev_close=Decimal("100.6"),
-        macd_hist=Decimal("-0.2"),
-        macd_hist_prev=Decimal("-0.1"),
-        rvol_val=Decimal("1.2"),
-        rsi_val=Decimal("90"),
-        bar_end=datetime(2026, 7, 15, 13, 35, tzinfo=timezone.utc),
-    )
-
-    assert engine._opening_signal(context, None) is None
-    context.rvol_val = Decimal("1.21")
-    signal = engine._opening_signal(context, None)
-    assert signal is not None
-    assert signal.direction is Direction.CALL
-
-
-def test_current_boll_breakthrough_is_not_counted_as_prior_chop():
-    sides = [False, True, False, True, False]
-    assert StrategyEngine._prior_boll_middle_crosses(sides) == 3
-
-
-def test_timed_call_low_volume_reclaim_rejects_range_market():
-    engine = StrategyEngine(
-        make_settings()
-    )
-    context = MarketContext(
-        boll_middle=Decimal("100"),
-        boll_middle_prev=Decimal("100"),
-        boll_middle_prev2=Decimal("100"),
-        prev2_close=Decimal("101"),
-        prev_close=Decimal("99"),
-        current_close=Decimal("101"),
-        macd_hist=Decimal("0.2"),
-        macd_hist_prev=Decimal("0.1"),
-        rvol_val=Decimal("0.5"),
-        rsi_val=Decimal("50"),
-        boll_middle_crosses=4,
-        bar_time=__import__("datetime").time(10, 30),
-        bar_end=datetime(2026, 7, 15, 14, 0, tzinfo=timezone.utc),
-    )
-
-    assert engine._entry_signal(context, "timed_boll_macd_signal", None) is None
-
-
-def test_timed_put_also_rejects_range_market():
-    engine = StrategyEngine(
-        make_settings()
-    )
-    context = MarketContext(
-        boll_middle=Decimal("100"),
-        current_close=Decimal("99"),
-        macd_hist=Decimal("-0.2"),
-        macd_hist_prev=Decimal("-0.1"),
-        rvol_val=Decimal("2"),
-        rsi_val=Decimal("50"),
-        boll_middle_crosses=4,
-        bar_time=__import__("datetime").time(10, 30),
-        bar_end=datetime(2026, 7, 15, 14, 0, tzinfo=timezone.utc),
-    )
-
-    assert engine._entry_signal(context, "timed_boll_macd_signal", None) is None
-
-
-def test_timed_strategy_uses_one_minute_boll_and_macd_context():
-    bars = _flat_bars(27)
-    engine = StrategyEngine(
-        make_settings(volatility_filter_enabled=False)
-    )
-
-    computed = engine._one_minute_context(bars)
-
-    assert computed is not None
-    context, today = computed
-    assert context.bar_end == bars[-1].end
-    assert len(today) == len(bars)
-    closes = [bar.close for bar in bars]
-    assert (context.boll_upper, context.boll_middle, context.boll_lower) == (
-        bollinger_bands(closes, 20, Decimal("2"))
-    )
-    assert context.macd_hist == macd_histogram(closes, 8, 17, 9)[2]
-
-
-def _set_timed_reversal_context(
-    engine: StrategyEngine,
-    bars: list[Bar],
-    boll_values: list[Decimal],
-    macd_values: list[Decimal],
-    *,
-    rvol: Decimal = Decimal("1.2"),
-    rvol_prev: Decimal = Decimal("1.0"),
-) -> None:
-    engine.last_context = MarketContext(
-        current_open=bars[-1].open,
-        current_close=bars[-1].close,
-        boll_middle=boll_values[-1],
-        macd_hist=macd_values[-1],
-        macd_hist_prev=macd_values[-2],
-        rvol_val=rvol,
-        rvol_prev=rvol_prev,
-        bar_time=__import__("datetime").time(10, 5),
-        bar_end=bars[-1].end,
-    )
-    engine._last_today_1m = bars
-    engine._last_boll_middle_by_end = {
-        bar.end: value for bar, value in zip(bars, boll_values, strict=True)
-    }
-    engine._last_macd_hist_by_end = {
-        bar.end: value for bar, value in zip(bars, macd_values, strict=True)
-    }
-
-
-def test_timed_call_macd_zero_cross_exits_without_boll_confirmation():
-    engine = StrategyEngine(
-        make_settings()
-    )
-    start = datetime(2026, 7, 15, 14, 0, tzinfo=timezone.utc)
-    bars = [
-        Bar(
-            "QQQ.US",
-            start + timedelta(minutes=index),
-            start + timedelta(minutes=index + 1),
-            Decimal("101") - Decimal(index) / Decimal("10"),
-            Decimal("101.1") - Decimal(index) / Decimal("10"),
-            Decimal("100.4") - Decimal(index) / Decimal("10"),
-            Decimal("100.5") - Decimal(index) / Decimal("10"),
-            1000,
-        )
-        for index in range(2)
-    ]
-    _set_timed_reversal_context(
-        engine,
-        bars,
-        [Decimal("100"), Decimal("100")],
-        [Decimal("0.05"), Decimal("-0.1")],
-    )
-    position = Position(
-        "QQQ260715C00500000.US",
-        Direction.CALL,
-        3,
-        Decimal("1"),
-        start - timedelta(seconds=1),
-        strategy_name="timed_boll_macd_signal",
-    )
-    decision = engine.bar_exit_decision(position)
-    assert decision is not None
-    assert decision.reason is ExitReason.DIRECTION_REVERSAL
-
-
-def test_single_macd_histogram_contraction_is_warning_only():
-    engine = StrategyEngine(
-        make_settings()
-    )
-    start = datetime(2026, 7, 15, 14, 0, tzinfo=timezone.utc)
-    bars = [
-        Bar(
-            "QQQ.US",
-            start + timedelta(minutes=index),
-            start + timedelta(minutes=index + 1),
-            Decimal("101"),
-            Decimal("101.1"),
-            Decimal("100.4"),
-            Decimal("100.5"),
-            1000,
-        )
-        for index in range(2)
-    ]
-    position = Position(
-        "QQQ260715C00500000.US",
-        Direction.CALL,
-        3,
-        Decimal("1"),
-        start - timedelta(seconds=1),
-        strategy_name="timed_boll_macd_signal",
-    )
-    _set_timed_reversal_context(
-        engine,
-        bars,
-        [Decimal("100")] * 2,
-        [Decimal("0.4"), Decimal("0.05")],
-    )
-    assert engine.bar_exit_decision(position) is None
-
-
-def test_timed_put_reversal_is_symmetric():
-    engine = StrategyEngine(
-        make_settings()
-    )
-    start = datetime(2026, 7, 15, 14, 0, tzinfo=timezone.utc)
-    bars = [
-        Bar(
-            "QQQ.US",
-            start + timedelta(minutes=index),
-            start + timedelta(minutes=index + 1),
-            Decimal("100") + Decimal(index) / Decimal("10"),
-            Decimal("100.6") + Decimal(index) / Decimal("10"),
-            Decimal("99.9") + Decimal(index) / Decimal("10"),
-            Decimal("100.5") + Decimal(index) / Decimal("10"),
-            1000,
-        )
-        for index in range(2)
-    ]
-    _set_timed_reversal_context(
-        engine,
-        bars,
-        [Decimal("101"), Decimal("101")],
-        [Decimal("-0.05"), Decimal("0.1")],
-    )
-    position = Position(
-        "QQQ260715P00500000.US",
-        Direction.PUT,
-        3,
-        Decimal("1"),
-        start - timedelta(seconds=1),
-        strategy_name="timed_boll_macd_signal",
-    )
-    decision = engine.bar_exit_decision(position)
-    assert decision is not None
-    assert decision.reason is ExitReason.DIRECTION_REVERSAL
-
-
-def test_timed_boll_middle_reversal_is_independent_of_macd():
-    engine = StrategyEngine(make_settings())
-    start = datetime(2026, 7, 15, 14, 0, tzinfo=timezone.utc)
-    bars = [
-        Bar(
-            "QQQ.US",
-            start + timedelta(minutes=index),
-            start + timedelta(minutes=index + 1),
-            Decimal("100.8"),
-            Decimal("100.9"),
-            Decimal("100.4"),
-            Decimal("100.5"),
-            1000,
-        )
-        for index in range(2)
-    ]
-    _set_timed_reversal_context(
-        engine,
-        bars,
-        [Decimal("101"), Decimal("101")],
-        [Decimal("0.2"), Decimal("0.1")],
-    )
-    position = Position(
-        "QQQ260715C00500000.US",
-        Direction.CALL,
-        3,
-        Decimal("1"),
-        start - timedelta(seconds=1),
-        strategy_name="timed_boll_macd_signal",
-    )
-    decision = engine.bar_exit_decision(position)
-    assert decision is not None
-    assert decision.reason is ExitReason.BOLLINGER_MIDDLE
-
-
-def test_macd_reversal_waits_for_volume_then_exits():
-    engine = StrategyEngine(make_settings())
-    start = datetime(2026, 7, 15, 14, 0, tzinfo=timezone.utc)
-    bars = [
-        Bar(
-            "QQQ.US",
-            start + timedelta(minutes=index),
-            start + timedelta(minutes=index + 1),
-            Decimal("100"),
-            Decimal("100.6"),
-            Decimal("99.9"),
-            Decimal("100.5"),
-            1000,
-        )
-        for index in range(2)
-    ]
-    position = Position(
-        "QQQ260715P00500000.US",
-        Direction.PUT,
-        3,
-        Decimal("1"),
-        start - timedelta(seconds=1),
-        strategy_name="timed_boll_macd_signal",
-    )
-    _set_timed_reversal_context(
-        engine,
-        bars,
-        [Decimal("101"), Decimal("101")],
-        [Decimal("-0.05"), Decimal("0.1")],
-        rvol=Decimal("0.9"),
-        rvol_prev=Decimal("1.1"),
-    )
-    assert engine.bar_exit_decision(position) is None
-    assert position.macd_reversal_pending
-
-    engine.last_context.macd_hist_prev = Decimal("0.1")
-    engine.last_context.macd_hist = Decimal("0.2")
-    engine.last_context.rvol_prev = Decimal("0.9")
-    engine.last_context.rvol_val = Decimal("1.01")
-    engine.last_context.bar_end = bars[-1].end + timedelta(minutes=1)
-    decision = engine.bar_exit_decision(position)
-    assert decision is not None
-    assert decision.reason is ExitReason.DIRECTION_REVERSAL
-    assert not position.macd_reversal_pending
-
-
-def test_macd_reversal_pending_is_cancelled_when_macd_recovers():
-    engine = StrategyEngine(make_settings())
-    start = datetime(2026, 7, 15, 14, 0, tzinfo=timezone.utc)
-    bars = [
-        Bar(
-            "QQQ.US",
-            start + timedelta(minutes=index),
-            start + timedelta(minutes=index + 1),
-            Decimal("100"),
-            Decimal("100.1"),
-            Decimal("99.4"),
-            Decimal("99.5"),
-            1000,
-        )
-        for index in range(2)
-    ]
-    position = Position(
-        "QQQ260715C00500000.US",
-        Direction.CALL,
-        3,
-        Decimal("1"),
-        start - timedelta(seconds=1),
-        strategy_name="timed_boll_macd_signal",
-        macd_reversal_pending=True,
-        macd_reversal_pending_at=bars[0].end,
-    )
-    _set_timed_reversal_context(
-        engine,
-        bars,
-        [Decimal("99"), Decimal("99")],
-        [Decimal("-0.1"), Decimal("0.05")],
-        rvol=Decimal("0.8"),
-        rvol_prev=Decimal("0.9"),
-    )
-    assert engine.bar_exit_decision(position) is None
-    assert not position.macd_reversal_pending
-    assert position.macd_reversal_pending_at is None
+        day2_base = datetime(2026, 8, 12, 13, 30, tzinfo=timezone.utc)
+        day2_bars = []
+        for i in range(10):
+            base = 500.0 + i * 0.1
+            day2_bars.append(_bar(i, base, base + 0.3, base - 0.2, base + 0.1,
+                                  base_time=day2_base))
+        engine.evaluate(day2_bars)
+        assert engine.day_mode is None

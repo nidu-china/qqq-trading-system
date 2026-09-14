@@ -113,7 +113,7 @@ class StrategyRules:
     # Hybrid strategy: fallback to BOLL/MACD if no ORB breakout by this time
     hybrid_fallback_time: time = time(10, 1)
 
-    # ── HybridEngine regime classification ────────────────────────────────────
+    # ── StrategyEngine regime classification ──────────────────────────────────
     # Trend regime: 7 votes (EMA×3 + MACD×2 + close + RSI)
     regime_trend_call_rsi_min: Decimal = Decimal("60")
     regime_trend_put_rsi_max: Decimal = Decimal("40")

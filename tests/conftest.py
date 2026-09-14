@@ -11,7 +11,7 @@ from qqq_trader.domain import Bar
 _TRADING_DEFAULTS = {
     # 应用与运行模式
     "trading_mode": "paper",
-    "strategy_mode": "trend",
+    "strategy_mode": "hybrid",
     "paper_starting_equity": "10000",
     "account_id": "",
     "underlying_symbol": "QQQ.US",
@@ -107,7 +107,7 @@ def make_settings(**overrides) -> Settings:
 
 @pytest.fixture
 def bullish_bars() -> list[Bar]:
-    """Completed QQQ 1-min bars that trigger the new StrategyEngine.
+    """Completed QQQ 1-min bars that trigger StrategyEngine.
 
     50 bars spanning 9:30-10:20 ET (13:30-14:20 UTC).
     Pattern:

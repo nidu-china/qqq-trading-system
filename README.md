@@ -1,9 +1,7 @@
 # QQQ 0DTE 交易系统
 
-基于 QQQ 已收盘 K 线的状态机交易系统。支持三种策略模式：
-`trend`（Opening Range Breakout 趋势跟踪）、`boll_macd`（分时 BOLL/MACD 做 T）
-和 `hybrid`（自动切换），通过 `.env` 中 `STRATEGY_MODE` 选择。
-Paper、Live 和 Replay 共用同一套策略、VIX 过滤、选约和风控逻辑，详见
+基于 QQQ 已收盘 K 线的状态机交易系统。实盘、Paper 和回测只运行
+**Hybrid**（制度自适应：趋势跟随 + 均值回归）。VIX 过滤、选约和风控逻辑共用，详见
 [STRATEGY.md](STRATEGY.md)。
 
 > 0DTE 期权风险极高。本项目不构成投资建议。首次部署必须使用 Paper 模式验证数据、时区、成交与恢复行为。
@@ -13,28 +11,17 @@ Paper、Live 和 Replay 共用同一套策略、VIX 过滤、选约和风控逻�
 所有策略只使用已收盘的 1 分钟常规交易时段 K 线。信号 K 线收盘后立即执行，
 不等待下一根确认线；信号有效期 60 秒。
 
-### Trend ORB（`STRATEGY_MODE=trend`）
+### Hybrid
 
-- 09:30–09:40 ET：构建开盘区间（OR），不开仓。
-- 09:40–11:30 ET：检测 OR 突破 + EMA/VWAP 对齐，可入场；每日限 1 个方向。
-- 11:30–13:55 ET：不再生成新信号，管理已有仓位。
+- 09:30–09:40 ET：收集 Opening Range，不开仓。
+- 09:40–13:30 ET：按 TREND / RANGE / UNKNOWN 调度信号（VWAP 回撤、OR 回归、假突破陷阱等）。
+- 12:00 后：新信号评分门槛提高到 ≥7。
 - 13:55 ET：强制清空全部仓位。
-- 入场指标：EMA(9)、EMA(21)、VWAP。
-
-### BOLL/MACD（`STRATEGY_MODE=boll_macd`）
-
-- 09:30–09:35 ET：指标预热，绝对不开仓。
-- 09:35–09:45 ET：开盘爆量策略，独立的 BOLL/价格/成交量信号。
-- 09:45–09:55 ET：不再开仓，09:45 清空开盘仓位。
-- 10:00–12:00 ET：主时段 BOLL/MACD 信号。
-- 12:00–13:55 ET：不再开新仓，管理已有趋势底仓至反转或 13:55。
-- 13:55 ET：强制清空全部仓位。
-- 入场指标：BOLL(20,2)、MACD(8,17,9)、RSI(14)、20 根均量。
+- 入场指标：EMA(9/21)、双 MACD、BOLL、RSI、VWAP、OR。
 
 ### 共用规则
 
 - VIX：NORMAL 双向、RISK_OFF 仅 Put、RECOVERY 仅 Call、SHOCK 禁止开仓；数据不可用时记录警告并放行。
-- VIX 最近 5 分钟趋势会把顺势方向量比门槛降低 10%，逆势方向提高 10%（仅 BOLL/MACD）。
 
 固定风控：
 
@@ -308,7 +295,7 @@ sudo systemctl restart qqq-trader  # 重启
 ```dotenv
 # 必填 —— 交易模式与账户
 TRADING_MODE=paper          # paper / live
-STRATEGY_MODE=trend         # trend / boll_macd / hybrid
+STRATEGY_MODE=hybrid        # 固定 Hybrid，其它模式已下线
 ACCOUNT_ID=你的账户ID
 
 # 必填 —— API 监听地址（Linux 部署务必设为 0.0.0.0）
@@ -337,10 +324,10 @@ docker compose up --build
 | 美东时间 (ET) | 北京时间 (BJT) | 说明 |
 |---|---|---|
 | 09:30 开盘 | 21:30 | |
-| 09:40 | 21:40 | Trend ORB：OR 构建结束，开始检测突破 |
-| 11:30 | 23:30 | Trend ORB：停止新开仓 |
-| 12:00 | 00:00 | BOLL/MACD：停止新开仓 |
-| 13:55 强制平仓 | 次日 01:55 | 所有策略 |
+| 09:40 | 21:40 | Hybrid：OR 构建结束，开始检测入场 |
+| 12:00 | 00:00 | Hybrid：新信号评分门槛提高到 7 |
+| 13:30 | 次日 01:30 | Hybrid：停止新开仓 |
+| 13:55 强制平仓 | 次日 01:55 | 强制清仓 |
 | 16:00 收盘 | 次日 04:00 | |
 | 16:15 生成日报 | 次日 04:15 | |
 
@@ -356,7 +343,7 @@ ACCOUNT_ID=你的账户ID
 所有交易参数**必须**在 `.env` 中显式配置，没有隐含默认值。参考 `.env.example` 获取完整列表。
 
 - **在线配置页**：仅开放 VIX 波动率过滤参数的实时调整。
-- **回测页面**：支持选择策略模式，并动态加载对应策略的全部可调参数进行微调回测。
+- **回测页面**：固定 Hybrid，可微调该策略的可调参数。
 - 交易时段、仓位、止盈止损、流动性、手续费和执行规则固定在 `STRATEGY.md` 和 `.env` 中。
 - 枚举标签（退出原因、拒绝原因、VIX 状态）由后端 `/api/v1/labels` 统一提供，前端动态加载。
 
@@ -384,9 +371,7 @@ cd frontend && pnpm run build
 
 主要测试文件：
 
-- `tests/test_strategy.py`：BOLL/MACD 指标、完整 1 分钟 K 线、即时信号和状态分类。
-- `tests/test_trend_strategy.py`：Trend ORB 策略：OR 构建、突破确认、EMA/VWAP 退出。
-- `tests/test_hybrid_strategy.py`：Hybrid 模式自动切换逻辑。
+- `tests/test_strategy.py`：制度识别与入场。
 - `tests/test_risk.py`：选约、流动性、仓位、日亏损和所有固定退出规则。
 - `tests/test_backtest.py`：合成报价、聚合退出、13:55 强平和取消回测。
 - `tests/test_volatility.py`：VIX 五种状态及方向许可。

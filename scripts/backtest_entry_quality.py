@@ -176,11 +176,7 @@ def _run_variant(arguments: tuple[str, bool, bool, str, str]) -> dict:
         if path.exists():
             frames.update(load_option_frames(path))
         current += timedelta(days=1)
-    strategy = StrategyEngine(
-        settings,
-        normal_fresh_macd_filter=fresh_filter,
-        normal_cross2_filter=cross2_filter,
-    )
+    strategy = StrategyEngine(settings)
     result = EventDrivenBacktester(settings, strategy=strategy).run(
         bars,
         frames,

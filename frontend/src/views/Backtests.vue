@@ -18,7 +18,6 @@ const chartRef=ref<HTMLElement>(), equityChartRef=ref<HTMLElement>(), dateKey=(d
 let timer:number
 
 const showParams = ref(false)
-const strategyMode = ref('')
 const strategyParamsMeta = ref<Record<string, any>>({})
 const params = reactive<Record<string, any>>({})
 
@@ -45,13 +44,7 @@ const activeStrategyGroups = computed(() => {
   const meta = strategyParamsMeta.value
   const groups: { name: string; label: string; params: any[] }[] = []
   if (meta.shared) groups.push({ name: 'shared', label: meta.shared.label, params: meta.shared.params })
-  const mode = strategyMode.value
-  if (mode && meta[mode]) {
-    groups.push({ name: mode, label: meta[mode].label, params: meta[mode].params })
-  } else {
-    if (meta.boll_macd) groups.push({ name: 'boll_macd', label: meta.boll_macd.label, params: meta.boll_macd.params })
-    if (meta.trend) groups.push({ name: 'trend', label: meta.trend.label, params: meta.trend.params })
-  }
+  if (meta.hybrid) groups.push({ name: 'hybrid', label: meta.hybrid.label, params: meta.hybrid.params })
   return groups
 })
 
@@ -103,9 +96,7 @@ async function submit(){
       starting_equity: form.starting_equity,
       config_version: form.config_version,
     }
-    if (strategyMode.value) {
-      payload.strategy_mode = strategyMode.value
-    }
+    payload.strategy_mode = 'hybrid'
     if (showParams.value) {
       payload.params = { ...params }
     }
@@ -207,11 +198,7 @@ function visibleStrategyKeys(settings: Record<string, any>): string[] {
     <div class="toolbar">
       <el-date-picker v-model="form.dates" type="daterange" value-format="YYYY-MM-DD" :disabled-date="(d: Date)=>!completeDates.includes(dateKey(d))" start-placeholder="开始日期" end-placeholder="结束日期"/>
       <el-input v-model="form.starting_equity" placeholder="初始权益" style="width:150px"><template #prepend>$</template></el-input>
-      <el-select v-model="strategyMode" clearable placeholder="当前策略" style="width:160px">
-        <el-option label="BOLL/MACD" value="boll_macd"/>
-        <el-option label="Trend ORB" value="trend"/>
-        <el-option label="Hybrid" value="hybrid"/>
-      </el-select>
+      <el-tag type="info">Hybrid</el-tag>
       <el-select v-model="form.config_version" clearable placeholder="当前环境参数" style="width:180px"><el-option v-for="v in versions" :key="v.version" :label="`参数版本 v${v.version}`" :value="v.version"/></el-select>
       <el-button :type="showParams?'warning':'default'" @click="showParams=!showParams">{{ showParams ? '收起参数' : '自定义参数' }}</el-button>
       <el-button type="primary" :loading="submitting" @click="submit">开始回测</el-button>

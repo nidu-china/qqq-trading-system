@@ -202,9 +202,8 @@ class BacktestService:
                 if custom_params:
                     base = run_request.get("_config_values", {})
                     run_request["_config_values"] = {**base, **custom_params}
-                strategy_mode = run_request.pop("strategy_mode", None)
-                if strategy_mode:
-                    run_request["_strategy_mode"] = strategy_mode
+                run_request.pop("strategy_mode", None)
+                run_request["_strategy_mode"] = "hybrid"
                 cancel_event = threading.Event()
                 self._cancel_events[job_id] = cancel_event
                 try:
@@ -240,9 +239,7 @@ class BacktestService:
         end = date.fromisoformat(request["end_date"])
         overrides: dict[str, Any] = request.get("_config_values", {})
         overrides["trading_mode"] = TradingMode.REPLAY
-        strategy_mode = request.get("_strategy_mode")
-        if strategy_mode:
-            overrides["strategy_mode"] = strategy_mode
+        overrides["strategy_mode"] = "hybrid"
         base = self.settings.model_dump()
         base.update(overrides)
         settings = Settings.model_validate(base)
