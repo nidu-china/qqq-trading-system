@@ -9,14 +9,7 @@ EDITABLE_FIELDS = (
     "volatility_symbol",
     "volatility_lookback_days",
     "volatility_max_staleness_minutes",
-    "volatility_risk_off_percentile",
-    "volatility_recovery_percentile",
-    "volatility_rise_5m",
-    "volatility_rise_15m",
-    "volatility_fall_5m",
-    "volatility_fall_15m",
-    "volatility_shock_5m",
-    "volatility_shock_15m",
+    "volatility_vix_macd_rising_block",
 )
 LEGACY_IGNORED_FIELDS = {
     "forced_close",
@@ -75,6 +68,16 @@ LEGACY_IGNORED_FIELDS = {
     "dynamic_score_margin",
     "dynamic_score_confirmation_bars",
     "dynamic_direction_watch_minutes",
+    "volatility_risk_off_percentile",
+    "volatility_recovery_percentile",
+    "volatility_rise_5m",
+    "volatility_rise_15m",
+    "volatility_fall_5m",
+    "volatility_fall_15m",
+    "volatility_shock_5m",
+    "volatility_shock_15m",
+    "timed_vix_volume_adjustment",
+    "timed_vix_trend_min_change",
 }
 
 

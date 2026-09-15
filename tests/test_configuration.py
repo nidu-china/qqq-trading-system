@@ -18,6 +18,8 @@ def test_editable_values_exclude_credentials_and_infrastructure():
     assert "longbridge_app_secret" not in values
     assert "longbridge_access_token" not in values
     assert values["volatility_filter_enabled"] is True
+    assert "volatility_risk_off_percentile" not in values
+    assert "volatility_rise_5m" not in values
     assert "risk_per_trade" not in values
     assert "forced_close" not in values
 
@@ -59,10 +61,20 @@ def test_live_authorization_requires_complete_longbridge_api_credentials():
 def test_legacy_fields_are_silently_ignored():
     updated = with_editable_values(
         make_settings(),
-        {"paper_signal_only": True, "risk_per_trade": "0.01", "macd_fast": 12},
+        {
+            "paper_signal_only": True,
+            "risk_per_trade": "0.01",
+            "macd_fast": 12,
+            "volatility_risk_off_percentile": "0.80",
+            "volatility_rise_5m": "0.02",
+            "timed_vix_trend_min_change": "0.005",
+        },
     )
-    assert "paper_signal_only" not in editable_values(updated)
-    assert "risk_per_trade" not in editable_values(updated)
+    values = editable_values(updated)
+    assert "paper_signal_only" not in values
+    assert "risk_per_trade" not in values
+    assert "volatility_risk_off_percentile" not in values
+    assert "volatility_rise_5m" not in values
 
 
 def test_indicator_config_values():

@@ -2,11 +2,11 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getInstanceByDom, init, use } from 'echarts/core'
-import { LineChart, ScatterChart, BarChart } from 'echarts/charts'
+import { LineChart, ScatterChart, BarChart, CandlestickChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent, LegendComponent, MarkPointComponent, DataZoomComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import { api, localTime, etTime, money, percent } from '../api'
-use([LineChart, ScatterChart, BarChart, GridComponent, TooltipComponent, LegendComponent, MarkPointComponent, DataZoomComponent, CanvasRenderer])
+use([LineChart, ScatterChart, BarChart, CandlestickChart, GridComponent, TooltipComponent, LegendComponent, MarkPointComponent, DataZoomComponent, CanvasRenderer])
 const availability=ref<any[]>([]),jobs=ref<any[]>([]),versions=ref<any[]>([]),selected=ref<any>(),submitting=ref(false)
 const form=reactive({
   dates:[] as string[],
@@ -85,7 +85,8 @@ async function loadConfig() {
   } catch {}
 }
 
-async function load(){const [a,j,v]=await Promise.all([api.get('/market-data/availability'),api.get('/backtests'),api.get('/config/versions')]);availability.value=a.data;jobs.value=j.data;versions.value=v.data;if(selected.value)selected.value=jobs.value.find(x=>x.id===selected.value.id)||selected.value}
+async function load(){const [a,j,v]=await Promise.all([api.get('/market-data/availability'),api.get('/backtests'),api.get('/config/versions')]);availability.value=a.data;jobs.value=j.data;versions.value=v.data;if(selected.value){const row=jobs.value.find((x:any)=>x.id===selected.value.id);if(row)selected.value=selected.value.result&&!row.result?{...row,result:selected.value.result,error:selected.value.error}:row}}
+async function selectJob(row:any){selected.value=(await api.get(`/backtests/${row.id}`)).data}
 async function submit(){
   if(form.dates.length!==2){ElMessage.warning('请选择回测日期范围');return}
   submitting.value=true
@@ -95,8 +96,8 @@ async function submit(){
       end_date: form.dates[1],
       starting_equity: form.starting_equity,
       config_version: form.config_version,
+      strategy_mode: 'hybrid',
     }
-    payload.strategy_mode = 'hybrid'
     if (showParams.value) {
       payload.params = { ...params }
     }
@@ -112,13 +113,18 @@ watch(()=>selected.value?.result,async res=>{if(!res?.price_series?.length)retur
 const fmt=(v:string)=>new Date(v).toLocaleString('en-US',{timeZone:'America/New_York',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false})
 const ps=res.price_series
 const times=ps.map((x:any)=>fmt(x.time))
-const prices=ps.map((x:any)=>x.price)
-const bbUpper=ps.map((x:any)=>x.bb_upper??null)
-const bbLower=ps.map((x:any)=>x.bb_lower??null)
-const bbMid=ps.map((x:any)=>x.bb_middle??null)
+const prices=ps.map((x:any)=>Number(x.close??x.price))
+const ohlc=ps.map((x:any)=>{
+  const close=Number(x.close??x.price)
+  return [Number(x.open??close), close, Number(x.low??close), Number(x.high??close)]
+})
+const bbUpper=ps.map((x:any)=>x.bb_upper??x.boll_upper??null)
+const bbLower=ps.map((x:any)=>x.bb_lower??x.boll_lower??null)
+const bbMid=ps.map((x:any)=>x.bb_middle??x.boll_mid??null)
 const ema9=ps.map((x:any)=>x.ema9??null)
-const ema21=ps.map((x:any)=>x.ema21??null)
-const macdLine=ps.map((x:any)=>x.macd??null)
+const ema21=ps.map((x:any)=>x.ema21??x.ema20??null)
+const vwap=ps.map((x:any)=>x.vwap??null)
+const macdLine=ps.map((x:any)=>x.macd??x.macd_line??null)
 const macdSignal=ps.map((x:any)=>x.macd_signal??null)
 const macdHist=ps.map((x:any)=>x.macd_hist??null)
 const vol=ps.map((x:any)=>x.volume??0)
@@ -131,7 +137,7 @@ chart.setOption({
     {left:60,right:20,top:'72%',height:'18%'},
   ],
   tooltip:{trigger:'axis',axisPointer:{type:'cross'}},
-  legend:{data:['QQQ','EMA9','EMA21','布林上轨','布林中轨','布林下轨','买入','卖出','MACD','Signal','Histogram','成交量'],top:0,textStyle:{color:'#7890ad',fontSize:10}},
+  legend:{data:['K线','EMA9','EMA21','VWAP','布林上轨','布林中轨','布林下轨','买入','卖出','MACD','Signal','Histogram','成交量'],top:0,textStyle:{color:'#7890ad',fontSize:10}},
   xAxis:[
     {type:'category',data:times,gridIndex:0,axisLabel:{show:false}},
     {type:'category',data:times,gridIndex:1,axisLabel:{show:false}},
@@ -143,12 +149,13 @@ chart.setOption({
     {type:'value',gridIndex:2,axisLabel:{color:'#7890ad',fontSize:9},splitLine:{lineStyle:{color:'#1a2a3d'}}},
   ],
   series:[
-    {name:'QQQ',type:'line',xAxisIndex:0,yAxisIndex:0,data:prices,showSymbol:false,lineStyle:{color:'#3457d5',width:1.5},z:2},
+    {name:'K线',type:'candlestick',xAxisIndex:0,yAxisIndex:0,data:ohlc,itemStyle:{color:'#26a65b',color0:'#dc3545',borderColor:'#26a65b',borderColor0:'#dc3545'},z:2},
     {name:'EMA9',type:'line',xAxisIndex:0,yAxisIndex:0,data:ema9,showSymbol:false,lineStyle:{color:'#22c55e',width:1},connectNulls:true,z:1},
     {name:'EMA21',type:'line',xAxisIndex:0,yAxisIndex:0,data:ema21,showSymbol:false,lineStyle:{color:'#ef4444',width:1},connectNulls:true,z:1},
-    {name:'布林上轨',type:'line',xAxisIndex:0,yAxisIndex:0,data:bbUpper,showSymbol:false,lineStyle:{color:'#f59e0b',width:1,type:'dashed'},z:1},
-    {name:'布林中轨',type:'line',xAxisIndex:0,yAxisIndex:0,data:bbMid,showSymbol:false,lineStyle:{color:'#7890ad',width:1,type:'dotted'},z:1},
-    {name:'布林下轨',type:'line',xAxisIndex:0,yAxisIndex:0,data:bbLower,showSymbol:false,lineStyle:{color:'#f59e0b',width:1,type:'dashed'},z:1},
+    {name:'VWAP',type:'line',xAxisIndex:0,yAxisIndex:0,data:vwap,showSymbol:false,lineStyle:{color:'#a78bfa',width:1.2,type:'dotted'},connectNulls:true,z:1},
+    {name:'布林上轨',type:'line',xAxisIndex:0,yAxisIndex:0,data:bbUpper,showSymbol:false,lineStyle:{color:'#f59e0b',width:1,type:'dashed'},connectNulls:true,z:1},
+    {name:'布林中轨',type:'line',xAxisIndex:0,yAxisIndex:0,data:bbMid,showSymbol:false,lineStyle:{color:'#7890ad',width:1,type:'dotted'},connectNulls:true,z:1},
+    {name:'布林下轨',type:'line',xAxisIndex:0,yAxisIndex:0,data:bbLower,showSymbol:false,lineStyle:{color:'#f59e0b',width:1,type:'dashed'},connectNulls:true,z:1},
     {name:'买入',type:'scatter',xAxisIndex:0,yAxisIndex:0,data:buyPoints,symbol:'triangle',symbolSize:14,itemStyle:{color:'#22c55e'},z:10},
     {name:'卖出',type:'scatter',xAxisIndex:0,yAxisIndex:0,data:sellPoints,symbol:'diamond',symbolSize:14,itemStyle:{color:'#ef4444'},z:10},
     {name:'MACD',type:'line',xAxisIndex:1,yAxisIndex:1,data:macdLine,showSymbol:false,lineStyle:{color:'#e6a23c',width:1.5},connectNulls:true},
@@ -198,7 +205,6 @@ function visibleStrategyKeys(settings: Record<string, any>): string[] {
     <div class="toolbar">
       <el-date-picker v-model="form.dates" type="daterange" value-format="YYYY-MM-DD" :disabled-date="(d: Date)=>!completeDates.includes(dateKey(d))" start-placeholder="开始日期" end-placeholder="结束日期"/>
       <el-input v-model="form.starting_equity" placeholder="初始权益" style="width:150px"><template #prepend>$</template></el-input>
-      <el-tag type="info">Hybrid</el-tag>
       <el-select v-model="form.config_version" clearable placeholder="当前环境参数" style="width:180px"><el-option v-for="v in versions" :key="v.version" :label="`参数版本 v${v.version}`" :value="v.version"/></el-select>
       <el-button :type="showParams?'warning':'default'" @click="showParams=!showParams">{{ showParams ? '收起参数' : '自定义参数' }}</el-button>
       <el-button type="primary" :loading="submitting" @click="submit">开始回测</el-button>
@@ -231,7 +237,7 @@ function visibleStrategyKeys(settings: Record<string, any>): string[] {
     <!-- 任务队列 -->
     <div class="panel">
       <div class="panel-title"><h2>任务队列</h2><span>{{ jobs.length }} 条历史</span></div>
-      <el-table :data="jobs" @row-click="(r: any)=>selected=r">
+      <el-table :data="jobs" @row-click="(r: any)=>selectJob(r)">
         <el-table-column label="时间" min-width="150"><template #default="s">{{ localTime(s.row.created_at) }}</template></el-table-column>
         <el-table-column label="范围" min-width="150"><template #default="s">{{ s.row.request.start_date }} → {{ s.row.request.end_date }}</template></el-table-column>
         <el-table-column prop="status" label="状态" width="105"/>
@@ -278,7 +284,7 @@ function visibleStrategyKeys(settings: Record<string, any>): string[] {
 
         <!-- QQQ 走势 + 买卖点 -->
         <div v-if="selected.result.price_series?.length" class="result-section">
-          <h3>QQQ 走势与交易点</h3>
+          <h3>QQQ K线与交易点（09:00–16:00 ET，含盘前指标）</h3>
           <div ref="chartRef" style="height:560px"></div>
         </div>
 
@@ -318,7 +324,7 @@ function visibleStrategyKeys(settings: Record<string, any>): string[] {
           <h3>波动率环境</h3>
           <div v-for="(count, key) in selected.result.volatility_regimes" :key="key" class="reject-item">
             <span class="reject-label">{{ regimeLabel(key as string) }}</span>
-            <el-tag size="small" :type="key === 'normal' ? 'success' : key === 'unavailable' ? 'info' : 'danger'">{{ count }}</el-tag>
+            <el-tag size="small" :type="key === 'normal' ? 'success' : key === 'unavailable' ? 'info' : key === 'vix_macd_falling' ? 'warning' : 'danger'">{{ count }}</el-tag>
           </div>
         </div>
 

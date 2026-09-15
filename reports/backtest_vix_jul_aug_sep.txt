@@ -1,0 +1,154 @@
+QQQ 0DTE backtest  |  start equity $100,000  |  synthetic 0DTE quotes
+Periods: Jul 1–31, Aug 1–31, Sep 1–14 2026 (data through 2026-09-14)
+Strategy: vix (1-minute RTH VIX)
+Missing VIX 1m (Longbridge empty): 2026-07-01, 2026-07-02, 2026-07-06, 2026-07-07, 2026-07-08, 2026-07-09, 2026-07-10
+
+================================================================================================
+2026-07  (22 sessions, 2026-07-01 → 2026-07-31)
+================================================================================================
+
+--- vix ---
+  PnL $+1,407   WR 22/58 (37.9%)   signals=58  rejected={'cooldown': 101, 'max_trades_per_day': 9}
+      #  entry ET       exit ET        dir   strategy               qty      in     out exit                        pnl
+      1  07/13 09:56    07/13 10:05    call  vix_trend_call          10    1.87    2.54 state_invalidation         +640
+      2  07/13 10:08    07/13 10:11    put   vix_trend_put           10    1.65    1.03 stop_loss                  -650
+      3  07/13 10:44    07/13 10:49    put   vix_trend_put           10    1.52    1.08 stop_loss                  -470
+      4  07/14 09:41    07/14 09:44    call  vix_trend_call          10    1.54    1.09 stop_loss                  -480
+      5  07/14 10:17    07/14 10:21    put   vix_trend_put           10    1.89    1.34 stop_loss                  -580
+      6  07/14 10:56    07/14 11:13    call  vix_trend_call          10    1.34    2.38 state_invalidation        +1010
+      7  07/14 11:19    07/14 11:25    put   vix_trend_put           10    1.77    1.39 state_invalidation         -410
+      8  07/15 09:41    07/15 09:56    put   vix_trend_put           10    1.89    2.58 state_invalidation         +665
+      9  07/15 10:01    07/15 10:16    call  vix_trend_call          10    1.87    1.74 stop_loss                  -165
+     10  07/15 10:50    07/15 10:52    call  vix_trend_call          10    1.39    0.99 stop_loss                  -430
+     11  07/15 11:24    07/15 11:26    put   vix_trend_put           10    1.29    0.94 stop_loss                  -380
+     12  07/16 09:42    07/16 09:53    put   vix_trend_put           10    1.88    2.26 state_invalidation         +350
+     13  07/16 10:00    07/16 11:13    call  vix_trend_call          10    1.50    2.70 stop_loss                 +1166
+     14  07/17 09:41    07/17 09:44    call  vix_trend_call          10    1.93    1.37 stop_loss                  -590
+     15  07/17 10:15    07/17 10:17    put   vix_trend_put           10    1.87    1.36 stop_loss                  -540
+     16  07/17 10:47    07/17 11:20    put   vix_trend_put           10    1.89    2.78 state_invalidation         +865
+     17  07/17 11:28    07/17 11:36    call  vix_trend_call          10    1.49    1.81 state_invalidation         +290
+     18  07/20 09:48    07/20 10:04    put   vix_trend_put           10    1.86    3.56 state_invalidation        +1670
+     19  07/20 10:09    07/20 10:26    put   vix_trend_put            9    2.09    2.27 state_invalidation         +132
+     20  07/20 10:30    07/20 10:35    call  vix_trend_call          10    1.93    1.61 state_invalidation         -350
+     21  07/20 10:41    07/20 10:44    call  vix_trend_call          10    1.67    1.16 stop_loss                  -540
+     22  07/20 11:17    07/20 11:51    call  vix_trend_call          10    1.61    1.76 state_invalidation         +125
+     23  07/21 09:41    07/21 10:19    put   vix_trend_put            9    2.08    2.20 state_invalidation          +84
+     24  07/21 10:26    07/21 10:39    call  vix_trend_call          10    1.67    2.00 state_invalidation         +295
+     25  07/21 10:46    07/21 11:03    call  vix_trend_call          10    1.41    1.01 stop_loss                  -430
+     26  07/22 09:46    07/22 09:51    call  vix_trend_call          10    1.70    1.26 stop_loss                  -470
+     27  07/22 10:24    07/22 10:33    put   vix_trend_put           10    1.67    1.25 stop_loss                  -450
+     28  07/22 11:07    07/22 12:43    call  vix_trend_call          10    1.50    1.35 stop_loss                  -180
+     29  07/23 09:44    07/23 09:47    call  vix_trend_call          10    1.88    1.60 state_invalidation         -310
+     30  07/23 09:56    07/23 09:58    call  vix_trend_call          10    1.95    1.36 stop_loss                  -620
+     31  07/23 10:32    07/23 10:34    call  vix_trend_call          10    1.88    1.20 stop_loss                  -710
+     32  07/23 11:05    07/23 11:18    put   vix_trend_put            9    2.04    2.56 state_invalidation         +441
+     33  07/23 11:21    07/23 11:23    call  vix_trend_call          10    1.82    1.09 stop_loss                  -760
+     34  07/24 09:48    07/24 09:52    call  vix_trend_call           9    1.98    1.25 stop_loss                  -684
+     35  07/24 10:23    07/24 10:33    call  vix_trend_call          10    1.86    1.25 stop_loss                  -640
+     36  07/24 11:12    07/24 11:20    call  vix_trend_call          10    1.71    2.26 state_invalidation         +520
+     37  07/24 11:24    07/24 11:50    call  vix_trend_call          10    1.62    1.62 state_invalidation          -35
+     38  07/27 09:41    07/27 09:50    put   vix_trend_put           10    1.84    2.28 state_invalidation         +415
+     39  07/27 09:55    07/27 10:06    put   vix_trend_put           10    1.87    4.10 state_invalidation        +2195
+     40  07/27 10:13    07/27 10:17    put   vix_trend_put           10    1.68    1.70 state_invalidation          -10
+     41  07/27 10:21    07/27 10:49    put   vix_trend_put           10    1.78    4.07 state_invalidation        +2262
+     42  07/27 10:56    07/27 11:10    call  vix_trend_call          10    1.73    1.92 state_invalidation         +160
+     43  07/28 09:43    07/28 09:53    put   vix_trend_put           10    1.92    2.09 state_invalidation         +140
+     44  07/28 09:59    07/28 10:01    put   vix_trend_put           10    2.01    1.36 stop_loss                  -680
+     45  07/28 10:41    07/28 10:44    put   vix_trend_put           10    1.76    1.42 state_invalidation         -370
+     46  07/28 10:49    07/28 10:58    call  vix_trend_call          10    1.69    1.65 state_invalidation          -70
+     47  07/28 11:05    07/28 11:10    put   vix_trend_put           10    1.79    1.34 stop_loss                  -480
+     48  07/29 09:48    07/29 10:03    put   vix_trend_put           10    1.88    2.64 state_invalidation         +735
+     49  07/29 10:06    07/29 10:08    call  vix_trend_call          10    1.91    1.49 state_invalidation         -450
+     50  07/29 10:19    07/29 10:25    call  vix_trend_call          10    1.96    1.38 stop_loss                  -610
+     51  07/29 10:57    07/29 11:02    put   vix_trend_put            9    1.98    1.47 stop_loss                  -486
+     52  07/30 09:41    07/30 09:43    put   vix_trend_put           10    1.80    1.25 stop_loss                  -580
+     53  07/30 10:19    07/30 10:22    put   vix_trend_put           10    1.85    1.37 stop_loss                  -510
+     54  07/30 10:54    07/30 11:00    put   vix_trend_put            9    1.96    2.32 state_invalidation         +294
+     55  07/30 11:06    07/30 11:08    call  vix_trend_call          10    1.68    1.24 stop_loss                  -470
+     56  07/31 09:41    07/31 10:18    put   vix_trend_put            9    2.02    5.45 state_invalidation        +3063
+     57  07/31 10:30    07/31 10:46    call  vix_trend_call          10    1.53    1.45 state_invalidation         -110
+     58  07/31 10:56    07/31 10:57    put   vix_trend_put           10    1.48    1.10 stop_loss                  -410
+
+================================================================================================
+2026-08  (21 sessions, 2026-08-01 → 2026-08-31)
+================================================================================================
+
+--- vix ---
+  PnL $-10,685   WR 4/35 (11.4%)   signals=35  rejected={'cooldown': 43}
+      #  entry ET       exit ET        dir   strategy               qty      in     out exit                        pnl
+      1  08/03 09:41    08/03 09:54    put   vix_trend_put           10    1.67    1.27 stop_loss                  -430
+      2  08/04 09:41    08/04 09:43    put   vix_trend_put           10    1.88    1.36 stop_loss                  -550
+      3  08/04 10:22    08/04 10:45    call  vix_trend_call          10    1.71    2.08 state_invalidation         +345
+      4  08/04 11:08    08/04 11:14    put   vix_trend_put           10    1.48    1.07 stop_loss                  -440
+      5  08/05 09:41    08/05 09:44    put   vix_trend_put           10    1.79    1.31 stop_loss                  -510
+      6  08/05 10:30    08/05 10:32    call  vix_trend_call          10    1.76    1.17 stop_loss                  -620
+      7  08/05 11:16    08/05 11:33    put   vix_trend_put           10    1.62    1.21 stop_loss                  -440
+      8  08/06 09:44    08/06 11:24    call  vix_trend_call          10    1.69    3.04 state_invalidation        +1315
+      9  08/07 09:44    08/07 09:56    call  vix_trend_call          10    1.65    1.22 stop_loss                  -460
+     10  08/10 09:48    08/10 09:56    call  vix_trend_call          10    1.56    1.08 stop_loss                  -510
+     11  08/10 11:22    08/10 11:52    put   vix_trend_put           10    1.20    1.14 stop_loss                   -90
+     12  08/11 10:00    08/11 11:14    call  vix_trend_call          10    1.68    1.62 stop_loss                   -95
+     13  08/12 10:04    08/12 10:10    put   vix_trend_put           10    1.66    1.21 stop_loss                  -480
+     14  08/13 09:51    08/13 10:11    put   vix_trend_put           10    1.84    1.32 stop_loss                  -550
+     15  08/13 10:46    08/13 11:04    call  vix_trend_call          10    1.44    1.16 state_invalidation         -310
+     16  08/17 09:52    08/17 10:03    call  vix_trend_call          10    1.62    1.12 stop_loss                  -530
+     17  08/18 09:42    08/18 09:44    call  vix_trend_call          10    1.87    1.39 stop_loss                  -510
+     18  08/18 10:26    08/18 10:43    call  vix_trend_call          10    1.53    1.13 stop_loss                  -430
+     19  08/19 09:44    08/19 09:49    call  vix_trend_call          10    1.55    0.70 stop_loss                  -880
+     20  08/19 10:19    08/19 10:22    call  vix_trend_call          10    1.43    1.06 stop_loss                  -400
+     21  08/20 09:41    08/20 09:44    put   vix_trend_put           10    1.77    1.27 stop_loss                  -530
+     22  08/20 10:21    08/20 11:07    call  vix_trend_call          10    1.55    1.56 state_invalidation          -25
+     23  08/20 11:12    08/20 11:14    put   vix_trend_put           10    1.33    0.98 stop_loss                  -380
+     24  08/21 09:55    08/21 10:06    put   vix_trend_put           10    1.48    1.15 state_invalidation         -360
+     25  08/21 10:15    08/21 10:27    put   vix_trend_put           10    1.81    1.35 stop_loss                  -490
+     26  08/24 09:43    08/24 09:56    put   vix_trend_put           10    1.60    1.84 state_invalidation         +210
+     27  08/24 10:06    08/24 10:23    put   vix_trend_put           10    1.55    1.12 stop_loss                  -460
+     28  08/25 10:31    08/25 10:37    put   vix_trend_put           10    1.42    1.02 stop_loss                  -430
+     29  08/26 09:55    08/26 10:11    call  vix_trend_call          10    1.62    1.16 stop_loss                  -490
+     30  08/26 11:18    08/26 11:29    put   vix_trend_put           10    1.28    0.96 stop_loss                  -350
+     31  08/27 09:44    08/27 09:48    call  vix_trend_call          10    1.41    1.32 stop_loss                  -120
+     32  08/28 10:01    08/28 10:02    call  vix_trend_call          10    1.31    0.91 stop_loss                  -430
+     33  08/28 10:33    08/28 11:42    call  vix_trend_call          10    1.24    1.60 state_invalidation         +325
+     34  08/31 09:54    08/31 10:02    call  vix_trend_call          10    1.70    1.26 stop_loss                  -470
+     35  08/31 10:37    08/31 11:00    call  vix_trend_call          10    1.49    1.41 stale_position             -110
+
+================================================================================================
+2026-09  (9 sessions, 2026-09-01 → 2026-09-14)
+================================================================================================
+
+--- vix ---
+  PnL $+766   WR 11/30 (36.7%)   signals=30  rejected={'cooldown': 28, 'max_trades_per_day': 2}
+      #  entry ET       exit ET        dir   strategy               qty      in     out exit                        pnl
+      1  09/01 09:42    09/01 09:46    put   vix_trend_put           10    1.59    0.97 stop_loss                  -650
+      2  09/01 10:16    09/01 10:53    call  vix_trend_call          10    1.49    2.24 state_invalidation         +715
+      3  09/01 11:14    09/01 12:18    call  vix_trend_call          10    1.23    1.46 state_invalidation         +205
+      4  09/02 09:41    09/02 09:49    call  vix_trend_call          10    1.49    1.11 stop_loss                  -410
+      5  09/02 10:43    09/02 10:49    call  vix_trend_call          10    1.29    1.03 state_invalidation         -290
+      6  09/02 10:52    09/02 11:20    put   vix_trend_put           10    1.54    1.49 stop_loss                   -80
+      7  09/03 09:55    09/03 10:01    put   vix_trend_put           10    1.73    2.28 state_invalidation         +515
+      8  09/03 10:13    09/03 11:30    call  vix_trend_call          10    1.56    3.94 state_invalidation        +2350
+      9  09/04 10:49    09/04 11:07    put   vix_trend_put           10    1.24    1.29 state_invalidation          +20
+     10  09/04 11:20    09/04 11:40    put   vix_trend_put           10    1.39    1.32 stale_position             -100
+     11  09/08 09:41    09/08 09:50    put   vix_trend_put           10    1.77    2.02 state_invalidation         +220
+     12  09/08 09:54    09/08 09:56    put   vix_trend_put           10    1.67    1.08 stop_loss                  -620
+     13  09/08 11:22    09/08 11:42    put   vix_trend_put           10    1.39    0.87 stop_loss                  -550
+     14  09/09 10:18    09/09 10:28    put   vix_trend_put           10    1.50    1.74 state_invalidation         +210
+     15  09/09 11:03    09/09 11:19    put   vix_trend_put           10    1.67    2.33 state_invalidation         +630
+     16  09/09 11:24    09/09 11:30    put   vix_trend_put           10    1.58    1.37 state_invalidation         -240
+     17  09/10 09:47    09/10 09:51    call  vix_trend_call           9    2.02    1.57 state_invalidation         -432
+     18  09/10 09:59    09/10 10:02    put   vix_trend_put           10    1.80    1.27 stop_loss                  -560
+     19  09/10 10:37    09/10 10:48    call  vix_trend_call          10    1.79    1.26 stop_loss                  -560
+     20  09/10 11:22    09/10 11:28    put   vix_trend_put           10    1.63    1.16 stop_loss                  -500
+     21  09/11 09:41    09/11 09:46    put   vix_trend_put            9    1.96    1.44 stop_loss                  -495
+     22  09/11 10:20    09/11 10:34    call  vix_trend_call          10    1.39    1.20 state_invalidation         -220
+     23  09/11 10:45    09/11 10:52    put   vix_trend_put           10    1.57    1.39 state_invalidation         -210
+     24  09/11 10:56    09/11 11:02    put   vix_trend_put           10    1.73    1.42 state_invalidation         -340
+     25  09/11 11:07    09/11 11:11    call  vix_trend_call          10    1.61    1.50 state_invalidation         -140
+     26  09/14 09:41    09/14 09:58    call  vix_trend_call          10    1.66    3.21 state_invalidation        +1520
+     27  09/14 10:03    09/14 10:19    call  vix_trend_call           9    1.90    2.33 state_invalidation         +359
+     28  09/14 10:31    09/14 10:39    call  vix_trend_call          10    1.70    1.36 state_invalidation         -370
+     29  09/14 10:46    09/14 10:53    call  vix_trend_call           9    1.85    1.46 state_invalidation         -378
+     30  09/14 11:00    09/14 11:49    call  vix_trend_call           9    1.79    3.12 state_invalidation        +1167
+
+================================================================================================
+TOTAL  PnL $-8,512   WR 37/123 (30.1%)   ending equity $91,488.00   signals=306  rejected={'cooldown': 172, 'max_trades_per_day': 11}

@@ -23,7 +23,7 @@ from .domain import (
     Quote,
     Signal,
 )
-from .market_hours import regular_session_bars
+from .market_hours import indicator_session_bars
 from .option_pricing import (
     black_scholes_0dte,
     historical_daily_volatility,
@@ -452,7 +452,7 @@ class EventDrivenBacktester:
     ) -> BacktestResult:
         result = BacktestResult(starting_equity, starting_equity)
         available = sorted(
-            regular_session_bars(bar for bar in (warmup_bars or []) if bar.complete),
+            indicator_session_bars(bar for bar in (warmup_bars or []) if bar.complete),
             key=lambda item: item.end,
         )
         position: Position | None = None
@@ -619,11 +619,9 @@ class EventDrivenBacktester:
             bar for bar in all_intraday_bars
             if time_type(9, 0) <= bar.start.astimezone(NY_TZ).time() < time_type(16, 0)
         ]
-        # ── Performance: limit available list size to avoid O(n²) sort cost ───
-        # Each bar, evaluate() and _one_minute_context() call sorted() over the
-        # full available list. Indicators only need ~500 bars max (MACD/BOLL/EMA),
-        # so capping at 650 keeps correctness while eliminating the quadratic growth.
-        _MAX_AVAIL = 650
+        # One 09:00-16:00 ET session is 420 1-minute bars. Cap slightly above that
+        # so evaluate() never sorts a multi-day list.
+        _MAX_AVAIL = 450
         # Per-day VIX bar cache: avoid rescanning all 3000+ VIX bars every minute
         _vix_day_bars: dict = {}
         for bar in ordered:
@@ -640,31 +638,10 @@ class EventDrivenBacktester:
                 day_start_realized = realized
                 daily_halted = False
                 if reset_daily_context:
-                    # Simulate daily engine restart with "yesterday RTH + today premarket"
-                    # warmup. Yesterday's 390 RTH bars give MACD(26)/BOLL(20)/EMA(200) enough
-                    # history to converge; today's 30 premarket bars bring price action
-                    # up to the current session open.
-                    from datetime import time as _time_type
-                    # Find the most recent prior trading day in available
-                    prior_rth_dates = sorted(set(
-                        b.start.astimezone(NY_TZ).date()
-                        for b in available
-                        if _time_type(9, 30) <= b.start.astimezone(NY_TZ).time()
-                        and b.end.astimezone(NY_TZ).date() != trading_day
-                    ))
-                    prev_day = prior_rth_dates[-1] if prior_rth_dates else None
                     available = [
                         b for b in available
-                        if (
-                            # Yesterday's full RTH bars (up to 390 bars)
-                            prev_day is not None
-                            and b.end.astimezone(NY_TZ).date() == prev_day
-                            and _time_type(9, 30) <= b.start.astimezone(NY_TZ).time()
-                        ) or (
-                            # Today's premarket bars (09:00-09:29)
-                            b.end.astimezone(NY_TZ).date() == trading_day
-                            and b.start.astimezone(NY_TZ).time() < _time_type(9, 30)
-                        )
+                        if b.end.astimezone(NY_TZ).date() == trading_day
+                        and b.start.astimezone(NY_TZ).time() < time_type(9, 30)
                     ]
             available.append(bar)
             # Trim available to the most recent _MAX_AVAIL bars so that sorted()
@@ -924,7 +901,7 @@ class EventDrivenBacktester:
             entry_price = quote.ask
             result.record_signal(
                 signal,
-                "accepted",
+                "executed",
                 f"entry_{signal.strategy}",
                 contract.symbol,
                 entry_price,

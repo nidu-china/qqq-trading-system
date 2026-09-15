@@ -39,7 +39,9 @@ async function loadJobs() {
 function loadBacktest() {
   const job = jobs.value.find(x => x.id === selectedJob.value)
   if (!job) { backtestSignals.value = []; return }
-  let records = job.result.signal_records || []
+  let records = (job.result.signal_records || []).map((r: any) =>
+    r.status === 'accepted' ? { ...r, status: 'executed' } : r
+  )
   if (btFilter.action) records = records.filter((r: any) => r.action === btFilter.action)
   if (btFilter.status) records = records.filter((r: any) => r.status === btFilter.status)
   backtestSignals.value = records

@@ -23,9 +23,10 @@ from sqlalchemy import (
     Uuid,
     func,
     select,
+    update,
 )
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, load_only, mapped_column
 
 from .domain import (
     AccountSnapshot,
@@ -727,12 +728,27 @@ class MySQLJournal:
         async with self.sessions() as session, session.begin():
             await session.merge(BacktestRunRow(**payload))
 
+    async def get_backtest_run(self, job_id: str) -> BacktestRunRow | None:
+        async with self.sessions() as session:
+            return await session.get(BacktestRunRow, job_id)
+
     async def list_backtest_runs(self, limit: int = 50) -> list[BacktestRunRow]:
         async with self.sessions() as session:
             return list(
                 (
                     await session.scalars(
                         select(BacktestRunRow)
+                        .options(
+                            load_only(
+                                BacktestRunRow.id,
+                                BacktestRunRow.created_at,
+                                BacktestRunRow.updated_at,
+                                BacktestRunRow.status,
+                                BacktestRunRow.progress,
+                                BacktestRunRow.request,
+                                BacktestRunRow.error,
+                            )
+                        )
                         .order_by(BacktestRunRow.created_at.desc())
                         .limit(limit)
                     )
@@ -747,19 +763,15 @@ class MySQLJournal:
 
     async def interrupt_backtest_runs(self) -> None:
         async with self.sessions() as session, session.begin():
-            rows = list(
-                (
-                    await session.scalars(
-                        select(BacktestRunRow).where(
-                            BacktestRunRow.status.in_(("queued", "running"))
-                        )
-                    )
-                ).all()
+            await session.execute(
+                update(BacktestRunRow)
+                .where(BacktestRunRow.status.in_(("queued", "running")))
+                .values(
+                    status="interrupted",
+                    error="service restarted before completion",
+                    updated_at=datetime.now(timezone.utc),
+                )
             )
-            for row in rows:
-                row.status = "interrupted"
-                row.error = "service restarted before completion"
-                row.updated_at = datetime.now(timezone.utc)
 
 
 class MemoryJournal:

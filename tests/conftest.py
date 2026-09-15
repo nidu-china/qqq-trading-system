@@ -36,14 +36,6 @@ _TRADING_DEFAULTS = {
     "volatility_symbol": ".VIX.US",
     "volatility_lookback_days": 20,
     "volatility_max_staleness_minutes": 10,
-    "volatility_risk_off_percentile": "0.80",
-    "volatility_recovery_percentile": "0.65",
-    "volatility_rise_5m": "0.02",
-    "volatility_rise_15m": "0.03",
-    "volatility_fall_5m": "-0.02",
-    "volatility_fall_15m": "-0.03",
-    "volatility_shock_5m": "0.08",
-    "volatility_shock_15m": "0.12",
     # 仓位与风控
     "max_premium_fraction": "0.50",
     "max_contracts": 10,
@@ -64,7 +56,7 @@ _TRADING_DEFAULTS = {
     "strike_offset": "2",
     # 统一时间窗口
     "phase_collect_start": "09:30:00",
-    "phase_collect_end": "09:40:00",
+    "phase_collect_end": "09:35:00",
     "phase_opening_end": "10:00:00",
     "phase_main_end": "13:30:00",
     # BOLL/MACD
@@ -80,8 +72,6 @@ _TRADING_DEFAULTS = {
     "timed_put_rsi_min": "30",
     "timed_volume_lookback": 20,
     "timed_volume_ratio": "1.2",
-    "timed_vix_volume_adjustment": "0.10",
-    "timed_vix_trend_min_change": "0.005",
     "timed_trend_cross_lookback": 20,
     "timed_trend_max_crosses": 2,
     "timed_continuation_max_band_extension": "1.20",

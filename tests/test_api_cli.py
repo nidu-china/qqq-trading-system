@@ -9,7 +9,11 @@ from typer.testing import CliRunner
 from qqq_trader.api import create_app
 from qqq_trader.cli import app
 from qqq_trader.domain import Bar, SystemState
-from qqq_trader.market_hours import regular_session_bars
+from qqq_trader.market_hours import (
+    indicator_session_bars,
+    regular_session_bars,
+    vix_session_bars,
+)
 
 
 class FakeEngine:
@@ -51,6 +55,11 @@ def test_cli_exposes_all_operational_commands():
     assert backtest_help.exit_code == 0
     assert "--bars" in backtest_help.stdout
 
+    backfill_help = CliRunner().invoke(app, ["backfill", "--help"])
+    assert backfill_help.exit_code == 0
+    assert "include-premarket" not in backfill_help.stdout
+    assert "no-include-premarket" not in backfill_help.stdout
+
 
 def test_regular_session_filter_excludes_extended_hours():
     def bar_at(hour: int, minute: int) -> Bar:
@@ -70,3 +79,42 @@ def test_regular_session_filter_excludes_extended_hours():
     bars = [bar_at(12, 0), bar_at(13, 30), bar_at(20, 0)]
 
     assert regular_session_bars(bars) == [bars[1]]
+
+
+def test_indicator_session_filter_starts_at_nine_et():
+    def bar_at(hour: int, minute: int) -> Bar:
+        start = datetime(2026, 7, 24, hour, minute, tzinfo=timezone.utc)
+        return Bar(
+            "QQQ.US",
+            start,
+            start + timedelta(minutes=1),
+            Decimal("700"),
+            Decimal("701"),
+            Decimal("699"),
+            Decimal("700"),
+            100,
+        )
+
+    # July is EDT: 08:59, 09:00 and 16:00 ET respectively.
+    bars = [bar_at(12, 59), bar_at(13, 0), bar_at(20, 0)]
+
+    assert indicator_session_bars(bars) == [bars[1]]
+
+
+def test_vix_session_filter_starts_at_four_et():
+    def bar_at(hour: int, minute: int) -> Bar:
+        start = datetime(2026, 7, 24, hour, minute, tzinfo=timezone.utc)
+        return Bar(
+            ".VIX.US",
+            start,
+            start + timedelta(minutes=1),
+            Decimal("16"),
+            Decimal("16"),
+            Decimal("16"),
+            Decimal("16"),
+            0,
+        )
+
+    # July is EDT: 03:59, 04:00 and 16:00 ET respectively.
+    bars = [bar_at(7, 59), bar_at(8, 0), bar_at(20, 0)]
+    assert vix_session_bars(bars) == [bars[1]]

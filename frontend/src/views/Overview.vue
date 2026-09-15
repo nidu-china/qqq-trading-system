@@ -29,7 +29,7 @@ onBeforeUnmount(runtime.disconnect)
     </div>
     <div class="panel">
       <div class="panel-title"><h2>波动率过滤</h2><span>VIX REGIME</span></div>
-      <div v-if="status.volatility" class="kv"><div><label>状态</label><b class="accent">{{ regimeLabel(status.volatility.regime) }}</b></div><div><label>数值</label><b>{{ status.volatility.value || '—' }}</b></div><div><label>5分钟变化</label><b>{{ status.volatility.change_5m || '—' }}</b></div><div><label>15分钟变化</label><b>{{ status.volatility.change_15m || '—' }}</b></div></div>
+      <div v-if="status.volatility" class="kv"><div><label>状态</label><b class="accent">{{ regimeLabel(status.volatility.regime) }}</b></div><div><label>数值</label><b>{{ status.volatility.value || '—' }}</b></div><div><label>1分钟 MACD</label><b>{{ status.volatility.macd_hist || '—' }}</b></div><div><label>原因</label><b>{{ status.volatility.reason || '—' }}</b></div></div>
       <div v-else class="empty">等待交易时段波动率快照</div>
     </div>
   </div>

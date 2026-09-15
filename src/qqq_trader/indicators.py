@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, time
 from decimal import Decimal
+from typing import Any
 
 from .domain import Bar, MarketState
 
@@ -234,6 +235,106 @@ class BarAggregator:
                 )
             )
         return result
+
+
+def overlay_series(
+    bars: Sequence[Bar],
+    *,
+    ema_fast: int,
+    ema_slow: int,
+    boll_period: int,
+    boll_std: Decimal,
+    macd_fast: int,
+    macd_slow: int,
+    macd_signal: int,
+    timestamp: str = "start",
+) -> list[dict[str, Any]]:
+    """OHLC plus EMA/VWAP/BOLL/MACD for one session of bars.
+
+    Indicators use only the supplied series, so pass a single day's 09:00-16:00
+    ET bars. ``timestamp`` is ``start`` for the market page and ``end`` for
+    backtest trade markers.
+    """
+    if not bars:
+        return []
+    closes = [bar.close for bar in bars]
+    vwaps = vwap_series(bars)
+    ema_fast_vals = ema_series(closes, ema_fast) if len(closes) >= ema_fast else []
+    ema_slow_vals = ema_series(closes, ema_slow) if len(closes) >= ema_slow else []
+    macd_required = macd_slow + macd_signal - 1
+    macd_fast_ema = ema_series(closes, macd_fast) if len(closes) >= macd_fast else []
+    macd_slow_ema = ema_series(closes, macd_slow) if len(closes) >= macd_slow else []
+    macd_lines: list[Decimal] = []
+    signal_lines: list[Decimal] = []
+    hist_lines: list[Decimal] = []
+    if macd_fast_ema and macd_slow_ema:
+        offset = macd_slow - macd_fast
+        macd_lines = [
+            fast_value - slow_value
+            for fast_value, slow_value in zip(
+                macd_fast_ema[offset:], macd_slow_ema, strict=True
+            )
+        ]
+        if len(macd_lines) >= macd_signal:
+            signal_lines = ema_series(macd_lines, macd_signal)
+            sig_offset = macd_signal - 1
+            hist_lines = [
+                macd_value - signal_value
+                for macd_value, signal_value in zip(
+                    macd_lines[sig_offset:], signal_lines, strict=True
+                )
+            ]
+
+    items: list[dict[str, Any]] = []
+    for index, bar in enumerate(bars):
+        stamp = bar.start if timestamp == "start" else bar.end
+        item: dict[str, Any] = {
+            "time": stamp.isoformat(),
+            "open": float(bar.open),
+            "high": float(bar.high),
+            "low": float(bar.low),
+            "close": float(bar.close),
+            "price": float(bar.close),
+            "volume": bar.volume,
+            "vwap": float(vwaps[index]),
+        }
+        ema_fast_start = ema_fast - 1
+        if index >= ema_fast_start and ema_fast_vals:
+            value_index = index - ema_fast_start
+            if 0 <= value_index < len(ema_fast_vals):
+                item["ema9"] = float(ema_fast_vals[value_index])
+        ema_slow_start = ema_slow - 1
+        if index >= ema_slow_start and ema_slow_vals:
+            value_index = index - ema_slow_start
+            if 0 <= value_index < len(ema_slow_vals):
+                slow_value = float(ema_slow_vals[value_index])
+                item["ema20"] = slow_value
+                item["ema21"] = slow_value
+        if index + 1 >= boll_period:
+            upper, middle, lower = bollinger_bands(
+                closes[: index + 1], boll_period, boll_std
+            )
+            item["boll_upper"] = float(upper)
+            item["boll_mid"] = float(middle)
+            item["boll_lower"] = float(lower)
+            item["bb_upper"] = item["boll_upper"]
+            item["bb_middle"] = item["boll_mid"]
+            item["bb_lower"] = item["boll_lower"]
+        macd_start = macd_slow - 1
+        if index >= macd_start and macd_lines:
+            macd_index = index - macd_start
+            if 0 <= macd_index < len(macd_lines):
+                item["macd_line"] = float(macd_lines[macd_index])
+                item["macd"] = item["macd_line"]
+            sig_start = macd_required - 1
+            if index >= sig_start and signal_lines:
+                signal_index = index - sig_start
+                if 0 <= signal_index < len(signal_lines):
+                    item["macd_signal"] = float(signal_lines[signal_index])
+                if 0 <= signal_index < len(hist_lines):
+                    item["macd_hist"] = float(hist_lines[signal_index])
+        items.append(item)
+    return items
 
 
 @dataclass

@@ -54,14 +54,8 @@ class Settings(BaseSettings):
     volatility_symbol: str
     volatility_lookback_days: int
     volatility_max_staleness_minutes: int
-    volatility_risk_off_percentile: Decimal
-    volatility_recovery_percentile: Decimal
-    volatility_rise_5m: Decimal
-    volatility_rise_15m: Decimal
-    volatility_fall_5m: Decimal
-    volatility_fall_15m: Decimal
-    volatility_shock_5m: Decimal
-    volatility_shock_15m: Decimal
+    # When false, VIX 1m MACD > 0 still tags rising regime but does not block Call entries.
+    volatility_vix_macd_rising_block: bool = True
 
     # 仓位与风控（必须在 .env 显式配置）
     max_premium_fraction: Decimal
@@ -89,7 +83,7 @@ class Settings(BaseSettings):
 
     # 交易时间窗口（所有策略共用）
     phase_collect_start: time = time(9, 30)
-    phase_collect_end: time = time(9, 40)
+    phase_collect_end: time = time(9, 35)
     phase_opening_end: time = time(10, 0)
     phase_main_end: time = time(12, 0)
 
@@ -106,8 +100,6 @@ class Settings(BaseSettings):
     timed_put_rsi_min: Decimal
     timed_volume_lookback: int
     timed_volume_ratio: Decimal
-    timed_vix_volume_adjustment: Decimal
-    timed_vix_trend_min_change: Decimal
     timed_trend_cross_lookback: int
     timed_trend_max_crosses: int
     timed_continuation_max_band_extension: Decimal
@@ -144,25 +136,8 @@ class Settings(BaseSettings):
             raise ValueError("timed_macd_fast must be less than timed_macd_slow")
         if self.trend_ema_fast >= self.trend_ema_slow:
             raise ValueError("trend_ema_fast must be less than trend_ema_slow")
-        percentiles = (
-            self.volatility_recovery_percentile,
-            self.volatility_risk_off_percentile,
-        )
-        if any(value <= 0 or value >= 1 for value in percentiles):
-            raise ValueError("volatility percentiles must be between 0 and 1")
-        if self.volatility_recovery_percentile >= self.volatility_risk_off_percentile:
-            raise ValueError("recovery percentile must be below risk-off percentile")
         if self.volatility_lookback_days < 5 or self.volatility_max_staleness_minutes < 1:
             raise ValueError("volatility history and staleness settings are invalid")
-        if self.volatility_fall_5m >= 0 or self.volatility_fall_15m >= 0:
-            raise ValueError("volatility fall thresholds must be negative")
-        if min(self.volatility_rise_5m, self.volatility_rise_15m) <= 0:
-            raise ValueError("volatility rise thresholds must be positive")
-        if (
-            self.volatility_shock_5m <= self.volatility_rise_5m
-            or self.volatility_shock_15m <= self.volatility_rise_15m
-        ):
-            raise ValueError("volatility shock thresholds must exceed rise thresholds")
         if self.max_premium_fraction <= 0 or self.max_premium_fraction > Decimal("0.5"):
             raise ValueError("max_premium_fraction must be between 0 and 0.5")
         if self.max_contracts < 1:

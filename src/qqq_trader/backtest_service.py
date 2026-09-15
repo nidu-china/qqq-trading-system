@@ -1,31 +1,33 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import threading
 from dataclasses import asdict
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any
 from uuid import uuid4
 
 from .backtest import EventDrivenBacktester, load_option_frames
-from .config import Settings
+from .config import NY_TZ, Settings
 from .domain import TradingMode
-from .indicators import bollinger_bands, ema_series, macd_histogram
+from .indicators import overlay_series
+from .market_hours import indicator_session_bars
 from .persistence import MySQLJournal, ParquetMarketStore
 from .policy import RULES
 from .reporting import generate_price_chart
 from .risk import ContractSelector, RiskEngine
+
+_LOG = logging.getLogger(__name__)
+_HEAVY_RESULT_KEYS = ("price_series", "equity_curve", "chart_svg")
 
 
 _SETTINGS_SUMMARY_KEYS = (
     "strategy_mode",
     "volatility_filter_enabled", "volatility_symbol",
     "volatility_lookback_days", "volatility_max_staleness_minutes",
-    "volatility_risk_off_percentile", "volatility_recovery_percentile",
-    "volatility_rise_5m", "volatility_rise_15m",
-    "volatility_fall_5m", "volatility_fall_15m",
-    "volatility_shock_5m", "volatility_shock_15m",
+    "volatility_vix_macd_rising_block",
     "max_premium_fraction", "max_contracts", "max_trades_per_day",
     "cooldown_minutes", "option_stop_loss_pct",
     "tp1_profit_pct", "tp2_profit_pct", "stale_minutes",
@@ -44,6 +46,16 @@ _SETTINGS_SUMMARY_KEYS = (
 def _backtest_settings_summary(settings: Settings) -> dict[str, Any]:
     dumped = settings.model_dump(mode="json")
     return {k: dumped[k] for k in _SETTINGS_SUMMARY_KEYS if k in dumped}
+
+
+def _load_vix_intraday(vol_root) -> list:
+    one_min = vol_root / "1m.parquet"
+    if one_min.exists():
+        return ParquetMarketStore.read_bars(one_min)
+    five_min = vol_root / "5m.parquet"
+    if five_min.exists():
+        return ParquetMarketStore.read_bars(five_min)
+    return []
 
 
 class BacktestCancelled(Exception):
@@ -66,18 +78,56 @@ class BacktestService:
             await interrupt()
         loader = getattr(self.journal, "list_backtest_runs", None)
         if loader is not None:
-            for row in await loader():
-                self.jobs[row.id] = {
-                    "id": row.id,
-                    "created_at": row.created_at.isoformat(),
-                    "updated_at": row.updated_at.isoformat(),
-                    "status": row.status,
-                    "progress": row.progress,
-                    "request": row.request,
-                    "result": row.result,
-                    "error": row.error,
-                }
+            try:
+                for row in await loader():
+                    self.jobs[row.id] = {
+                        "id": row.id,
+                        "created_at": row.created_at.isoformat(),
+                        "updated_at": row.updated_at.isoformat(),
+                        "status": row.status,
+                        "progress": row.progress,
+                        "request": row.request,
+                        "result": None,
+                        "error": row.error,
+                    }
+            except Exception:
+                _LOG.exception("failed to load backtest history; continuing without it")
         self.worker = asyncio.create_task(self._worker())
+
+    def job_summaries(self) -> list[dict[str, Any]]:
+        jobs = sorted(self.jobs.values(), key=lambda item: item["created_at"], reverse=True)
+        return [self._summary(job) for job in jobs]
+
+    async def job_detail(self, job_id: str) -> dict[str, Any] | None:
+        job = self.jobs.get(job_id)
+        if job is None:
+            return None
+        if job.get("result") is None and job.get("status") == "completed":
+            loader = getattr(self.journal, "get_backtest_run", None)
+            if loader is not None:
+                try:
+                    row = await loader(job_id)
+                except Exception:
+                    _LOG.exception("failed to load backtest result | %s", job_id)
+                    row = None
+                if row is not None:
+                    job["result"] = row.result
+                    job["error"] = row.error
+        return job
+
+    @staticmethod
+    def _summary(job: dict[str, Any]) -> dict[str, Any]:
+        result = job.get("result")
+        if not isinstance(result, dict):
+            return job
+        return {
+            **job,
+            "result": {
+                key: value
+                for key, value in result.items()
+                if key not in _HEAVY_RESULT_KEYS
+            },
+        }
 
     async def stop(self) -> None:
         if self.worker is not None:
@@ -116,19 +166,21 @@ class BacktestService:
                         / "data.parquet"
                     ).exists(),
                     "volatility_intraday": (
-                        root
-                        / "bars"
-                        / f"symbol={self.settings.volatility_symbol}"
-                        / f"date={value}"
-                        / "5m.parquet"
-                    ).exists(),
-                    "volatility_daily": (
-                        root
-                        / "bars"
-                        / f"symbol={self.settings.volatility_symbol}"
-                        / f"date={value}"
-                        / "day.parquet"
-                    ).exists(),
+                        (
+                            root
+                            / "bars"
+                            / f"symbol={self.settings.volatility_symbol}"
+                            / f"date={value}"
+                            / "1m.parquet"
+                        ).exists()
+                        or (
+                            root
+                            / "bars"
+                            / f"symbol={self.settings.volatility_symbol}"
+                            / f"date={value}"
+                            / "5m.parquet"
+                        ).exists()
+                    ),
                 }
             )
         return result
@@ -202,8 +254,11 @@ class BacktestService:
                 if custom_params:
                     base = run_request.get("_config_values", {})
                     run_request["_config_values"] = {**base, **custom_params}
-                run_request.pop("strategy_mode", None)
-                run_request["_strategy_mode"] = "hybrid"
+                mode = str(run_request.get("strategy_mode") or "hybrid").lower()
+                if mode != "hybrid":
+                    mode = "hybrid"
+                run_request["strategy_mode"] = mode
+                run_request["_strategy_mode"] = mode
                 cancel_event = threading.Event()
                 self._cancel_events[job_id] = cancel_event
                 try:
@@ -239,15 +294,17 @@ class BacktestService:
         end = date.fromisoformat(request["end_date"])
         overrides: dict[str, Any] = request.get("_config_values", {})
         overrides["trading_mode"] = TradingMode.REPLAY
-        overrides["strategy_mode"] = "hybrid"
+        mode = str(request.get("strategy_mode") or request.get("_strategy_mode") or "hybrid").lower()
+        if mode != "hybrid":
+            mode = "hybrid"
+        overrides["strategy_mode"] = mode
         base = self.settings.model_dump()
         base.update(overrides)
         settings = Settings.model_validate(base)
-        log.info("backtest starting | %s to %s", start, end)
+        log.info("backtest starting | %s to %s | mode=%s", start, end, mode)
         bars = []
         frames = {}
         volatility = []
-        volatility_daily = []
         current = start
         while current <= end:
             value = current.isoformat()
@@ -275,46 +332,11 @@ class BacktestService:
                 bars.extend(ParquetMarketStore.read_bars(bar_path))
             if option_path.exists():
                 frames.update(load_option_frames(option_path))
-            if (vol_root / "1m.parquet").exists():
-                volatility.extend(ParquetMarketStore.read_bars(vol_root / "1m.parquet"))
-            elif (vol_root / "5m.parquet").exists():
-                volatility.extend(ParquetMarketStore.read_bars(vol_root / "5m.parquet"))
-            if (vol_root / "day.parquet").exists():
-                volatility_daily.extend(ParquetMarketStore.read_bars(vol_root / "day.parquet"))
+            volatility.extend(_load_vix_intraday(vol_root))
             current = date.fromordinal(current.toordinal() + 1)
 
-        vol_lookback = timedelta(days=int(settings.volatility_lookback_days * 3))
-        vol_start = start - vol_lookback
-        vol_cursor = vol_start
-        while vol_cursor < start:
-            vol_day_root = (
-                settings.data_dir
-                / "bars"
-                / f"symbol={settings.volatility_symbol}"
-                / f"date={vol_cursor.isoformat()}"
-            )
-            if (vol_day_root / "1m.parquet").exists():
-                volatility.extend(ParquetMarketStore.read_bars(vol_day_root / "1m.parquet"))
-            elif (vol_day_root / "5m.parquet").exists():
-                volatility.extend(ParquetMarketStore.read_bars(vol_day_root / "5m.parquet"))
-            if (vol_day_root / "day.parquet").exists():
-                volatility_daily.extend(ParquetMarketStore.read_bars(vol_day_root / "day.parquet"))
-            vol_cursor = date.fromordinal(vol_cursor.toordinal() + 1)
         if not bars:
             raise ValueError("no QQQ 1-minute bars exist in the selected date range")
-        warmup_bars = []
-        warmup_cursor = start - timedelta(days=35)
-        while warmup_cursor < start:
-            warmup_path = (
-                settings.data_dir
-                / "bars"
-                / f"symbol={settings.underlying_symbol}"
-                / f"date={warmup_cursor.isoformat()}"
-                / "1m.parquet"
-            )
-            if warmup_path.exists():
-                warmup_bars.extend(ParquetMarketStore.read_bars(warmup_path))
-            warmup_cursor = date.fromordinal(warmup_cursor.toordinal() + 1)
         if cancel_event.is_set():
             raise BacktestCancelled()
         tester = EventDrivenBacktester(
@@ -328,10 +350,9 @@ class BacktestService:
             frames,
             Decimal(str(request.get("starting_equity", "10000"))),
             volatility,
-            volatility_daily,
+            [],
             cancel_check=cancel_event.is_set,
             trade_start=start,
-            warmup_bars=warmup_bars,
         )
         wins = sum(1 for trade in result.trades if trade.pnl > 0)
         net = result.ending_equity - result.starting_equity
@@ -366,59 +387,43 @@ class BacktestService:
             bars,
             [(t.entry_at.isoformat(), t.exit_at.isoformat()) for t in result.trades],
         )
-        sorted_bars = sorted(bars, key=lambda x: x.start)
-        from zoneinfo import ZoneInfo
-
-        et = ZoneInfo("America/New_York")
-        full_series: list[dict[str, Any]] = []
-        day_closes: list[Decimal] = []
+        rules = settings.rules
+        price_series: list[dict[str, Any]] = []
+        day_bars: list = []
         current_day = None
-        ema_fast_period = RULES.trend_ema_fast
-        ema_slow_period = RULES.trend_ema_slow
-        for b in sorted_bars:
-            bar_date = b.start.astimezone(et).date()
-            if bar_date != current_day:
-                current_day = bar_date
-                day_closes = []
-            day_closes.append(b.close)
-            point: dict[str, Any] = {
-                "time": b.end.isoformat(),
-                "price": float(b.close),
-                "volume": b.volume,
-            }
-            if len(day_closes) >= ema_fast_period:
-                ema_vals = ema_series(day_closes, ema_fast_period)
-                point["ema9"] = float(ema_vals[-1])
-            if len(day_closes) >= ema_slow_period:
-                ema_vals = ema_series(day_closes, ema_slow_period)
-                point["ema21"] = float(ema_vals[-1])
-            boll_period = RULES.timed_boll_period
-            boll_stddev = RULES.timed_boll_stddev
-            if len(day_closes) >= boll_period:
-                upper, middle, lower = bollinger_bands(
-                    day_closes,
-                    boll_period,
-                    boll_stddev,
+        for bar in indicator_session_bars(sorted(bars, key=lambda item: item.start)):
+            bar_date = bar.start.astimezone(NY_TZ).date()
+            if current_day is not None and bar_date != current_day:
+                price_series.extend(
+                    overlay_series(
+                        day_bars,
+                        ema_fast=rules.trend_ema_fast,
+                        ema_slow=rules.trend_ema_slow,
+                        boll_period=rules.timed_boll_period,
+                        boll_std=rules.timed_boll_stddev,
+                        macd_fast=rules.timed_macd_fast,
+                        macd_slow=rules.timed_macd_slow,
+                        macd_signal=rules.timed_macd_signal,
+                        timestamp="end",
+                    )
                 )
-                point["bb_upper"] = float(upper)
-                point["bb_middle"] = float(middle)
-                point["bb_lower"] = float(lower)
-            macd_fast_p = RULES.timed_macd_fast
-            macd_slow_p = RULES.timed_macd_slow
-            macd_sig_p = RULES.timed_macd_signal
-            macd_required = macd_slow_p + macd_sig_p - 1
-            if len(day_closes) >= macd_required:
-                macd_line, signal_line, histogram = macd_histogram(
-                    day_closes,
-                    macd_fast_p,
-                    macd_slow_p,
-                    macd_sig_p,
+                day_bars = []
+            current_day = bar_date
+            day_bars.append(bar)
+        if day_bars:
+            price_series.extend(
+                overlay_series(
+                    day_bars,
+                    ema_fast=rules.trend_ema_fast,
+                    ema_slow=rules.trend_ema_slow,
+                    boll_period=rules.timed_boll_period,
+                    boll_std=rules.timed_boll_stddev,
+                    macd_fast=rules.timed_macd_fast,
+                    macd_slow=rules.timed_macd_slow,
+                    macd_signal=rules.timed_macd_signal,
+                    timestamp="end",
                 )
-                point["macd"] = float(macd_line)
-                point["macd_signal"] = float(signal_line)
-                point["macd_hist"] = float(histogram)
-            full_series.append(point)
-        price_series = full_series
+            )
         return {
             "starting_equity": str(result.starting_equity),
             "ending_equity": str(result.ending_equity),
@@ -477,9 +482,13 @@ class BacktestService:
         saver = getattr(self.journal, "save_backtest_run", None)
         if saver is None:
             return
+        result = job.get("result")
+        if isinstance(result, dict):
+            result = {key: value for key, value in result.items() if key != "chart_svg"}
         await saver(
             {
                 **job,
+                "result": result,
                 "created_at": datetime.fromisoformat(job["created_at"]),
                 "updated_at": datetime.fromisoformat(job["updated_at"]),
             }

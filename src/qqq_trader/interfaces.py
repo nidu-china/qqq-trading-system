@@ -41,7 +41,12 @@ class MarketDataProvider(Protocol):
     async def option_chain(self, underlying: str, expiry: date) -> list[OptionContract]: ...
 
     async def historical_bars(
-        self, symbol: str, start: date, end: date, period: str = "1m"
+        self,
+        symbol: str,
+        start: date,
+        end: date,
+        period: str = "1m",
+        all_sessions: bool = False,
     ) -> list[Bar]: ...
 
 
@@ -51,7 +56,12 @@ class VolatilityDataProvider(Protocol):
     async def recent_bars(self, symbol: str, count: int = 500, period: str = "1m") -> list[Bar]: ...
 
     async def historical_bars(
-        self, symbol: str, start: date, end: date, period: str = "1m"
+        self,
+        symbol: str,
+        start: date,
+        end: date,
+        period: str = "1m",
+        all_sessions: bool = False,
     ) -> list[Bar]: ...
 
 

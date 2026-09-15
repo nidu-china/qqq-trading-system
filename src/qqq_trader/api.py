@@ -23,7 +23,7 @@ from .config import NY_TZ, Settings
 from .configuration import editable_values, with_editable_values
 from .domain import SystemState
 from .engine import TradingEngine
-from .market_hours import regular_session_bars
+from .market_hours import indicator_session_bars
 from .persistence import MySQLJournal, ParquetMarketStore
 
 
@@ -401,10 +401,7 @@ def create_app(
         trading_date: date = Query(..., alias="date"),
         timeframe: str = Query(default="1m", pattern="^(1m|5m|day)$"),
     ) -> dict[str, Any]:
-        from decimal import Decimal as D
-
-        from .indicators import bollinger_bands, ema_series
-        from .indicators import vwap as calc_vwap
+        from .indicators import overlay_series
 
         if settings is None:
             raise HTTPException(501, "market data service is unavailable")
@@ -419,108 +416,22 @@ def create_app(
             raise HTTPException(404, f"no {timeframe} bars for {trading_date}")
         all_bars = ParquetMarketStore.read_bars(bar_path)
         all_bars.sort(key=lambda b: b.start)
-        
-        # For intraday: use all bars (including premarket) for indicator calculation,
-        # but only return RTH bars with computed indicators
-        if timeframe != "day":
-            from datetime import time as time_type
-            rth_bars = regular_session_bars(all_bars)
-            # Include 09:00-09:30 premarket for warmup
-            warmup_bars = [
-                b for b in all_bars
-                if time_type(9, 0) <= b.start.astimezone(NY_TZ).time() < time_type(9, 30)
-            ]
-            bars_for_indicators = warmup_bars + rth_bars
-            bars_to_display = rth_bars
-            warmup_count = len(warmup_bars)
-        else:
-            bars_for_indicators = all_bars
-            bars_to_display = all_bars
-            warmup_count = 0
 
-        closes = [b.close for b in bars_for_indicators]
+        session_bars = (
+            all_bars if timeframe == "day" else indicator_session_bars(all_bars)
+        )
         rules = settings.rules
-        ema_fast_period = rules.trend_ema_fast
-        ema_slow_period = rules.trend_ema_slow
-        macd_fast = rules.timed_macd_fast
-        macd_slow = rules.timed_macd_slow
-        macd_sig = rules.timed_macd_signal
-        boll_period = rules.timed_boll_period
-        boll_std = rules.timed_boll_stddev
-
-        ema9_vals = ema_series(closes, ema_fast_period) if len(closes) >= ema_fast_period else []
-        ema20_vals = ema_series(closes, ema_slow_period) if len(closes) >= ema_slow_period else []
-
-        macd_required = macd_slow + macd_sig - 1
-        macd_fast_ema = ema_series(closes, macd_fast) if len(closes) >= macd_fast else []
-        macd_slow_ema = ema_series(closes, macd_slow) if len(closes) >= macd_slow else []
-        macd_lines: list[D] = []
-        signal_lines: list[D] = []
-        hist_lines: list[D] = []
-        if macd_fast_ema and macd_slow_ema:
-            offset = macd_slow - macd_fast
-            macd_lines = [f - s for f, s in zip(macd_fast_ema[offset:], macd_slow_ema, strict=True)]
-            if len(macd_lines) >= macd_sig:
-                signal_lines = ema_series(macd_lines, macd_sig)
-                sig_offset = macd_sig - 1
-                hist_lines = [
-                    m - s
-                    for m, s in zip(
-                        macd_lines[sig_offset:],
-                        signal_lines,
-                        strict=True,
-                    )
-                ]
-
-        items = []
-        for i, b in enumerate(bars_to_display):
-            # Adjust index to account for warmup bars used in indicator calculation
-            indicator_index = i + warmup_count
-            item: dict[str, Any] = {
-                "time": b.start.isoformat(),
-                "open": float(b.open),
-                "high": float(b.high),
-                "low": float(b.low),
-                "close": float(b.close),
-                "volume": b.volume,
-            }
-
-            ema9_start = ema_fast_period - 1
-            if indicator_index >= ema9_start and ema9_vals:
-                ei = indicator_index - ema9_start
-                if 0 <= ei < len(ema9_vals):
-                    item["ema9"] = float(ema9_vals[ei])
-            ema20_start = ema_slow_period - 1
-            if indicator_index >= ema20_start and ema20_vals:
-                ei = indicator_index - ema20_start
-                if 0 <= ei < len(ema20_vals):
-                    item["ema20"] = float(ema20_vals[ei])
-
-            if indicator_index >= 0:
-                item["vwap"] = float(calc_vwap(bars_for_indicators[: indicator_index + 1]))
-
-            if indicator_index + 1 >= boll_period:
-                upper, middle, lower = bollinger_bands(
-                    closes[: indicator_index + 1], boll_period, boll_std
-                )
-                item["boll_upper"] = float(upper)
-                item["boll_mid"] = float(middle)
-                item["boll_lower"] = float(lower)
-
-            macd_start = macd_slow - 1
-            if indicator_index >= macd_start and macd_lines:
-                mi = indicator_index - macd_start
-                if 0 <= mi < len(macd_lines):
-                    item["macd_line"] = float(macd_lines[mi])
-                sig_start = macd_required - 1
-                if indicator_index >= sig_start and signal_lines:
-                    si = indicator_index - sig_start
-                    if 0 <= si < len(signal_lines):
-                        item["macd_signal"] = float(signal_lines[si])
-                    if 0 <= si < len(hist_lines):
-                        item["macd_hist"] = float(hist_lines[si])
-
-            items.append(item)
+        items = overlay_series(
+            session_bars,
+            ema_fast=rules.trend_ema_fast,
+            ema_slow=rules.trend_ema_slow,
+            boll_period=rules.timed_boll_period,
+            boll_std=rules.timed_boll_stddev,
+            macd_fast=rules.timed_macd_fast,
+            macd_slow=rules.timed_macd_slow,
+            macd_signal=rules.timed_macd_signal,
+            timestamp="start",
+        )
 
         return {
             "symbol": settings.underlying_symbol,
@@ -540,23 +451,24 @@ def create_app(
 
     @app.get("/api/v1/backtests")
     async def list_backtests() -> list[dict[str, Any]]:
-        return (
-            sorted(backtests.jobs.values(), key=lambda item: item["created_at"], reverse=True)
-            if backtests is not None
-            else []
-        )
+        return backtests.job_summaries() if backtests is not None else []
 
     @app.get("/api/v1/backtests/{job_id}")
     async def backtest_detail(job_id: str) -> dict[str, Any]:
-        if backtests is None or job_id not in backtests.jobs:
+        if backtests is None:
             raise HTTPException(404, "backtest not found")
-        return backtests.jobs[job_id]
+        job = await backtests.job_detail(job_id)
+        if job is None:
+            raise HTTPException(404, "backtest not found")
+        return job
 
     @app.get("/api/v1/backtests/{job_id}/chart")
     async def backtest_chart(job_id: str) -> Response:
-        if backtests is None or job_id not in backtests.jobs:
+        if backtests is None:
             raise HTTPException(404, "backtest not found")
-        job = backtests.jobs[job_id]
+        job = await backtests.job_detail(job_id)
+        if job is None:
+            raise HTTPException(404, "backtest not found")
         svg = (job.get("result") or {}).get("chart_svg", "")
         if not svg:
             raise HTTPException(404, "chart not available")

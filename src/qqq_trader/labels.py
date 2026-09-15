@@ -36,7 +36,10 @@ REJECT_LABELS: dict[str, str] = {
     "volatility_unavailable_insufficient_daily_history": "VIX 日线历史不足",
     "volatility_unavailable_insufficient_intraday_history": "VIX 盘中历史不足",
     "volatility_risk_off": "波动率风险偏高",
+    "volatility_recovery": "波动率恢复期，仅允许 Call",
     "volatility_shock": "波动率剧烈冲击",
+    "volatility_vix_macd_rising": "VIX 1分钟 MACD 上涨，拒绝 Call",
+    "volatility_vix_macd_falling": "VIX 1分钟 MACD 下跌，拒绝 Put",
     "missing_option_frame": "期权报价缺失",
     "relative_spread_too_wide": "期权价差过大",
     "absolute_spread_too_wide": "期权绝对价差过大",
@@ -57,6 +60,8 @@ REGIME_LABELS: dict[str, str] = {
     "risk_off": "风险关闭",
     "recovery": "恢复期",
     "shock": "剧烈冲击",
+    "vix_macd_rising": "VIX MACD 上涨",
+    "vix_macd_falling": "VIX MACD 下跌",
     "unavailable": "数据不可用",
 }
 
@@ -128,8 +133,6 @@ STRATEGY_PARAMS: dict[str, dict[str, Any]] = {
             _p("timed_put_rsi_min", "Put RSI 下限", min=0, max=50),
             _p("timed_volume_lookback", "量比回看根数", "int", min=2, max=100),
             _p("timed_volume_ratio", "入场量比门槛", step=0.1, min=0.5, max=5),
-            _p("timed_vix_volume_adjustment", "VIX 量比调整", step=0.01),
-            _p("timed_vix_trend_min_change", "VIX 趋势最小变化", step=0.001),
             _p("timed_trend_cross_lookback", "中轨穿越回看", "int", min=2, max=100),
             _p("timed_trend_max_crosses", "最大中轨穿越", "int", min=0, max=10),
             _p("timed_continuation_max_band_extension", "延续最大轨距", step=0.05),

@@ -8,6 +8,7 @@ from enum import StrEnum
 
 from .config import NY_TZ, Settings
 from .domain import Bar, Direction
+from .market_hours import is_vix_session_bar
 
 
 class VolatilityRegime(StrEnum):
@@ -15,65 +16,61 @@ class VolatilityRegime(StrEnum):
     RISK_OFF = "risk_off"
     RECOVERY = "recovery"
     SHOCK = "shock"
+    VIX_MACD_RISING = "vix_macd_rising"
+    VIX_MACD_FALLING = "vix_macd_falling"
     UNAVAILABLE = "unavailable"
 
 
-class VixFiveMinuteTrend(StrEnum):
-    FALLING = "falling"
-    NEUTRAL = "neutral"
-    RISING = "rising"
+def is_one_minute_bar(bar: Bar) -> bool:
+    return int((bar.end - bar.start).total_seconds() / 60) == 1
 
 
-def vix_five_minute_trend(
+# Cover 04:00-16:00 ET (720 1-minute bars) so the open does not drop early-session VIX.
+_VIX_MACD_LOOKBACK_BARS = 720
+
+
+def classify_vix_one_minute_macd(
     bars: Sequence[Bar],
     decision_at: datetime,
     max_staleness_minutes: int,
-    minimum_change: Decimal = Decimal("0.005"),
-    lookback_bars: int | None = None,
-) -> VixFiveMinuteTrend:
+    fast: int,
+    slow: int,
+    signal_period: int,
+) -> tuple[VolatilityRegime, Decimal | None, str]:
+    """Classify VIX 1-minute MACD without look-ahead.
+
+    Histogram > 0 is an uptrend (block Call, allow Put).
+    Histogram < 0 is a downtrend (block Put, allow Call).
+    Uses only the current day's 04:00-16:00 ET bars.
     """
-    Classify VIX trend using recent candles without look-ahead.
-    
-    Auto-detects bar period and uses appropriate lookback:
-    - 1-minute bars: uses 5 bars (5-minute window) for higher responsiveness
-    - 5-minute bars: uses 2 bars (10-minute window) for backward compatibility
-    
-    Parameters:
-    - lookback_bars: Override auto-detection with explicit count
-    """
-    decision_date = decision_at.astimezone(NY_TZ).date()
-    visible = sorted(
-        (
-            bar
-            for bar in bars
-            if bar.complete
-            and bar.end <= decision_at
-            and bar.end.astimezone(NY_TZ).date() == decision_date
-        ),
-        key=lambda bar: bar.end,
-    )
-    if len(visible) < 2:
-        return VixFiveMinuteTrend.NEUTRAL
-    
-    bar_period_minutes = int((visible[-1].end - visible[-1].start).total_seconds() / 60)
-    if lookback_bars is None:
-        lookback_bars = 5 if bar_period_minutes == 1 else 2
-    
-    if len(visible) < lookback_bars:
-        return VixFiveMinuteTrend.NEUTRAL
-    
+    from .indicators import macd_histogram
+
+    decision_day = decision_at.astimezone(NY_TZ).date()
+    visible: list[Bar] = []
+    for bar in reversed(bars):
+        if not bar.complete or bar.end > decision_at:
+            continue
+        if not is_one_minute_bar(bar) or not is_vix_session_bar(bar):
+            continue
+        if bar.start.astimezone(NY_TZ).date() != decision_day:
+            continue
+        visible.append(bar)
+        if len(visible) >= _VIX_MACD_LOOKBACK_BARS:
+            break
+    visible.reverse()
+    required = slow + signal_period - 1
+    if len(visible) < required:
+        return VolatilityRegime.UNAVAILABLE, None, "insufficient_intraday_history"
     current = visible[-1]
-    baseline = visible[-lookback_bars]
     if decision_at - current.end > timedelta(minutes=max_staleness_minutes):
-        return VixFiveMinuteTrend.NEUTRAL
-    close_change = current.close / baseline.close - Decimal(1)
-    is_bearish = sum(1 for bar in visible[-lookback_bars:] if bar.close < bar.open) >= (lookback_bars * 2 // 3)
-    is_bullish = sum(1 for bar in visible[-lookback_bars:] if bar.close > bar.open) >= (lookback_bars * 2 // 3)
-    if is_bearish and close_change <= -minimum_change:
-        return VixFiveMinuteTrend.FALLING
-    if is_bullish and close_change >= minimum_change:
-        return VixFiveMinuteTrend.RISING
-    return VixFiveMinuteTrend.NEUTRAL
+        return VolatilityRegime.UNAVAILABLE, None, "stale_intraday_data"
+    closes = [bar.close for bar in visible]
+    _, _, histogram = macd_histogram(closes, fast, slow, signal_period)
+    if histogram > 0:
+        return VolatilityRegime.VIX_MACD_RISING, histogram, ""
+    if histogram < 0:
+        return VolatilityRegime.VIX_MACD_FALLING, histogram, ""
+    return VolatilityRegime.NORMAL, histogram, ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,18 +78,22 @@ class VolatilitySnapshot:
     timestamp: datetime
     symbol: str
     value: Decimal | None
-    percentile: Decimal | None
-    change_5m: Decimal | None
-    change_15m: Decimal | None
     regime: VolatilityRegime
     reason: str = ""
+    macd_hist: Decimal | None = None
+    block_vix_macd_rising: bool = True
+    block_vix_macd_falling: bool = True
 
     def allows(self, direction: Direction) -> bool:
         if self.regime in {VolatilityRegime.NORMAL, VolatilityRegime.UNAVAILABLE}:
             return True
-        if self.regime is VolatilityRegime.RISK_OFF:
+        if self.regime is VolatilityRegime.VIX_MACD_RISING:
+            if not self.block_vix_macd_rising:
+                return True
             return direction is Direction.PUT
-        if self.regime is VolatilityRegime.RECOVERY:
+        if self.regime is VolatilityRegime.VIX_MACD_FALLING:
+            if not self.block_vix_macd_falling:
+                return True
             return direction is Direction.CALL
         return False
 
@@ -100,9 +101,7 @@ class VolatilitySnapshot:
         return {
             "symbol": self.symbol,
             "value": str(self.value) if self.value is not None else None,
-            "percentile": str(self.percentile) if self.percentile is not None else None,
-            "change_5m": str(self.change_5m) if self.change_5m is not None else None,
-            "change_15m": str(self.change_15m) if self.change_15m is not None else None,
+            "macd_hist": str(self.macd_hist) if self.macd_hist is not None else None,
             "regime": self.regime.value,
             "reason": self.reason,
         }
@@ -120,102 +119,48 @@ class VolatilityFilter:
         decision_at: datetime,
         daily_bars: Sequence[Bar] = (),
     ) -> VolatilitySnapshot:
-        sym = self.settings.volatility_symbol
-        visible = sorted(
-            (
-                bar
-                for bar in intraday_bars
-                if bar.complete and bar.end <= decision_at and bar.symbol == sym
-            ),
-            key=lambda bar: bar.end,
-        )
-        if not visible:
+        del daily_bars
+        vix_bars = [
+            bar
+            for bar in intraday_bars
+            if bar.symbol == self.settings.volatility_symbol
+        ]
+        if not any(
+            bar.complete and bar.end <= decision_at and is_one_minute_bar(bar)
+            for bar in vix_bars
+        ):
             return self._unavailable(decision_at, "missing_intraday_data")
-        current = visible[-1]
-        if decision_at - current.end > timedelta(
-            minutes=self.settings.volatility_max_staleness_minutes
-        ):
-            return self._unavailable(decision_at, "stale_intraday_data")
-
-        five_ago = self._asof(visible, decision_at - timedelta(minutes=5))
-        fifteen_ago = self._asof(visible, decision_at - timedelta(minutes=15))
-        if five_ago is None or fifteen_ago is None:
-            return self._unavailable(decision_at, "insufficient_intraday_history")
-
-        previous_closes = self._previous_session_closes([*daily_bars, *intraday_bars], decision_at)
-        if len(previous_closes) < self.settings.volatility_lookback_days:
-            return self._unavailable(decision_at, "insufficient_daily_history")
-        previous_closes = previous_closes[-self.settings.volatility_lookback_days :]
-
-        value = current.close
-        change_5m = value / five_ago.close - Decimal(1)
-        change_15m = value / fifteen_ago.close - Decimal(1)
-        percentile = Decimal(sum(item <= value for item in previous_closes)) / Decimal(
-            len(previous_closes)
+        regime, histogram, reason = classify_vix_one_minute_macd(
+            vix_bars,
+            decision_at,
+            self.settings.volatility_max_staleness_minutes,
+            int(self.settings.timed_macd_fast),
+            int(self.settings.timed_macd_slow),
+            int(self.settings.timed_macd_signal),
         )
-
-        if (
-            change_5m >= self.settings.volatility_shock_5m
-            or change_15m >= self.settings.volatility_shock_15m
-        ):
-            regime = VolatilityRegime.SHOCK
-        elif percentile >= self.settings.volatility_risk_off_percentile and (
-            change_5m >= self.settings.volatility_rise_5m
-            or change_15m >= self.settings.volatility_rise_15m
-        ):
-            regime = VolatilityRegime.RISK_OFF
-        elif percentile >= self.settings.volatility_recovery_percentile and (
-            change_5m <= self.settings.volatility_fall_5m
-            or change_15m <= self.settings.volatility_fall_15m
-        ):
-            regime = VolatilityRegime.RECOVERY
-        else:
-            regime = VolatilityRegime.NORMAL
-
+        visible = [
+            bar
+            for bar in vix_bars
+            if bar.complete and bar.end <= decision_at and is_one_minute_bar(bar)
+        ]
+        value = max(visible, key=lambda bar: bar.end).close if visible else None
         return VolatilitySnapshot(
-            timestamp=current.end,
+            timestamp=decision_at,
             symbol=self.settings.volatility_symbol,
             value=value,
-            percentile=percentile,
-            change_5m=change_5m,
-            change_15m=change_15m,
             regime=regime,
+            reason=reason,
+            macd_hist=histogram,
+            block_vix_macd_rising=self.settings.volatility_vix_macd_rising_block,
+            block_vix_macd_falling=True,
         )
-
-    @staticmethod
-    def _asof(bars: Sequence[Bar], target: datetime) -> Bar | None:
-        result = None
-        for bar in bars:
-            if bar.end > target:
-                break
-            result = bar
-        return result
-
-    def _previous_session_closes(self, bars: Sequence[Bar], decision_at: datetime) -> list[Decimal]:
-        decision_date = decision_at.astimezone(NY_TZ).date()
-        sym = self.settings.volatility_symbol
-        closes: dict[object, tuple[datetime, Decimal]] = {}
-        for bar in bars:
-            if not bar.complete or bar.end > decision_at or bar.symbol != sym:
-                continue
-            duration = bar.end - bar.start
-            session_timestamp = bar.start if duration >= timedelta(hours=12) else bar.end
-            session_date = session_timestamp.astimezone(NY_TZ).date()
-            if session_date >= decision_date:
-                continue
-            previous = closes.get(session_date)
-            if previous is None or bar.end > previous[0]:
-                closes[session_date] = (bar.end, bar.close)
-        return [closes[key][1] for key in sorted(closes)]
 
     def _unavailable(self, timestamp: datetime, reason: str) -> VolatilitySnapshot:
         return VolatilitySnapshot(
             timestamp=timestamp,
             symbol=self.settings.volatility_symbol,
             value=None,
-            percentile=None,
-            change_5m=None,
-            change_15m=None,
             regime=VolatilityRegime.UNAVAILABLE,
             reason=reason,
+            macd_hist=None,
         )

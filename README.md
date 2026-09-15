@@ -13,15 +13,15 @@
 
 ### Hybrid
 
-- 09:30–09:40 ET：收集 Opening Range，不开仓。
-- 09:40–13:30 ET：按 TREND / RANGE / UNKNOWN 调度信号（VWAP 回撤、OR 回归、假突破陷阱等）。
+- 09:30–09:35 ET：收集 Opening Range，不开仓。
+- 09:35–13:30 ET：按 TREND / RANGE / UNKNOWN 调度信号（VWAP 回撤、OR 回归、假突破陷阱等）。
 - 12:00 后：新信号评分门槛提高到 ≥7。
 - 13:55 ET：强制清空全部仓位。
 - 入场指标：EMA(9/21)、双 MACD、BOLL、RSI、VWAP、OR。
 
 ### 共用规则
 
-- VIX：NORMAL 双向、RISK_OFF 仅 Put、RECOVERY 仅 Call、SHOCK 禁止开仓；数据不可用时记录警告并放行。
+- VIX 只做方向风控：Hybrid 信号产生后，用 VIX 1 分钟 MACD 过滤。上涨拒绝 Call、下跌拒绝 Put；数据不可用时记录警告并放行。MACD 含 04:00–16:00 ET。
 
 固定风控：
 
@@ -64,16 +64,18 @@ data/market/
 
 ### backfill — 拉取历史 K 线
 
-在启动交易引擎或运行离线回测前，需先用此命令将历史数据从 Longbridge 下载并存入本地 Parquet 文件。
+把 Longbridge K 线写入本地 Parquet。实盘运行只把当天 K 线放在内存里，不写文件；需要落盘时用本命令。
+
+QQQ 默认 **09:00–16:00 ET**，VIX 默认 **04:00–16:00 ET**。
 
 ```bash
-# 拉取 QQQ 1m/5m K 线 + VIX 5m/日线（最常用，运行回测前必须先执行）
+# 拉取 QQQ 1m/5m K 线 + VIX 1m/5m
 qqq-trader backfill --start 2026-07-01 --end 2026-08-06
 
 # 只拉 QQQ K 线，跳过 VIX
 qqq-trader backfill --start 2026-07-01 --end 2026-08-06 --no-include-volatility
 
-# 单独补拉 VIX（--no-include-volatility 防止递归重复拉 QQQ）
+# 单独补拉 VIX（--no-include-volatility 防止再拉一遍 QQQ）
 qqq-trader backfill --start 2026-07-01 --end 2026-08-06 \
   --symbol .VIX.US --no-include-volatility
 
@@ -86,8 +88,8 @@ qqq-trader backfill --start 2026-07-01 --end 2026-08-06 \
 ```
 {DATA_DIR}/bars/symbol=QQQ.US/date=YYYY-MM-DD/1m.parquet
 {DATA_DIR}/bars/symbol=QQQ.US/date=YYYY-MM-DD/5m.parquet
+{DATA_DIR}/bars/symbol=.VIX.US/date=YYYY-MM-DD/1m.parquet
 {DATA_DIR}/bars/symbol=.VIX.US/date=YYYY-MM-DD/5m.parquet
-{DATA_DIR}/bars/symbol=.VIX.US/date=YYYY-MM-DD/day.parquet
 ```
 
 ### backtest — 命令行回测
@@ -141,7 +143,7 @@ qqq-trader backtest \
   "rejected": { "signal_expired": 2, "stale_quote": 1 },
   "option_data_complete": false,
   "volatility_data_complete": true,
-  "volatility_regimes": { "normal": 8, "elevated": 2, "unavailable": 2 },
+  "volatility_regimes": { "normal": 8, "vix_macd_rising": 2, "unavailable": 2 },
   "warning": ["No option Bid/Ask frames supplied; Greeks synthetic pricing is used."]
 }
 ```
@@ -295,7 +297,7 @@ sudo systemctl restart qqq-trader  # 重启
 ```dotenv
 # 必填 —— 交易模式与账户
 TRADING_MODE=paper          # paper / live
-STRATEGY_MODE=hybrid        # 固定 Hybrid，其它模式已下线
+STRATEGY_MODE=hybrid        # hybrid
 ACCOUNT_ID=你的账户ID
 
 # 必填 —— API 监听地址（Linux 部署务必设为 0.0.0.0）
@@ -324,7 +326,7 @@ docker compose up --build
 | 美东时间 (ET) | 北京时间 (BJT) | 说明 |
 |---|---|---|
 | 09:30 开盘 | 21:30 | |
-| 09:40 | 21:40 | Hybrid：OR 构建结束，开始检测入场 |
+| 09:35 | 21:35 | Hybrid：OR 构建结束，开始检测入场 |
 | 12:00 | 00:00 | Hybrid：新信号评分门槛提高到 7 |
 | 13:30 | 次日 01:30 | Hybrid：停止新开仓 |
 | 13:55 强制平仓 | 次日 01:55 | 强制清仓 |
@@ -342,7 +344,7 @@ ACCOUNT_ID=你的账户ID
 
 所有交易参数**必须**在 `.env` 中显式配置，没有隐含默认值。参考 `.env.example` 获取完整列表。
 
-- **在线配置页**：仅开放 VIX 波动率过滤参数的实时调整。
+- **在线配置页**：仅开放仍生效的 VIX 过滤开关、标的、回看天数和最大滞后。
 - **回测页面**：固定 Hybrid，可微调该策略的可调参数。
 - 交易时段、仓位、止盈止损、流动性、手续费和执行规则固定在 `STRATEGY.md` 和 `.env` 中。
 - 枚举标签（退出原因、拒绝原因、VIX 状态）由后端 `/api/v1/labels` 统一提供，前端动态加载。
@@ -374,6 +376,6 @@ cd frontend && pnpm run build
 - `tests/test_strategy.py`：制度识别与入场。
 - `tests/test_risk.py`：选约、流动性、仓位、日亏损和所有固定退出规则。
 - `tests/test_backtest.py`：合成报价、聚合退出、13:55 强平和取消回测。
-- `tests/test_volatility.py`：VIX 五种状态及方向许可。
+- `tests/test_volatility.py`：VIX 1 分钟 MACD 上涨/下跌闸门及数据不可用放行。
 - `tests/test_execution_adapter.py`：订单追价、成交与适配器行为。
 - `tests/test_configuration.py`：配置加载、校验和跨字段验证。

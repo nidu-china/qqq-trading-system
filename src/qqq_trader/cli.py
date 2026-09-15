@@ -14,7 +14,7 @@ from .api import create_app
 from .backtest import BacktestResult, EventDrivenBacktester, load_option_frames_path
 from .config import NY_TZ, Settings
 from .logging_config import setup_logging
-from .market_hours import regular_session_bars
+from .market_hours import indicator_session_bars, vix_session_bars
 from .persistence import MySQLJournal, ParquetMarketStore
 from .reporting import DailyReportData, DailyReportGenerator, TradeSummary
 from .risk import ContractSelector, RiskEngine
@@ -97,9 +97,12 @@ def backfill(
     end: str = typer.Option(..., help="End date in YYYY-MM-DD"),
     symbol: str = typer.Option("QQQ.US"),
     include_volatility: bool = typer.Option(True, "--include-volatility/--no-include-volatility"),
-    include_premarket: bool = typer.Option(False, "--include-premarket/--no-include-premarket", help="Include 09:00-09:30 premarket data"),
 ) -> None:
-    """Backfill underlying and configured volatility bars."""
+    """Backfill underlying and configured volatility bars to Parquet.
+
+    QQQ is stored as 09:00-16:00 ET. VIX is stored as 04:00-16:00 ET.
+    Live trading does not write bars; use this command to persist them.
+    """
 
     async def main() -> None:
         start_date = date.fromisoformat(start)
@@ -114,42 +117,38 @@ def backfill(
         try:
             typer.echo(f"requesting {symbol} 1m bars: {start_date} to {end_date}")
             bars = await market.historical_bars(
-                symbol, start_date, end_date, "1m", all_sessions=include_premarket
+                symbol, start_date, end_date, "1m", all_sessions=True
             )
-
-            # Filter bars based on premarket option
-            if include_premarket:
-                from datetime import time as time_type
-                # Include 09:00-16:00 (premarket + RTH), exclude after-hours
-                bars = [
-                    b for b in bars
-                    if time_type(9, 0) <= b.start.astimezone(NY_TZ).time() < time_type(16, 0)
-                ]
-                typer.echo(f"including premarket data (09:00-09:30 ET), total bars: {len(bars)}")
+            if symbol == settings.volatility_symbol:
+                bars = vix_session_bars(bars)
+                hours = "04:00-16:00 ET"
             else:
-                # Regular trading hours only (09:30-16:00)
-                bars = regular_session_bars(bars)
-                typer.echo("regular trading hours only (09:30-16:00 ET)")
-            
+                bars = indicator_session_bars(bars)
+                hours = "09:00-16:00 ET"
+            typer.echo(f"including {hours}, total bars: {len(bars)}")
+
             store = ParquetMarketStore(settings.data_dir)
             store.replace_bars(bars, "1m")
             from .indicators import BarAggregator
 
             store.replace_bars(BarAggregator.to_five_minutes(bars), "5m")
-            typer.echo(f"saved {len(bars)} {symbol} one-minute bars (market hours only)")
+            typer.echo(f"saved {len(bars)} {symbol} one-minute bars ({hours})")
             if include_volatility and symbol != settings.volatility_symbol:
-                typer.echo(f"requesting {settings.volatility_symbol} 5m and daily bars")
-                volatility_5m = await market.historical_bars(
-                    settings.volatility_symbol, start_date, end_date, "5m"
+                typer.echo(f"requesting {settings.volatility_symbol} 1m bars")
+                volatility_1m = await market.historical_bars(
+                    settings.volatility_symbol,
+                    start_date,
+                    end_date,
+                    "1m",
+                    all_sessions=True,
                 )
-                volatility_daily = await market.historical_bars(
-                    settings.volatility_symbol, start_date, end_date, "day"
-                )
+                volatility_1m = vix_session_bars(volatility_1m)
+                volatility_5m = BarAggregator.to_five_minutes(volatility_1m)
+                store.replace_bars(volatility_1m, "1m")
                 store.replace_bars(volatility_5m, "5m")
-                store.replace_bars(volatility_daily, "day")
                 typer.echo(
-                    f"saved {len(volatility_5m)} intraday and "
-                    f"{len(volatility_daily)} daily {settings.volatility_symbol} bars"
+                    f"saved {len(volatility_1m)} 1m and {len(volatility_5m)} 5m "
+                    f"{settings.volatility_symbol} bars (04:00-16:00 ET)"
                 )
         finally:
             await market.close()

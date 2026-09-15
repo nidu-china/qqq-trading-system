@@ -1,9 +1,9 @@
 # QQQ 0DTE 交易策略
 
-系统只运行 **Hybrid**（制度自适应）。Paper、Live 和 Replay 共用同一套
-入场、VIX 过滤、选约和风控。所有计算只用已收盘的 1 分钟 RTH K 线，时间为美东（ET）。
+系统运行 **Hybrid**（制度自适应）。Paper、Live 和 Replay 共用选约和风控。
+所有计算只用**当天** 09:00–16:00 ET 已收盘 1 分钟 K 线（不含前一交易日）。BOLL(20)、EMA(21)、MACD(8/17/9)、RSI 从 09:00 起约 20–25 根后可用。
 
-Jul–Sep 2026 对比后下线了独立的 Trend ORB 与 BOLL/MACD 模式。
+Jul–Sep 2026 对比后下线了独立的 Trend ORB、BOLL/MACD 与 VIX 走势模式。
 
 ---
 
@@ -13,8 +13,9 @@ Jul–Sep 2026 对比后下线了独立的 Trend ORB 与 BOLL/MACD 模式。
 
 | ET 时间 | 行为 |
 |---|---|
-| 09:30–09:40 | 收集 Opening Range，不开仓 |
-| 09:40–13:30 | 分类制度并允许入场 |
+| 09:00–09:30 | 指标会话（BOLL/MACD/EMA/RSI/挤压），不开仓 |
+| 09:30–09:35 | 收集 Opening Range，不开仓 |
+| 09:35–13:30 | 分类制度并允许入场 |
 | 12:00 后 | 新信号评分门槛 ≥ 7 |
 | 13:30–13:55 | 不再开新仓，管理已有仓位 |
 | 13:55 | 强制清仓 |
@@ -22,7 +23,7 @@ Jul–Sep 2026 对比后下线了独立的 Trend ORB 与 BOLL/MACD 模式。
 ### 制度
 
 连续 3 根 K 线投票确认后切换：`TREND_UP` / `TREND_DOWN` / `RANGE` / `UNKNOWN`。
-趋势制度走 OR 突破与 VWAP 回撤；震荡/未知走超卖反弹、VWAP 结构、OR 回归，最后兜底假突破陷阱。
+趋势制度走 OR 突破与 VWAP 回撤；震荡/未知走超卖反弹、VWAP 结构、OR 回归，最后兜底假突破陷阱。RANGE/UNKNOWN 另有 `squeeze_mid_break`：当天带宽进入 25 分位至少 5 根后 armed，**线圈最低宽度 ≤ 0.29%**，散带后仍保持最多 20 根，收盘上穿中轨即开火（不要求开火当根还在挤压里）。
 
 `regime_momentum_3bar` 已关闭。
 
@@ -37,7 +38,7 @@ Jul–Sep 2026 对比后下线了独立的 Trend ORB 与 BOLL/MACD 模式。
 ## 合约、流动性和 VIX
 
 0DTE，行权价在现货 ±$1 内取最近 5 张，再选合格报价里 Ask 最低的。
-VIX：NORMAL / 数据不可用双向；RISK_OFF 仅 Put；RECOVERY 仅 Call；SHOCK 禁止开仓。
+VIX 只做方向风控，不产生信号。Hybrid 先出 Call/Put，再用 **当天** VIX 1 分钟 MACD（与 Hybrid 相同的 8/17/9）过滤：柱 > 0（上涨）只放行 Put；柱 < 0（下跌）只放行 Call；柱 = 0 或数据不可用则双向放行。MACD 只用当天 04:00–16:00 ET。
 
 ## 回测
 

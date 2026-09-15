@@ -1,6 +1,6 @@
 {
   "path": "5m.parquet",
-  "rows": 84,
-  "sha256": "659793787b4749d0fd6e10a3c79b7580945270d2bf4adcda7f8b91aaec0aae74",
-  "written_at": "2026-09-02T19:54:32.147859+00:00"
+  "rows": 78,
+  "sha256": "012cc262904cd44c35a813f54d2912e9827108e537f2b7178fc5badcd7ad2c1b",
+  "written_at": "2026-09-15T02:57:27.288117+00:00"
 }

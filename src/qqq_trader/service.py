@@ -9,7 +9,7 @@ from .domain import SystemState
 from .engine import TradingEngine
 from .indicators import BarAggregator
 from .interfaces import VolatilityDataProvider
-from .market_hours import regular_session_bars
+from .market_hours import indicator_session_bars, vix_session_bars
 from .persistence import ParquetMarketStore
 from .policy import RULES
 from .reporting import DailyReportData, DailyReportGenerator, TradeSummary
@@ -86,21 +86,22 @@ class TradingService:
             )
             merged = {bar.start: bar for bar in [*self.strategy_warmup_bars, *recent]}
             self.bars_1m = [
-                merged[key] for key in sorted(merged) if merged[key].end <= now
-            ][-1000:]
-            current_day_bars = [
                 bar
-                for bar in regular_session_bars(self.bars_1m)
+                for bar in indicator_session_bars(
+                    merged[key] for key in sorted(merged) if merged[key].end <= now
+                )
                 if bar.start.astimezone(NY_TZ).date() == local.date()
             ]
-            if current_day_bars:
-                self.market_store.replace_bars(current_day_bars, "1m")
-            bars_5m = BarAggregator.to_five_minutes(current_day_bars)
-            if bars_5m:
-                self.market_store.replace_bars(bars_5m, "5m")
+            bars_5m = BarAggregator.to_five_minutes(
+                [
+                    bar
+                    for bar in self.bars_1m
+                    if bar.start.astimezone(NY_TZ).date() == local.date()
+                ]
+            )
             if local.minute % 5 == 0 or self.last_bar_end is None:
                 self._log.info(
-                    "bars updated | %s 1m=%d 5m=%d | last=%s",
+                    "bars updated | %s 1m=%d 5m=%d | last=%s | memory-only",
                     self.engine.settings.underlying_symbol,
                     len(self.bars_1m), len(bars_5m),
                     (
@@ -167,12 +168,24 @@ class TradingService:
         )
 
     async def _warm_strategy_history(self) -> None:
-        now = datetime.now(timezone.utc).astimezone(NY_TZ)
-        start = now.date() - timedelta(days=35)
-        end = now.date() - timedelta(days=1)
+        now = datetime.now(timezone.utc)
+        local = now.astimezone(NY_TZ)
+        today = local.date()
         try:
-            self.strategy_warmup_bars = await self.engine.market.historical_bars(
-                self.engine.settings.underlying_symbol, start, end, "1m"
+            pulled = await self.engine.market.historical_bars(
+                self.engine.settings.underlying_symbol,
+                today,
+                today,
+                "1m",
+                all_sessions=True,
+            )
+            self.strategy_warmup_bars = [
+                bar for bar in indicator_session_bars(pulled) if bar.end <= now
+            ]
+            self._log.info(
+                "strategy bars warmed in memory | %s | today 09:00-16:00 ET | bars=%d",
+                self.engine.settings.underlying_symbol,
+                len(self.strategy_warmup_bars),
             )
         except Exception as exc:
             self.strategy_warmup_bars = []
@@ -186,97 +199,31 @@ class TradingService:
         now = datetime.now(timezone.utc)
         end = now.astimezone(NY_TZ).date()
         vix_symbol = self.engine.settings.volatility_symbol
-        required_days = self.engine.settings.volatility_lookback_days
-        
+        self.volatility_daily_bars = []
         self._log.info(
-            "warming volatility history | %s | required_days=%d",
-            vix_symbol, required_days,
+            "warming volatility history | %s | today 04:00-16:00 ET",
+            vix_symbol,
         )
-        
-        # Try to load from local parquet first and determine what's missing
-        local_daily_loaded = []
-        missing_start = None
         try:
-            from pathlib import Path
-            store_path = Path(self.engine.settings.data_dir) / "bars"
-            daily_bars = self.market_store.__class__.read_bars_path(store_path, "day")
-            vix_daily = [
-                b for b in daily_bars 
-                if b.symbol == vix_symbol and b.start.astimezone(NY_TZ).date() <= end
-            ]
-            local_daily_loaded = sorted(vix_daily, key=lambda b: b.start)
-            
-            if local_daily_loaded:
-                latest_local_date = local_daily_loaded[-1].start.astimezone(NY_TZ).date()
-                self._log.info(
-                    "local VIX daily data | %s | count=%d | latest=%s",
-                    vix_symbol, len(local_daily_loaded), latest_local_date,
-                )
-                # Check if we need to fetch missing recent days
-                if latest_local_date < end:
-                    from datetime import timedelta as td
-                    missing_start = latest_local_date + td(days=1)
-                    self._log.info(
-                        "will fetch missing VIX daily | %s to %s",
-                        missing_start, end,
-                    )
-            else:
-                self._log.warning(
-                    "no local VIX daily data found | will fetch from API",
-                )
-                missing_start = end - timedelta(days=max(45, required_days * 2))
-        except Exception as exc:
-            self._log.warning("failed to load local VIX daily data | %s | will fetch from API", exc)
-            missing_start = end - timedelta(days=max(45, required_days * 2))
-        
-        # Fetch missing data from API
-        try:
-            # Always fetch intraday from API (needs to be recent)
-            intraday_start = end - timedelta(days=5)
             intraday = await self.volatility_provider.historical_bars(
-                vix_symbol, intraday_start, end, "5m"
+                vix_symbol, end, end, "1m", all_sessions=True
             )
-            self.volatility_bars_5m = [bar for bar in intraday if bar.end <= now]
-            self.market_store.write_bars(self.volatility_bars_5m, "5m")
-            
-            # Fetch missing daily data if needed
-            if missing_start is not None:
-                self._log.info("fetching missing VIX daily | %s to %s", missing_start, end)
-                daily = await self.volatility_provider.historical_bars(
-                    vix_symbol, missing_start, end, "day"
-                )
-                # Merge with local data
-                self.volatility_daily_bars = local_daily_loaded + daily
-                # Write only the new data to avoid overwriting existing files
-                self.market_store.write_bars(daily, "day")
-                self._log.info(
-                    "volatility warmed (incremental) | %s | 5m=%d daily=%d (local=%d + fetched=%d)",
-                    vix_symbol, len(intraday), len(self.volatility_daily_bars),
-                    len(local_daily_loaded), len(daily),
-                )
-            else:
-                # All daily data is local
-                self.volatility_daily_bars = local_daily_loaded
-                self._log.info(
-                    "volatility warmed (local) | %s | 5m=%d daily=%d",
-                    vix_symbol, len(intraday), len(self.volatility_daily_bars),
-                )
-            
-            # Final validation
-            if len(self.volatility_daily_bars) < required_days:
-                self._log.error(
-                    "insufficient VIX daily data after warm | have=%d required=%d",
-                    len(self.volatility_daily_bars), required_days,
-                )
-            
+            self.volatility_bars_1m = [
+                bar
+                for bar in vix_session_bars(intraday)
+                if bar.end <= now
+            ]
+            self.volatility_bars_5m = BarAggregator.to_five_minutes(
+                self.volatility_bars_1m
+            )
+            self._log.info(
+                "volatility warmed in memory | %s | 04:00-16:00 ET | 1m=%d 5m=%d",
+                vix_symbol, len(self.volatility_bars_1m), len(self.volatility_bars_5m),
+            )
             await self.engine.journal.event(
                 "volatility_warmed",
-                f"loaded {len(self.volatility_bars_5m)} intraday and {len(self.volatility_daily_bars)} daily bars",
-                {
-                    "symbol": vix_symbol,
-                    "daily_local": len(local_daily_loaded),
-                    "daily_fetched": len(self.volatility_daily_bars) - len(local_daily_loaded),
-                },
+                f"loaded {len(self.volatility_bars_1m)} 1m and {len(self.volatility_bars_5m)} 5m bars",
+                {"symbol": vix_symbol},
             )
         except Exception as exc:
             self._log.error("volatility warm failed | %s", exc)
@@ -290,7 +237,10 @@ class TradingService:
         subscriber = getattr(self.engine.market, "subscribe_candlesticks", None)
         if subscriber is None:
             return
-        symbols = [self.engine.settings.underlying_symbol]
+        symbols = [
+            self.engine.settings.underlying_symbol,
+            self.engine.settings.volatility_symbol,
+        ]
         try:
             await subscriber(symbols, "1m")
             self._log.info("subscribed to real-time 1m candlesticks | %s", symbols)
@@ -326,23 +276,18 @@ class TradingService:
         symbol = self.engine.settings.volatility_symbol
         try:
             recent = await self.volatility_provider.recent_bars(symbol, 500, "1m")
-            # Only keep regular trading hours (9:30-16:00 ET)
-            from datetime import time as time_type
+            merged = {bar.start: bar for bar in [*self.volatility_bars_1m, *recent]}
+            local_date = now.astimezone(NY_TZ).date()
             self.volatility_bars_1m = [
-                bar for bar in recent 
-                if bar.end <= now
-                and time_type(9, 30) <= bar.end.astimezone(NY_TZ).time().replace(tzinfo=None) <= time_type(16, 0)
+                bar
+                for bar in vix_session_bars(
+                    merged[key] for key in sorted(merged) if merged[key].end <= now
+                )
+                if bar.start.astimezone(NY_TZ).date() == local_date
             ]
-            self.market_store.write_bars(self.volatility_bars_1m, "1m")
-            derived = BarAggregator.to_five_minutes(self.volatility_bars_1m)
-            merged = {bar.start: bar for bar in [*self.volatility_bars_5m, *derived]}
-            cutoff = now - timedelta(
-                days=max(45, self.engine.settings.volatility_lookback_days * 2)
+            self.volatility_bars_5m = BarAggregator.to_five_minutes(
+                self.volatility_bars_1m
             )
-            self.volatility_bars_5m = [
-                merged[key] for key in sorted(merged) if merged[key].end >= cutoff
-            ]
-            self.market_store.write_bars(derived, "5m")
             latest = self.volatility_bars_1m[-1] if self.volatility_bars_1m else None
             staleness = (
                 (now - latest.end).total_seconds() / 60 if latest else float("inf")

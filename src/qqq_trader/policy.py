@@ -13,7 +13,7 @@ class StrategyRules:
 
     # 统一时间窗口
     phase_collect_start: time = time(9, 30)
-    phase_collect_end: time = time(9, 40)
+    phase_collect_end: time = time(9, 35)
     phase_opening_end: time = time(10, 0)
     phase_main_end: time = time(13, 30)   # signals allowed until 13:30; forced close stays at 13:55
 
@@ -31,8 +31,6 @@ class StrategyRules:
     timed_put_rsi_min: Decimal = Decimal("30")
     timed_volume_lookback: int = 20
     timed_volume_ratio: Decimal = Decimal("1.2")
-    timed_vix_volume_adjustment: Decimal = Decimal("0.10")
-    timed_vix_trend_min_change: Decimal = Decimal("0.005")
     timed_trend_cross_lookback: int = 20
     timed_trend_max_crosses: int = 2
     timed_continuation_max_band_extension: Decimal = Decimal("1.20")
@@ -133,6 +131,15 @@ class StrategyRules:
     regime_range_rsi_oversold: Decimal = Decimal("40")
     regime_range_rsi_overbought: Decimal = Decimal("60")
 
+    # Squeeze mid-band breakout Call (RANGE / UNKNOWN only)
+    squeeze_lookback: int = 90
+    squeeze_width_percentile: Decimal = Decimal("0.25")
+    squeeze_min_bars: int = 5
+    squeeze_hold_bars: int = 20
+    squeeze_expand: Decimal = Decimal("1.05")
+    squeeze_max_coil_width: Decimal = Decimal("0.0029")
+    squeeze_max_band_position: Decimal = Decimal("0.70")
+
     synthetic_min_price: Decimal = Decimal("0.01")
     synthetic_iv_floor: Decimal = Decimal("0.08")
     synthetic_iv_cap: Decimal = Decimal("1.50")
@@ -197,7 +204,6 @@ def rules_from_settings(settings) -> StrategyRules:
         "timed_macd_fast", "timed_macd_slow", "timed_macd_signal",
         "timed_rsi_period", "timed_call_rsi_max", "timed_put_rsi_min",
         "timed_volume_lookback", "timed_volume_ratio",
-        "timed_vix_volume_adjustment", "timed_vix_trend_min_change",
         "timed_trend_cross_lookback", "timed_trend_max_crosses",
         "timed_continuation_max_band_extension",
         "timed_continuation_fresh_macd_volume_multiplier",

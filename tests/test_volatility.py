@@ -1,14 +1,18 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from conftest import make_settings
 from qqq_trader.domain import Bar, Direction
+from qqq_trader.market_hours import vix_session_bars
 from qqq_trader.volatility import VolatilityFilter, VolatilityRegime
 
+NY = ZoneInfo("America/New_York")
 
-def make_bar(end: datetime, close: str, duration_minutes: int = 5) -> Bar:
+
+def make_bar(end: datetime, close: str, duration_minutes: int = 1) -> Bar:
     value = Decimal(close)
     return Bar(
         symbol=".VIX.US",
@@ -22,59 +26,109 @@ def make_bar(end: datetime, close: str, duration_minutes: int = 5) -> Bar:
     )
 
 
-def daily_history(decision_at: datetime) -> list[Bar]:
-    result = []
-    for index in range(20):
-        start = decision_at - timedelta(days=30 - index)
-        value = Decimal(10 + index)
-        result.append(
-            Bar(
-                symbol=".VIX.US",
-                start=start,
-                end=start + timedelta(days=1),
-                open=value,
-                high=value,
-                low=value,
-                close=value,
-                volume=0,
-            )
-        )
-    return result
-
-
-def snapshot(values: tuple[str, str, str]):
-    decision_at = datetime(2026, 7, 15, 14, 0, tzinfo=timezone.utc)
-    intraday = [
-        make_bar(decision_at - timedelta(minutes=15), values[0]),
-        make_bar(decision_at - timedelta(minutes=5), values[1]),
-        make_bar(decision_at, values[2]),
+def one_minute_series(decision_at: datetime, closes: list[Decimal]) -> list[Bar]:
+    count = len(closes)
+    return [
+        make_bar(decision_at - timedelta(minutes=count - 1 - index), str(close))
+        for index, close in enumerate(closes)
     ]
-    return VolatilityFilter(make_settings()).evaluate(intraday, decision_at, daily_history(decision_at))
 
 
-def test_risk_off_allows_only_put():
-    result = snapshot(("33", "34", "35"))
-    assert result.regime is VolatilityRegime.RISK_OFF
+def snapshot_from_closes(closes: list[Decimal]):
+    decision_at = datetime(2026, 7, 15, 11, 0, tzinfo=NY)
+    return VolatilityFilter(make_settings()).evaluate(
+        one_minute_series(decision_at, closes),
+        decision_at,
+    )
+
+
+def test_vix_macd_rising_blocks_call_allows_put():
+    closes = [Decimal("15")] * 20 + [
+        Decimal("15") + Decimal(index) * Decimal("0.25") for index in range(25)
+    ]
+    result = snapshot_from_closes(closes)
+    assert result.regime is VolatilityRegime.VIX_MACD_RISING
+    assert result.macd_hist is not None and result.macd_hist > 0
     assert result.allows(Direction.PUT)
     assert not result.allows(Direction.CALL)
 
 
-def test_recovery_allows_only_call():
-    result = snapshot(("27", "26", "25"))
-    assert result.regime is VolatilityRegime.RECOVERY
+def test_vix_macd_rising_block_can_be_disabled():
+    closes = [Decimal("15")] * 20 + [
+        Decimal("15") + Decimal(index) * Decimal("0.25") for index in range(25)
+    ]
+    settings = make_settings(volatility_vix_macd_rising_block=False)
+    decision_at = datetime(2026, 7, 15, 11, 0, tzinfo=NY)
+    result = VolatilityFilter(settings).evaluate(
+        one_minute_series(decision_at, closes),
+        decision_at,
+    )
+    assert result.regime is VolatilityRegime.VIX_MACD_RISING
+    assert result.allows(Direction.CALL)
+    assert result.allows(Direction.PUT)
+
+
+def test_vix_macd_falling_blocks_put_allows_call():
+    closes = [Decimal("20")] * 20 + [
+        Decimal("20") - Decimal(index) * Decimal("0.25") for index in range(25)
+    ]
+    result = snapshot_from_closes(closes)
+    assert result.regime is VolatilityRegime.VIX_MACD_FALLING
+    assert result.macd_hist is not None and result.macd_hist < 0
     assert result.allows(Direction.CALL)
     assert not result.allows(Direction.PUT)
 
 
-def test_shock_blocks_both_directions():
-    result = snapshot(("34", "35", "40"))
-    assert result.regime is VolatilityRegime.SHOCK
-    assert not result.allows(Direction.CALL)
-    assert not result.allows(Direction.PUT)
-
-
 def test_missing_history_fails_closed():
-    decision_at = datetime(2026, 7, 15, 14, 0, tzinfo=timezone.utc)
+    decision_at = datetime(2026, 7, 15, 11, 0, tzinfo=NY)
     result = VolatilityFilter(make_settings()).evaluate([], decision_at)
     assert result.regime is VolatilityRegime.UNAVAILABLE
     assert result.reason == "missing_intraday_data"
+    assert result.allows(Direction.CALL)
+    assert result.allows(Direction.PUT)
+
+
+def test_short_one_minute_history_is_unavailable():
+    decision_at = datetime(2026, 7, 15, 11, 0, tzinfo=NY)
+    closes = [Decimal("16") for _ in range(10)]
+    result = VolatilityFilter(make_settings()).evaluate(
+        one_minute_series(decision_at, closes),
+        decision_at,
+    )
+    assert result.regime is VolatilityRegime.UNAVAILABLE
+    assert result.reason == "insufficient_intraday_history"
+    assert result.allows(Direction.CALL)
+    assert result.allows(Direction.PUT)
+
+
+def test_vix_macd_includes_early_session_at_open():
+    """09:40 only has 10 RTH minutes; MACD(8,17,9) needs early-session bars from 04:00."""
+    decision_at = datetime(2026, 7, 15, 9, 40, tzinfo=NY)
+    closes = [Decimal("15")] * 15 + [
+        Decimal("15") + Decimal(index) * Decimal("0.25") for index in range(25)
+    ]
+    result = VolatilityFilter(make_settings()).evaluate(
+        one_minute_series(decision_at, closes),
+        decision_at,
+    )
+    assert result.regime is VolatilityRegime.VIX_MACD_RISING
+    assert result.allows(Direction.PUT)
+    assert not result.allows(Direction.CALL)
+
+
+def test_vix_macd_keeps_four_am_session_and_drops_before():
+    decision_at = datetime(2026, 7, 15, 11, 0, tzinfo=NY)
+    session = one_minute_series(
+        decision_at,
+        [Decimal("15")] * 20 + [
+            Decimal("15") + Decimal(index) * Decimal("0.25") for index in range(25)
+        ],
+    )
+    kept = make_bar(datetime(2026, 7, 15, 4, 1, tzinfo=NY), "14")
+    dropped = make_bar(datetime(2026, 7, 15, 3, 59, tzinfo=NY), "40")
+    assert vix_session_bars([dropped, kept]) == [kept]
+    result = VolatilityFilter(make_settings()).evaluate(
+        [dropped, kept, *session],
+        decision_at,
+    )
+    assert result.regime is VolatilityRegime.VIX_MACD_RISING

@@ -19,14 +19,6 @@ const groups: Record<string, Field[]> = {
     { key: 'volatility_symbol', label: '波动率标的', kind: 'text' },
     { key: 'volatility_lookback_days', label: '回看交易日', unit: '日', min: 2 },
     { key: 'volatility_max_staleness_minutes', label: '最大滞后', unit: '分钟', min: 1 },
-    { key: 'volatility_risk_off_percentile', label: 'Risk-off 分位', step: 0.01 },
-    { key: 'volatility_recovery_percentile', label: 'Recovery 分位', step: 0.01 },
-    { key: 'volatility_rise_5m', label: '5 分钟上升阈值', step: 0.01 },
-    { key: 'volatility_rise_15m', label: '15 分钟上升阈值', step: 0.01 },
-    { key: 'volatility_fall_5m', label: '5 分钟回落阈值', step: 0.01 },
-    { key: 'volatility_fall_15m', label: '15 分钟回落阈值', step: 0.01 },
-    { key: 'volatility_shock_5m', label: '5 分钟冲击阈值', step: 0.01 },
-    { key: 'volatility_shock_15m', label: '15 分钟冲击阈值', step: 0.01 },
   ],
 }
 

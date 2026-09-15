@@ -21,7 +21,7 @@ const error = ref('')
 const barCount = ref(0)
 const priceRange = ref('')
 
-function isRegularSession(value: string) {
+function isChartSession(value: string) {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/New_York',
     hour: '2-digit',
@@ -31,7 +31,7 @@ function isRegularSession(value: string) {
   const hour = Number(parts.find(part => part.type === 'hour')?.value ?? 0) % 24
   const minute = Number(parts.find(part => part.type === 'minute')?.value ?? 0)
   const minutes = hour * 60 + minute
-  return minutes >= 9 * 60 + 30 && minutes < 16 * 60
+  return minutes >= 9 * 60 && minutes < 16 * 60
 }
 
 async function loadDates() {
@@ -55,7 +55,7 @@ async function loadKline() {
     const sourceBars: BarData[] = res.data.bars
     const bars = timeframe.value === 'day'
       ? sourceBars
-      : sourceBars.filter(bar => isRegularSession(bar.time))
+      : sourceBars.filter(bar => isChartSession(bar.time))
     barCount.value = bars.length
     if (bars.length) {
       const highs = bars.map(b => b.high)
@@ -331,7 +331,7 @@ function disabledDate(d: Date) {
       <div class="panel-title">
         <div>
           <h2>QQQ K线图</h2>
-          <span>EMA9/21 · VWAP · BOLL(20,2) · MACD(8,17,9)</span>
+          <span>09:00–16:00 ET · EMA9/21 · VWAP · BOLL(20,2) · MACD(8,17,9)</span>
         </div>
         <div class="kline-stats" v-if="barCount">
           <span>{{ barCount }} 根K线</span>

@@ -1,0 +1,242 @@
+QQQ 0DTE Hybrid  |  start equity $100,000  |  synthetic 0DTE quotes
+Periods: Jul 1-31, Aug 1-31, Sep 1-14 2026 (Labor Day 09-07 closed)
+Current rules: session indicators 09:00 only (no prior day), OR 09:30-09:35, squeeze hold 20 bars + coil min width <= 0.29%, VIX 1m MACD gate (rising_block=False)
+Sizing: MAX_PREMIUM_FRACTION=0.50  MAX_CONTRACTS=10
+
+================================================================================================
+2026-07  (22 sessions, 2026-07-01 → 2026-07-31)
+================================================================================================
+
+--- hybrid ---
+  PnL $+1,115   WR 18/43 (41.9%)   signals=66  rejected={'cooldown': 13, 'volatility_vix_macd_falling': 10}
+    #  entry ET      exit ET       dir   strategy                      qty      in     out  exit                     pnl
+    1  07/01 10:57   07/01 11:00   PUT   vwap_pullback                  10    3.03    2.93  trailing_stop           -130
+    2  07/01 11:06   07/01 11:07   PUT   trap_false_breakout            10    3.08    3.26  trend_ema_exit          +150
+    3  07/01 11:56   07/01 12:03   PUT   vwap_pullback                  10    2.65    2.26  trend_ema_exit          -420
+    4  07/02 10:17   07/02 10:32   PUT   vwap_pullback                  10    3.39    5.61  trailing_stop          +2190
+    5  07/06 10:12   07/06 10:14   PUT   regime_or_reversion            10    3.31    3.05  bollinger_middle        -290
+    6  07/06 10:17   07/06 10:19   PUT   regime_or_reversion            10    3.36    3.52  bollinger_middle        +130
+    7  07/06 11:02   07/06 11:05   CALL  squeeze_mid_break              10    3.13    3.04  bollinger_middle        -120
+    8  07/07 09:57   07/07 09:58   CALL  macd_narrowing_call            10    3.36    3.26  state_invalidation      -130
+    9  07/07 10:42   07/07 10:48   PUT   regime_trend_following         10    3.30    2.65  trend_ema_exit          -680
+   10  07/07 11:30   07/07 11:31   CALL  squeeze_mid_break              10    2.83    2.66  bollinger_middle        -200
+   11  07/08 10:08   07/08 10:18   PUT   vwap_pullback                  10    3.33    3.43  trailing_stop            +70
+   12  07/08 10:21   07/08 10:29   CALL  squeeze_mid_break              10    3.17    3.04  bollinger_middle        -160
+   13  07/08 10:36   07/08 10:53   PUT   vwap_pullback                  10    3.20    3.68  trend_ema_exit          +450
+   14  07/08 10:58   07/08 11:20   PUT   vwap_pullback                  10    3.01    3.98  trailing_stop           +940
+   15  07/09 10:12   07/09 10:25   PUT   vwap_pullback                  10    3.31    4.35  trailing_stop          +1010
+   16  07/09 10:32   07/09 10:34   PUT   vwap_pullback                  10    3.35    2.92  trend_ema_exit          -460
+   17  07/09 11:21   07/09 11:33   CALL  squeeze_mid_break              10    3.13    3.17  bollinger_middle         +10
+   18  07/10 10:18   07/10 10:19   CALL  squeeze_mid_break              10    3.29    2.95  bollinger_middle        -370
+   19  07/10 10:22   07/10 10:28   PUT   vwap_pullback                  10    3.43    2.72  trend_ema_exit          -740
+   20  07/10 10:33   07/10 10:35   PUT   vwap_pullback                  10    3.51    2.58  stop_loss               -960
+   21  07/10 11:42   07/10 11:45   PUT   vwap_pullback                  10    2.79    2.88  trailing_stop            +60
+   22  07/10 11:53   07/10 12:38   CALL  squeeze_mid_break              10    2.96    3.73  bollinger_middle        +740
+   23  07/13 11:11   07/13 11:13   CALL  squeeze_mid_break              10    1.54    1.35  bollinger_middle        -220
+   24  07/13 11:54   07/13 11:55   CALL  vwap_reclaim_call              10    1.52    1.39  vwap_cross              -160
+   25  07/14 10:03   07/14 10:21   PUT   vwap_pullback                  10    1.64    2.08  trailing_stop           +415
+   26  07/14 10:49   07/14 10:50   CALL  trap_false_breakdown           10    1.72    1.40  trend_ema_exit          -350
+   27  07/15 10:15   07/15 10:30   PUT   vwap_pullback                  10    1.81    3.30  trailing_stop          +1465
+   28  07/15 11:28   07/15 11:44   CALL  squeeze_mid_break              10    1.27    1.49  bollinger_middle        +190
+   29  07/16 10:51   07/16 10:58   PUT   vwap_pullback                  10    1.59    1.48  trailing_stop           -140
+   30  07/16 11:07   07/16 11:19   PUT   vwap_pullback                  10    1.69    1.86  trailing_stop           +135
+   31  07/16 11:47   07/16 11:51   PUT   vwap_pullback                  10    1.40    0.87  stop_loss               -560
+   32  07/17 10:36   07/17 10:44   CALL  squeeze_mid_break              10    1.61    1.60  bollinger_middle         -35
+   33  07/20 11:52   07/20 12:25   CALL  squeeze_mid_break              10    1.47    2.14  bollinger_middle        +635
+   34  07/21 10:14   07/21 10:16   CALL  squeeze_mid_break              10    1.57    1.24  bollinger_middle        -360
+   35  07/21 11:07   07/21 11:32   CALL  squeeze_mid_break              10    1.72    2.28  bollinger_middle        +535
+   36  07/22 10:20   07/22 10:24   CALL  squeeze_mid_break              10    1.66    1.29  bollinger_middle        -400
+   37  07/23 09:59   07/23 10:06   PUT   vwap_pullback                  10    1.85    1.18  stop_loss               -700
+   38  07/23 11:36   07/23 11:48   CALL  squeeze_mid_break              10    1.71    1.55  bollinger_middle        -190
+   39  07/30 10:59   07/30 11:00   CALL  vwap_reclaim_call              10    1.70    1.66  trend_ema_exit           -70
+   40  07/30 11:03   07/30 11:07   CALL  vwap_reclaim_call              10    1.66    1.94  trend_ema_exit          +250
+   41  07/30 11:39   07/30 11:53   CALL  squeeze_mid_break              10    1.34    1.60  bollinger_middle        +225
+   42  07/31 10:57   07/31 11:01   CALL  squeeze_mid_break              10    1.67    1.33  bollinger_middle        -370
+   43  07/31 11:24   07/31 11:25   CALL  macd_narrowing_call            10    1.43    1.19  trend_ema_exit          -270
+
+  --- by setup ---
+    vwap_pullback                n=17  wr=9/17 (52.9%)     pnl=$+2,625
+    regime_trend_following       n= 1  wr=0/1 (0.0%)       pnl=$-680
+    macd_narrowing_call          n= 2  wr=0/2 (0.0%)       pnl=$-400
+    trap_false_breakdown         n= 1  wr=0/1 (0.0%)       pnl=$-350
+    regime_or_reversion          n= 2  wr=1/2 (50.0%)      pnl=$-160
+    trap_false_breakout          n= 1  wr=1/1 (100.0%)     pnl=$+150
+    squeeze_mid_break            n=16  wr=6/16 (37.5%)     pnl=$-90
+    vwap_reclaim_call            n= 3  wr=1/3 (33.3%)      pnl=$+20
+
+================================================================================================
+2026-08  (21 sessions, 2026-08-01 → 2026-08-31)
+================================================================================================
+
+--- hybrid ---
+  PnL $-2,981   WR 16/54 (29.6%)   signals=83  rejected={'cooldown': 7, 'volatility_vix_macd_falling': 19, 'max_trades_per_day': 3}
+    #  entry ET      exit ET       dir   strategy                      qty      in     out  exit                     pnl
+    1  08/03 10:19   08/03 10:45   CALL  regime_trend_following         10    1.49    2.40  trailing_stop           +880
+    2  08/03 11:17   08/03 11:18   CALL  squeeze_mid_break              10    1.15    1.08  bollinger_middle        -100
+    3  08/04 10:29   08/04 10:37   CALL  regime_trend_following         10    1.73    1.46  trend_ema_exit          -300
+    4  08/04 10:41   08/04 10:42   CALL  squeeze_mid_break              10    1.48    1.45  bollinger_middle         -60
+    5  08/05 10:03   08/05 10:07   PUT   vwap_pullback                  10    1.99    1.41  stop_loss               -610
+    6  08/05 11:22   08/05 11:23   CALL  squeeze_mid_break              10    1.66    1.54  bollinger_middle        -150
+    7  08/05 11:27   08/05 11:28   CALL  macd_narrowing_call            10    1.28    1.37  trend_ema_exit           +60
+    8  08/05 11:47   08/05 11:48   CALL  macd_narrowing_call            10    1.18    1.12  trend_ema_exit           -90
+    9  08/05 11:51   08/05 11:52   CALL  macd_narrowing_call            10    1.52    1.27  trend_ema_exit          -280
+   10  08/06 10:09   08/06 10:26   CALL  regime_trend_following         10    1.62    1.96  trailing_stop           +305
+   11  08/06 11:31   08/06 11:32   CALL  squeeze_mid_break              10    1.42    1.14  bollinger_middle        -310
+   12  08/06 11:55   08/06 12:08   PUT   vwap_pullback                  10    1.36    1.37  trailing_stop            -20
+   13  08/07 09:57   08/07 10:01   PUT   vwap_pullback                  10    1.53    1.58  trailing_stop            +25
+   14  08/07 10:38   08/07 10:39   CALL  trap_false_breakdown           10    1.21    1.23  trend_ema_exit           -10
+   15  08/07 11:50   08/07 11:54   CALL  squeeze_mid_break              10    1.41    1.13  bollinger_middle        -310
+   16  08/10 11:08   08/10 11:09   CALL  squeeze_mid_break              10    1.42    1.23  bollinger_middle        -220
+   17  08/10 11:41   08/10 12:08   CALL  squeeze_mid_break              10    1.40    1.82  bollinger_middle        +390
+   18  08/11 10:47   08/11 11:05   CALL  squeeze_mid_break              10    1.41    1.57  bollinger_middle        +130
+   19  08/11 11:09   08/11 11:11   CALL  regime_or_reversion            10    1.40    1.29  bollinger_middle        -140
+   20  08/11 11:45   08/11 11:46   CALL  squeeze_mid_break              10    1.40    1.25  bollinger_middle        -180
+   21  08/12 09:58   08/12 10:01   CALL  trap_false_breakdown           10    1.51    1.68  trend_ema_exit          +140
+   22  08/12 10:38   08/12 10:43   CALL  squeeze_mid_break              10    1.29    1.16  bollinger_middle        -160
+   23  08/12 10:54   08/12 10:55   CALL  trap_false_breakdown           10    1.43    1.13  trend_ema_exit          -330
+   24  08/12 11:35   08/12 11:36   CALL  deep_oversold_bounce           10    1.14    1.21  trend_ema_exit           +40
+   25  08/13 11:42   08/13 11:44   CALL  vwap_reclaim_call              10    1.08    1.18  trend_ema_exit           +70
+   26  08/17 10:07   08/17 10:11   PUT   vwap_pullback                  10    1.80    1.43  trend_ema_exit          -400
+   27  08/17 10:30   08/17 11:25   CALL  squeeze_mid_break              10    1.45    2.16  bollinger_middle        +675
+   28  08/17 11:40   08/17 11:52   PUT   vwap_pullback                  10    1.57    1.34  trend_ema_exit          -260
+   29  08/18 09:58   08/18 09:59   CALL  trap_false_breakdown           10    1.78    1.96  trend_ema_exit          +150
+   30  08/18 10:03   08/18 10:06   CALL  trap_false_breakdown           10    1.81    1.37  trend_ema_exit          -470
+   31  08/18 10:19   08/18 10:20   CALL  squeeze_mid_break              10    1.70    1.53  bollinger_middle        -200
+   32  08/19 11:11   08/19 11:12   CALL  squeeze_mid_break              10    1.14    1.04  bollinger_middle        -130
+   33  08/20 10:03   08/20 10:08   PUT   vwap_pullback                  10    1.66    1.26  trend_ema_exit          -430
+   34  08/20 10:21   08/20 10:27   CALL  squeeze_mid_break              10    1.55    1.58  bollinger_middle          +5
+   35  08/20 10:31   08/20 10:32   CALL  trap_false_breakdown           10    1.42    1.45  trend_ema_exit            +0
+   36  08/20 10:49   08/20 10:53   PUT   trap_false_breakout            10    1.34    1.30  trend_ema_exit           -70
+   37  08/20 11:00   08/20 11:06   CALL  squeeze_mid_break              10    1.25    1.03  bollinger_middle        -250
+   38  08/21 10:20   08/21 10:24   PUT   regime_trend_following         10    1.61    1.14  stop_loss               -500
+   39  08/21 11:27   08/21 11:58   CALL  squeeze_mid_break              10    1.34    2.57  bollinger_middle       +1199
+   40  08/24 10:15   08/24 10:18   CALL  squeeze_mid_break              10    1.68    1.50  bollinger_middle        -210
+   41  08/25 11:03   08/25 11:04   CALL  macd_narrowing_call            10    1.29    1.22  trend_ema_exit          -100
+   42  08/25 11:12   08/25 11:13   CALL  squeeze_mid_break              10    1.42    1.31  bollinger_middle        -140
+   43  08/25 11:55   08/25 12:35   CALL  squeeze_mid_break              10    1.16    1.32  bollinger_middle        +125
+   44  08/26 09:56   08/26 10:02   CALL  regime_or_breakout             10    1.74    1.56  trailing_stop           -210
+   45  08/26 10:11   08/26 10:29   PUT   vwap_pullback                  10    1.53    2.59  trailing_stop          +1030
+   46  08/26 11:36   08/26 11:39   CALL  squeeze_mid_break              10    1.13    1.12  bollinger_middle         -40
+   47  08/27 09:58   08/27 10:00   PUT   vwap_pullback                  10    1.48    1.01  stop_loss               -500
+   48  08/27 10:35   08/27 10:36   PUT   trap_false_breakout            10    1.64    1.46  trend_ema_exit          -210
+   49  08/27 10:49   08/27 10:56   CALL  squeeze_mid_break              10    1.20    1.02  bollinger_middle        -210
+   50  08/27 11:35   08/27 11:52   PUT   trap_false_breakout            10    1.43    1.58  trend_ema_exit          +125
+   51  08/31 10:03   08/31 10:17   PUT   vwap_pullback                  10    1.72    1.59  trend_ema_exit          -160
+   52  08/31 10:36   08/31 10:49   CALL  squeeze_mid_break              10    1.35    1.27  bollinger_middle        -110
+   53  08/31 11:18   08/31 11:20   PUT   vwap_pullback                  10    1.51    1.32  trend_ema_exit          -220
+   54  08/31 11:47   08/31 11:57   CALL  squeeze_mid_break              10    1.28    1.07  bollinger_middle        -240
+
+  --- by setup ---
+    vwap_pullback                n=10  wr=2/10 (20.0%)     pnl=$-1,545
+    trap_false_breakdown         n= 6  wr=2/6 (33.3%)      pnl=$-520
+    squeeze_mid_break            n=23  wr=6/23 (26.1%)     pnl=$-496
+    macd_narrowing_call          n= 4  wr=1/4 (25.0%)      pnl=$-410
+    regime_trend_following       n= 4  wr=2/4 (50.0%)      pnl=$+385
+    regime_or_breakout           n= 1  wr=0/1 (0.0%)       pnl=$-210
+    trap_false_breakout          n= 3  wr=1/3 (33.3%)      pnl=$-155
+    regime_or_reversion          n= 1  wr=0/1 (0.0%)       pnl=$-140
+    vwap_reclaim_call            n= 1  wr=1/1 (100.0%)     pnl=$+70
+    deep_oversold_bounce         n= 1  wr=1/1 (100.0%)     pnl=$+40
+
+================================================================================================
+2026-09  (9 sessions, 2026-09-01 → 2026-09-14)
+================================================================================================
+
+--- hybrid ---
+  PnL $+2,055   WR 8/19 (42.1%)   signals=25  rejected={'volatility_vix_macd_falling': 6}
+    #  entry ET      exit ET       dir   strategy                      qty      in     out  exit                     pnl
+    1  09/02 09:56   09/02 09:57   CALL  macd_narrowing_call            10    1.56    1.78  trend_ema_exit          +190
+    2  09/02 11:01   09/02 11:04   PUT   vwap_pullback                  10    1.52    1.16  trend_ema_exit          -390
+    3  09/02 11:07   09/02 11:36   CALL  squeeze_mid_break              10    1.31    1.55  bollinger_middle        +210
+    4  09/03 10:15   09/03 10:32   CALL  squeeze_mid_break              10    1.27    1.54  bollinger_middle        +245
+    5  09/03 10:49   09/03 10:53   CALL  squeeze_mid_break              10    1.20    1.04  bollinger_middle        -190
+    6  09/04 10:11   09/04 10:15   PUT   vwap_pullback                  10    1.51    1.30  trend_ema_exit          -240
+    7  09/04 10:21   09/04 10:37   PUT   vwap_pullback                  10    1.48    1.52  trailing_stop            +10
+    8  09/04 11:50   09/04 11:51   CALL  squeeze_mid_break              10    1.07    1.01  bollinger_middle         -90
+    9  09/08 10:03   09/08 10:13   PUT   regime_trend_following         10    1.72    1.65  trailing_stop           -100
+   10  09/08 10:16   09/08 10:40   CALL  squeeze_mid_break              10    1.73    1.93  bollinger_middle        +170
+   11  09/09 09:56   09/09 10:02   CALL  regime_or_breakout             10    1.59    1.55  trailing_stop            -70
+   12  09/09 10:38   09/09 10:40   PUT   vwap_pullback                  10    1.62    1.38  trend_ema_exit          -270
+   13  09/09 10:54   09/09 10:59   PUT   vwap_pullback                  10    1.53    1.19  trend_ema_exit          -370
+   14  09/09 11:03   09/09 11:17   PUT   vwap_pullback                  10    1.67    2.43  trailing_stop           +730
+   15  09/10 11:06   09/10 11:10   CALL  squeeze_mid_break              10    1.55    1.28  bollinger_middle        -300
+   16  09/11 10:08   09/11 10:09   CALL  macd_narrowing_call            10    1.68    1.64  trend_ema_exit           -70
+   17  09/11 10:37   09/11 10:41   PUT   vwap_pullback                  10    1.79    1.77  trailing_stop            -50
+   18  09/11 11:15   09/11 11:39   CALL  squeeze_mid_break              10    1.23    2.02  bollinger_middle        +760
+   19  09/14 09:42   09/14 10:18   CALL  squeeze_mid_break              10    1.80    3.71  bollinger_middle       +1880
+
+  --- by setup ---
+    squeeze_mid_break            n= 8  wr=5/8 (62.5%)      pnl=$+2,685
+    vwap_pullback                n= 7  wr=2/7 (28.6%)      pnl=$-580
+    macd_narrowing_call          n= 2  wr=1/2 (50.0%)      pnl=$+120
+    regime_trend_following       n= 1  wr=0/1 (0.0%)       pnl=$-100
+    regime_or_breakout           n= 1  wr=0/1 (0.0%)       pnl=$-70
+
+SUMMARY
+================================================================================================
+  period    strategy       n            WR         PnL
+  2026-07   hybrid        43   18/43 (41.9%)     $   +1,115
+  2026-08   hybrid        54   16/54 (29.6%)     $   -2,981
+  2026-09   hybrid        19   8/19 (42.1%)      $   +2,055
+  TOTAL     hybrid       116   42/116 (36.2%)    $     +189
+
+ALL MONTHS by setup
+  squeeze_mid_break            n= 47  wr=17/47 (36.2%)    pnl=$+2,099
+  trap_false_breakdown         n=  7  wr=2/7 (28.6%)      pnl=$-870
+  macd_narrowing_call          n=  8  wr=2/8 (25.0%)      pnl=$-690
+  vwap_pullback                n= 34  wr=13/34 (38.2%)    pnl=$+500
+  regime_trend_following       n=  6  wr=2/6 (33.3%)      pnl=$-395
+  regime_or_reversion          n=  3  wr=1/3 (33.3%)      pnl=$-300
+  regime_or_breakout           n=  2  wr=0/2 (0.0%)       pnl=$-280
+  vwap_reclaim_call            n=  4  wr=2/4 (50.0%)      pnl=$+90
+  deep_oversold_bounce         n=  1  wr=1/1 (100.0%)     pnl=$+40
+  trap_false_breakout          n=  4  wr=2/4 (50.0%)      pnl=$-5
+
+squeeze_mid_break trades: 47
+  07/06 11:02  call  qty=10  in=3.13  out=3.04  bollinger_middle  pnl=$-120
+  07/07 11:30  call  qty=10  in=2.83  out=2.66  bollinger_middle  pnl=$-200
+  07/08 10:21  call  qty=10  in=3.17  out=3.04  bollinger_middle  pnl=$-160
+  07/09 11:21  call  qty=10  in=3.13  out=3.17  bollinger_middle  pnl=$+10
+  07/10 10:18  call  qty=10  in=3.29  out=2.95  bollinger_middle  pnl=$-370
+  07/10 11:53  call  qty=10  in=2.96  out=3.73  bollinger_middle  pnl=$+740
+  07/13 11:11  call  qty=10  in=1.54  out=1.35  bollinger_middle  pnl=$-220
+  07/15 11:28  call  qty=10  in=1.27  out=1.49  bollinger_middle  pnl=$+190
+  07/17 10:36  call  qty=10  in=1.61  out=1.605  bollinger_middle  pnl=$-35
+  07/20 11:52  call  qty=10  in=1.47  out=2.135  bollinger_middle  pnl=$+635
+  07/21 10:14  call  qty=10  in=1.57  out=1.24  bollinger_middle  pnl=$-360
+  07/21 11:07  call  qty=10  in=1.72  out=2.285  bollinger_middle  pnl=$+535
+  07/22 10:20  call  qty=10  in=1.66  out=1.29  bollinger_middle  pnl=$-400
+  07/23 11:36  call  qty=10  in=1.71  out=1.55  bollinger_middle  pnl=$-190
+  07/30 11:39  call  qty=10  in=1.34  out=1.595  bollinger_middle  pnl=$+225
+  07/31 10:57  call  qty=10  in=1.67  out=1.33  bollinger_middle  pnl=$-370
+  08/03 11:17  call  qty=10  in=1.15  out=1.08  bollinger_middle  pnl=$-100
+  08/04 10:41  call  qty=10  in=1.48  out=1.45  bollinger_middle  pnl=$-60
+  08/05 11:22  call  qty=10  in=1.66  out=1.54  bollinger_middle  pnl=$-150
+  08/06 11:31  call  qty=10  in=1.42  out=1.14  bollinger_middle  pnl=$-310
+  08/07 11:50  call  qty=10  in=1.41  out=1.13  bollinger_middle  pnl=$-310
+  08/10 11:08  call  qty=10  in=1.42  out=1.23  bollinger_middle  pnl=$-220
+  08/10 11:41  call  qty=10  in=1.40  out=1.82  bollinger_middle  pnl=$+390
+  08/11 10:47  call  qty=10  in=1.41  out=1.57  bollinger_middle  pnl=$+130
+  08/11 11:45  call  qty=10  in=1.40  out=1.25  bollinger_middle  pnl=$-180
+  08/12 10:38  call  qty=10  in=1.29  out=1.16  bollinger_middle  pnl=$-160
+  08/17 10:30  call  qty=10  in=1.45  out=2.155  bollinger_middle  pnl=$+675
+  08/18 10:19  call  qty=10  in=1.70  out=1.53  bollinger_middle  pnl=$-200
+  08/19 11:11  call  qty=10  in=1.14  out=1.04  bollinger_middle  pnl=$-130
+  08/20 10:21  call  qty=10  in=1.55  out=1.585  bollinger_middle  pnl=$+5
+  08/20 11:00  call  qty=10  in=1.25  out=1.03  bollinger_middle  pnl=$-250
+  08/21 11:27  call  qty=10  in=1.34  out=2.569  bollinger_middle  pnl=$+1,199
+  08/24 10:15  call  qty=10  in=1.68  out=1.50  bollinger_middle  pnl=$-210
+  08/25 11:12  call  qty=10  in=1.42  out=1.31  bollinger_middle  pnl=$-140
+  08/25 11:55  call  qty=10  in=1.16  out=1.315  bollinger_middle  pnl=$+125
+  08/26 11:36  call  qty=10  in=1.13  out=1.12  bollinger_middle  pnl=$-40
+  08/27 10:49  call  qty=10  in=1.20  out=1.02  bollinger_middle  pnl=$-210
+  08/31 10:36  call  qty=10  in=1.35  out=1.27  bollinger_middle  pnl=$-110
+  08/31 11:47  call  qty=10  in=1.28  out=1.07  bollinger_middle  pnl=$-240
+  09/02 11:07  call  qty=10  in=1.31  out=1.55  bollinger_middle  pnl=$+210
+  09/03 10:15  call  qty=10  in=1.27  out=1.545  bollinger_middle  pnl=$+245
+  09/03 10:49  call  qty=10  in=1.20  out=1.04  bollinger_middle  pnl=$-190
+  09/04 11:50  call  qty=10  in=1.07  out=1.01  bollinger_middle  pnl=$-90
+  09/08 10:16  call  qty=10  in=1.73  out=1.93  bollinger_middle  pnl=$+170
+  09/10 11:06  call  qty=10  in=1.55  out=1.28  bollinger_middle  pnl=$-300
+  09/11 11:15  call  qty=10  in=1.23  out=2.02  bollinger_middle  pnl=$+760
+  09/14 09:42  call  qty=10  in=1.80  out=3.71  bollinger_middle  pnl=$+1,880

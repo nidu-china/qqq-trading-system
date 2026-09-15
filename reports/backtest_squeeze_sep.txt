@@ -1,0 +1,33 @@
+QQQ 0DTE Hybrid  |  start equity $100,000  |  synthetic 0DTE quotes
+Period: 2026-09-01 → 2026-09-14  (Labor Day 09-07 closed)
+Added: squeeze_mid_break Call  |  daily-reset warmup  |  VIX 1m MACD gate
+
+PnL $-1,584   WR 4/16 (25.0%)   signals=28  rejected={'volatility_vix_macd_falling': 12}
+VIX regimes: {'vix_macd_falling': 16, 'vix_macd_rising': 12}
+
+--- by setup ---
+  vwap_pullback                n=10  wr=3/10  pnl=$-824
+  vwap_reclaim_call            n= 2  wr=1/2  pnl=$+70
+  trap_false_breakout          n= 1  wr=0/1  pnl=$-110
+  regime_or_reversion          n= 1  wr=0/1  pnl=$-140
+  regime_trend_following       n= 1  wr=0/1  pnl=$-280
+  squeeze_mid_break            n= 1  wr=0/1  pnl=$-300
+
+--- trades ---
+   #  entry ET       exit ET  dir  strategy                     qty     in    out exit                      pnl
+   1  09/01 09:46    09:47    call vwap_reclaim_call             10   1.58   1.54 trend_ema_exit            -70
+   2  09/01 10:19    10:20    put  trap_false_breakout           10   1.39   1.31 trend_ema_exit           -110
+   3  09/02 09:47    10:00    put  vwap_pullback                 10   1.84   1.80 trend_ema_exit            -70
+   4  09/02 11:03    11:05    call vwap_reclaim_call             10   1.47   1.64 trend_ema_exit           +140
+   5  09/03 11:07    11:09    put  regime_or_reversion           10   1.55   1.44 bollinger_middle         -140
+   6  09/04 09:57    10:02    call regime_trend_following        10   1.45   1.20 trailing_stop            -280
+   7  09/04 10:21    10:37    put  vwap_pullback                 10   1.48   1.52 trailing_stop             +10
+   8  09/08 10:00    10:13    put  vwap_pullback                 10   1.68   2.07 trailing_stop            +360
+   9  09/09 10:38    10:40    put  vwap_pullback                 10   1.62   1.38 trend_ema_exit           -270
+  10  09/09 10:54    10:59    put  vwap_pullback                 10   1.53   1.19 trend_ema_exit           -370
+  11  09/09 11:03    11:17    put  vwap_pullback                 10   1.67   2.43 trailing_stop            +730
+  12  09/10 09:52    10:02    put  vwap_pullback                  9   2.09   1.66 trend_ema_exit           -414
+  13  09/10 10:18    10:20    put  vwap_pullback                 10   1.94   1.51 trend_ema_exit           -460
+  14  09/10 11:06    11:10    call squeeze_mid_break             10   1.55   1.28 bollinger_middle         -300
+  15  09/11 10:37    10:41    put  vwap_pullback                 10   1.79   1.77 trailing_stop             -50
+  16  09/14 10:37    10:45    put  vwap_pullback                 10   1.58   1.32 trend_ema_exit           -290

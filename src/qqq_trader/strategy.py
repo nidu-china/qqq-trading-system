@@ -24,22 +24,128 @@ from .indicators import (
     rsi,
     vwap as _compute_vwap,
 )
+from .market_hours import is_indicator_session_bar
 from .policy import RULES
-from .volatility import VixFiveMinuteTrend, vix_five_minute_trend
+from .volatility import (
+    VolatilityRegime,
+    classify_vix_one_minute_macd,
+)
 
 ZERO = Decimal(0)
 REVERSAL_VOLUME_STRONG = Decimal("1.20")
 REVERSAL_VOLUME_BASE = Decimal("1.00")
 
 
+def squeeze_mid_break_state(
+    closes: Sequence[Decimal],
+    *,
+    period: int = 20,
+    std_dev: Decimal = Decimal("2"),
+    lookback: int = 90,
+    percentile: Decimal = Decimal("0.25"),
+    min_bars: int = 5,
+    hold: int = 20,
+    expand: Decimal = Decimal("1.05"),
+    max_coil_width: Decimal = Decimal("0.0029"),
+    max_band_pos: Decimal = Decimal("0.70"),
+) -> tuple[bool, bool, bool]:
+    """Return (armed, fire, in_squeeze) for the last close.
+
+    Armed: a ``min_bars`` squeeze streak ended within the last ``hold`` bars
+    (the coil does not have to still be tight on the breakout bar). Fire:
+    armed, that coil's min width is ≤ ``max_coil_width``, bandwidth has
+    expanded from the coil tail, and close crosses above the middle with
+    band_pos ≤ max. ``max_coil_width`` ≤ 0 disables the absolute-width cap.
+    """
+    n = len(closes)
+    if n < period + min_bars or min_bars < 1:
+        return False, False, False
+    p = Decimal(period)
+    mids: list[Decimal | None] = [None] * n
+    uppers: list[Decimal | None] = [None] * n
+    widths: list[Decimal | None] = [None] * n
+    for i in range(period - 1, n):
+        window = closes[i - period + 1 : i + 1]
+        middle = sum(window, ZERO) / p
+        variance = sum((value - middle) ** 2 for value in window) / p
+        deviation = variance.sqrt()
+        mids[i] = middle
+        uppers[i] = middle + std_dev * deviation
+        if middle != ZERO:
+            widths[i] = (Decimal(2) * std_dev * deviation) / middle
+
+    def in_squeeze(index: int) -> bool:
+        available = index - period + 2
+        if available < min_bars or widths[index] is None:
+            return False
+        effective = min(lookback, available)
+        start = index - effective + 1
+        window = widths[start : index + 1]
+        if any(width is None for width in window):
+            return False
+        current = widths[index]
+        rank = Decimal(sum(1 for width in window if width <= current)) / Decimal(effective)
+        return rank <= percentile
+
+    i = n - 1
+    squeezed = in_squeeze(i)
+    hold_bars = max(min_bars, hold)
+    coil_end: int | None = None
+    search_from = i - 1
+    search_to = max(period - 1, i - hold_bars)
+    for end in range(search_from, search_to - 1, -1):
+        streak = 0
+        cursor = end
+        while cursor >= 0 and streak < min_bars and in_squeeze(cursor):
+            streak += 1
+            cursor -= 1
+        if streak >= min_bars:
+            coil_end = end
+            break
+    armed = coil_end is not None
+    mid = mids[i]
+    prev_mid = mids[i - 1]
+    upper = uppers[i]
+    width = widths[i]
+    if mid is None or prev_mid is None or upper is None or width is None:
+        return armed, False, squeezed
+    if coil_end is not None:
+        coil_start = coil_end
+        while coil_start - 1 >= 0 and in_squeeze(coil_start - 1):
+            coil_start -= 1
+        coil_full = [
+            item for item in widths[coil_start : coil_end + 1] if item is not None
+        ]
+        coil_tail = [
+            item
+            for item in widths[coil_end - min_bars + 1 : coil_end + 1]
+            if item is not None
+        ]
+    else:
+        coil_full = [item for item in widths[max(0, i - min_bars) : i] if item is not None]
+        coil_tail = coil_full
+    expanding = bool(coil_tail) and width >= min(coil_tail) * expand
+    tight_enough = max_coil_width <= ZERO or (
+        bool(coil_full) and min(coil_full) <= max_coil_width
+    )
+    cross = closes[i - 1] <= prev_mid and closes[i] > mid
+    half = max(upper - mid, Decimal("0.000001"))
+    band_pos = (closes[i] - mid) / half
+    fire = armed and tight_enough and expanding and cross and band_pos <= max_band_pos
+    return armed, fire, squeezed
+
+
 class StrategyEngine:
     """EMA/BOLL/MACD/RSI/volume regime-adaptive strategy.
 
     Time state machine (America/New_York):
-      * 09:30-09:40: collect data and warm indicators, never enter;
-      * 09:40-11:30: classify every completed bar and allow entries;
-      * 11:30-13:55: manage existing positions only;
+      * 09:00-09:30: indicator session (BOLL/MACD/EMA/RSI/squeeze), no entries;
+      * 09:30-09:35: collect Opening Range, never enter;
+      * 09:35-13:30: classify every completed bar and allow entries;
+      * 13:30-13:55: manage existing positions only;
       * 13:55+: RiskEngine unconditionally closes every position.
+
+    Indicators use only the current day's 09:00-16:00 ET bars.
     """
 
     def __init__(self, settings) -> None:
@@ -47,7 +153,8 @@ class StrategyEngine:
         self.last_signal_bar: datetime | None = None
         self.last_context: MarketContext | None = None
         self.last_state = MarketState.UNKNOWN
-        self.vix_trend = VixFiveMinuteTrend.NEUTRAL
+        self.vix_macd_hist: Decimal | None = None
+        self.vix_macd_regime = VolatilityRegime.UNAVAILABLE
         self._last_boll_middle_by_end: dict[datetime, Decimal] = {}
         self._last_macd_hist_by_end: dict[datetime, Decimal] = {}
         self._continuation_day: date | None = None
@@ -71,7 +178,7 @@ class StrategyEngine:
         self._macd_fast_prev2: Decimal = ZERO  # two bars ago (2-bar acceleration check)
         self._macd_slow: Decimal = ZERO       # MACD(8,17,9) for trend
         self._macd_slow_prev: Decimal = ZERO
-        # Opening Range (09:30-09:40 ET) — updated each bar, stable by 09:40
+        # Opening Range (09:30-09:35 ET) — updated each bar, stable by 09:35
         self._or_high: Decimal | None = None
         self._or_low: Decimal | None = None
 
@@ -83,6 +190,9 @@ class StrategyEngine:
         # Minimum signal score gate: suppress low-quality entries
         # Signals below this score are silently dropped in evaluate()
         self._min_signal_score: int = 4
+        self._indicator_closes: list[Decimal] = []
+        self._squeeze_armed = False
+        self._squeeze_need_reset = False
 
     def _reset_day(self, trading_day: date) -> None:
         self._current_day = trading_day
@@ -98,14 +208,21 @@ class StrategyEngine:
         self._last_trap_bar = None
         self._continuation_day = trading_day
         self._profitable_exit_directions.clear()
+        self._indicator_closes = []
+        self._squeeze_armed = False
+        self._squeeze_need_reset = False
 
     def set_volatility_context(self, volatility_bars: Sequence[Bar], decision_at: datetime) -> None:
-        self.vix_trend = vix_five_minute_trend(
+        regime, histogram, _reason = classify_vix_one_minute_macd(
             volatility_bars,
             decision_at,
             self.settings.volatility_max_staleness_minutes,
-            RULES.timed_vix_trend_min_change,
+            int(self.settings.timed_macd_fast),
+            int(self.settings.timed_macd_slow),
+            int(self.settings.timed_macd_signal),
         )
+        self.vix_macd_regime = regime
+        self.vix_macd_hist = histogram
 
     def _set_continuation_day(self, trading_day: date) -> None:
         if self._continuation_day != trading_day:
@@ -191,30 +308,15 @@ class StrategyEngine:
         return crosses
 
     @staticmethod
-    def _relative_volume(
-        visible: Sequence[Bar],
-        today: Sequence[Bar],
-        index: int,
-        trading_day: date,
-    ) -> Decimal:
-        current = today[index]
-        previous_today = today[:index]
-        if len(previous_today) >= RULES.timed_volume_lookback:
-            historical_volume = previous_today[-RULES.timed_volume_lookback :]
-        else:
-            current_local = current.end.astimezone(NY_TZ)
-            historical_volume = [
-                bar
-                for bar in visible
-                if bar.end < current.end
-                and bar.end.astimezone(NY_TZ).date() < trading_day
-                and bar.end.astimezone(NY_TZ).time().replace(tzinfo=None)
-                == current_local.time().replace(tzinfo=None)
-            ][-RULES.timed_volume_lookback :]
-        if not historical_volume:
+    def _relative_volume(session_bars: Sequence[Bar], index: int) -> Decimal:
+        if index < 1:
             return ZERO
-        average_volume = Decimal(sum(bar.volume for bar in historical_volume)) / Decimal(
-            len(historical_volume)
+        current = session_bars[index]
+        historical = session_bars[:index][-RULES.timed_volume_lookback :]
+        if not historical:
+            return ZERO
+        average_volume = Decimal(sum(bar.volume for bar in historical)) / Decimal(
+            len(historical)
         )
         return Decimal(current.volume) / average_volume if average_volume > 0 else ZERO
 
@@ -233,19 +335,19 @@ class StrategyEngine:
         today = [
             bar for bar in visible if bar.start.astimezone(NY_TZ).date() == trading_day
         ]
-        premarket_today = sorted(
+        if not today:
+            return None
+        indicator_bars = sorted(
             (
-                b
-                for b in bars_1m
-                if b.complete
-                and b.start.astimezone(NY_TZ).date() == trading_day
-                and time(9, 0)
-                <= b.start.astimezone(NY_TZ).time().replace(tzinfo=None)
-                < time(9, 30)
+                bar
+                for bar in bars_1m
+                if bar.complete
+                and is_indicator_session_bar(bar)
+                and bar.start.astimezone(NY_TZ).date() == trading_day
+                and bar.end <= current.end
             ),
-            key=lambda b: b.end,
+            key=lambda bar: bar.end,
         )
-        indicator_bars = (premarket_today + visible)[-500:]
         closes = [bar.close for bar in indicator_bars]
         minimum = max(
             RULES.timed_boll_period,
@@ -282,10 +384,12 @@ class StrategyEngine:
             if len(closes) > macd_min_len + 2
             else ZERO
         )
-        volume_ratio = self._relative_volume(visible, today, len(today) - 1, trading_day)
+        volume_ratio = self._relative_volume(
+            indicator_bars, len(indicator_bars) - 1
+        )
         previous_volume_ratio = (
-            self._relative_volume(visible, today, len(today) - 2, trading_day)
-            if len(today) >= 2
+            self._relative_volume(indicator_bars, len(indicator_bars) - 2)
+            if len(indicator_bars) >= 2
             else ZERO
         )
         if volume_ratio <= ZERO:
@@ -327,6 +431,7 @@ class StrategyEngine:
             vwap_value=vwap_val,
             atr_val=atr_val,
         )
+        self._indicator_closes = list(closes)
         return context, today
 
     def _ema_values(self, closes: Sequence[Decimal]) -> bool:
@@ -666,8 +771,8 @@ class StrategyEngine:
         # Time gate for CALL bounce: skip the first 30 min of RTH (09:30-09:59).
         # Very early oversold reversals are unreliable; the real bounce confirmation
         # needs the market to have settled past the opening volatility window.
-        # NOTE: hardcoded time(10, 0) — RULES.phase_opening_end is set to 09:40 in
-        #       .env (OR collection end), NOT 10:00 as the policy default might suggest.
+        # NOTE: hardcoded time(10, 0) — RULES.phase_opening_end is 10:00;
+        #       RULES.phase_collect_end is the 09:35 OR window, not this gate.
         bar_time_vbc = ctx.bar_end.astimezone(NY_TZ).time().replace(tzinfo=None)
         if (
             _call_chop_ok
@@ -679,6 +784,7 @@ class StrategyEngine:
             and curr_bar.close > curr_bar.open                     # bullish candle confirms direction
             and volume_ok
             and self.last_state is not MarketState.TREND_DOWN
+            and not self._squeeze_armed
             and Direction.CALL not in self._direction_blocked
         ):
             return self._signal(Direction.CALL, "vwap_bounce_call", spot)
@@ -712,6 +818,57 @@ class StrategyEngine:
         ):
             return self._signal(Direction.PUT, "vwap_pullback", spot)
 
+        return None
+
+    def _consecutive_closes_below_vwap(self, vwap_val: Decimal) -> int:
+        count = 0
+        index = len(self._today_bars) - 1
+        while index >= 0 and self._today_bars[index].close >= vwap_val:
+            index -= 1
+        while index >= 0 and self._today_bars[index].close < vwap_val:
+            count += 1
+            index -= 1
+        return count
+
+    def _is_vwap_reclaim(self, vwap_val: Decimal) -> bool:
+        """True only on the bar whose close crosses VWAP from below."""
+        if len(self._today_bars) < 2:
+            return False
+        curr = self._today_bars[-1]
+        prev = self._today_bars[-2]
+        return prev.close < vwap_val <= curr.close
+
+    def _vwap_reclaim_call(self, spot: Decimal | None) -> Signal | None:
+        """CALL on the same bar that closes back above VWAP after a washout.
+
+        Existing bounce signals require close still below VWAP and wait until
+        10:00. This buys the reclaim itself (e.g. 2026-09-14 09:42).
+        Allowed in TREND_DOWN / RANGE / UNKNOWN.
+        """
+        ctx = self.last_context
+        if ctx is None or ctx.bar_end is None:
+            return None
+        vwap_val = ctx.vwap_value
+        if vwap_val <= ZERO or len(self._today_bars) < 3:
+            return None
+        if Direction.CALL in self._direction_blocked:
+            return None
+        if self.last_state is MarketState.TREND_UP:
+            return None
+        if not self._is_vwap_reclaim(vwap_val):
+            return None
+        if self._consecutive_closes_below_vwap(vwap_val) < 2:
+            return None
+        curr_bar = self._today_bars[-1]
+        half_width = max(ctx.boll_upper - ctx.boll_middle, Decimal("0.0001"))
+        band_pos = (ctx.current_close - ctx.boll_middle) / half_width
+        if (
+            curr_bar.close > curr_bar.open
+            and ctx.rsi_val <= Decimal("45")
+            and band_pos <= Decimal("0.20")
+            and ctx.rvol_val >= RULES.regime_range_min_volume_ratio
+        ):
+            return self._signal(Direction.CALL, "vwap_reclaim_call", spot)
         return None
 
     def _vwap_macd_fade_signal(self, spot: Decimal | None) -> Signal | None:
@@ -841,8 +998,8 @@ class StrategyEngine:
         # Very early oversold readings are unreliable — the market is still in
         # price-discovery mode and extreme RSI dips often precede further declines
         # rather than reversals.
-        # NOTE: Use hardcoded time(10, 0) — RULES.phase_opening_end is loaded
-        #       from .env as 09:40 (OR collection end), not the strategy gate.
+        # NOTE: Use hardcoded time(10, 0) — RULES.phase_collect_end is the 09:35
+        #       OR window, not this oversold time gate.
         bar_time_dob = ctx.bar_end.astimezone(NY_TZ).time().replace(tzinfo=None)
         if bar_time_dob < time(10, 0):
             return None
@@ -859,6 +1016,7 @@ class StrategyEngine:
                                                      # avg RSI=42 at missed UPs → ≤38 covers ~45%)
             and curr_bar.close > curr_bar.open       # bullish bar (exhaustion hint)
             and volume_ok
+            and not self._squeeze_armed
             and Direction.CALL not in self._direction_blocked
         ):
             return self._signal(Direction.CALL, "deep_oversold_bounce", spot)
@@ -912,6 +1070,7 @@ class StrategyEngine:
             and curr_bar_mnc.close > curr_bar_mnc.open  # bullish candle — price bounced within bar
             and volume_ok
             and self.last_state is not MarketState.TREND_DOWN
+            and not self._squeeze_armed
             and Direction.CALL not in self._direction_blocked
         ):
             return self._signal(Direction.CALL, "macd_narrowing_call", spot)
@@ -1039,15 +1198,13 @@ class StrategyEngine:
             1 for b in self._today_bars[-7:-2]
             if b.close < self._or_low
         )
-        # Time gate: skip the first 5 minutes after OR completion (09:40-09:44).
-        # At 09:44 there are only 4 post-OR bars; the persistence filter has
+        # Time gate: skip the first 5 minutes after OR completion (09:35-09:39).
+        # At 09:39 there are only 4 post-OR bars; the persistence filter has
         # insufficient data (looks back 5-7 bars into OR period), and the breakdown
         # might be a genuine trend start rather than a false dip.
-        # NOTE: hardcoded time(9, 45) — independent of RULES.phase_opening_end
-        #       which is set to 09:40 (OR end) in .env.
         bar_time_tfd = ctx.bar_end.astimezone(NY_TZ).time().replace(tzinfo=None)
         if (
-            bar_time_tfd >= time(9, 45)                           # ≥09:45 — skip first 5 min post-OR
+            bar_time_tfd >= time(9, 40)                           # ≥09:40 — skip first 5 min post-OR
             and prev_bar.low < self._or_low                       # prior bar poked below
             and _pre_below_orlow <= 2                             # brief excursion, not trend
             and self.last_state is not MarketState.TREND_DOWN     # not in strong downtrend
@@ -1055,6 +1212,7 @@ class StrategyEngine:
             and macd_curr >= macd_prev                            # MACD strengthening
             and ctx.rsi_val >= Decimal("38")
             and ctx.rvol_val >= RULES.regime_trend_min_volume_ratio
+            and not self._squeeze_armed
             and Direction.CALL not in self._direction_blocked
         ):
             thin_volume = ctx.rvol_prev < Decimal("1.0")
@@ -1087,7 +1245,8 @@ class StrategyEngine:
             "macd_hist_prev": str(ctx.macd_hist_prev),
             "rsi": str(ctx.rsi_val),
             "volume_ratio": str(ctx.rvol_val),
-            "vix_5m_trend": self.vix_trend.value,
+            "vix_macd_hist": str(self.vix_macd_hist) if self.vix_macd_hist is not None else None,
+            "vix_macd_trend": self.vix_macd_regime.value,
             **self._regime_details,
             **score_details,
         }
@@ -1178,7 +1337,7 @@ class StrategyEngine:
         in_phase2 = bar_time < RULES.phase_opening_end
 
         if in_phase2 and self._or_high is not None and self._or_low is not None:
-            # Phase 2 (09:40-10:00): OR breakout entry — no band_position requirement
+            # Phase 2 (09:35-10:00): OR breakout entry — no band_position requirement
             if (
                 self.last_state is MarketState.TREND_UP
                 and ctx.current_close > self._or_high
@@ -1233,7 +1392,7 @@ class StrategyEngine:
         return None
 
     def _phase2_or_breakout_signal(self, spot: Decimal | None) -> Signal | None:
-        """Phase 2 (09:40-10:00) OR breakout in UNKNOWN regime.
+        """Phase 2 (09:35-10:00) OR breakout in UNKNOWN regime.
 
         Fires before regime confirmation (3-bar delay).  Uses fast MACD(5,10,3)
         for early sensitivity.  ZigZag analysis: OR breakouts account for 16%
@@ -1314,7 +1473,7 @@ class StrategyEngine:
           CALL band_pos: -0.30 → -0.65  (matches the actual avg -0.67; the
             original -0.30 admitted too many shallow dips that were noise)
           CALL time gate: signal only fires at ≥10:00 ET to skip the noisy
-            09:40-10:00 opening-settle window where OR is freshly formed.
+            09:35-10:00 opening-settle window where OR is freshly formed.
           CALL MACD: 2-bar accel retained — provides a reliable entry-timing
             gate regardless of the absolute histogram level.
           PUT side: unchanged (decel_2bar + RSI≥60 confirmed working in analysis)
@@ -1343,7 +1502,7 @@ class StrategyEngine:
         # ZigZag stats: avg band_pos = -0.67 at UP swing starts; -0.65 gate
         # targets the confirmed deeply-oversold cases and eliminates shallow
         # borderline dips that are more likely to continue lower.
-        # ≥10:00 gate: the OR settles in 09:30-09:40; in 09:40-10:00 the market
+        # ≥10:00 gate: the OR settles in 09:30-09:35; in 09:35-10:00 the market
         # is still in price-discovery mode — OR reversion signals there are
         # statistically unreliable and better handled by _phase2_or_breakout_signal.
         vwap_or = ctx.vwap_value
@@ -1355,6 +1514,7 @@ class StrategyEngine:
             and ctx.rsi_val <= Decimal("40")       # avg RSI = 39 at UP starts
             and macd_accel_2bar                    # 2-bar recovery: timing quality gate
             and volume_ok
+            and not self._squeeze_armed
             # VWAP alignment: if VWAP has dropped below OR_LOW, the day IS trending
             # down and OR-reversion CALLs have no structural support.
             and (vwap_or <= ZERO or vwap_or >= self._or_low)
@@ -1380,8 +1540,45 @@ class StrategyEngine:
 
         return None
 
+    def _refresh_squeeze_state(self) -> bool:
+        """Update squeeze armed/reset flags. Return True if this bar should fire."""
+        armed, fire, _in_squeeze = squeeze_mid_break_state(
+            self._indicator_closes,
+            period=RULES.timed_boll_period,
+            std_dev=RULES.timed_boll_stddev,
+            lookback=RULES.squeeze_lookback,
+            percentile=RULES.squeeze_width_percentile,
+            min_bars=RULES.squeeze_min_bars,
+            hold=RULES.squeeze_hold_bars,
+            expand=RULES.squeeze_expand,
+            max_coil_width=RULES.squeeze_max_coil_width,
+            max_band_pos=RULES.squeeze_max_band_position,
+        )
+        if self._squeeze_need_reset:
+            if not armed:
+                self._squeeze_need_reset = False
+            self._squeeze_armed = False
+            return False
+        self._squeeze_armed = bool(armed)
+        return bool(fire)
+
+    def _squeeze_mid_break_signal(self, spot: Decimal | None) -> Signal | None:
+        """Call on squeeze coil then middle-band break. RANGE / UNKNOWN only.
+
+        Lookback 90, width ≤ 25th percentile for 5 bars, and the coil's min
+        width ≤ 0.29%. The coil may already have started expanding; fire on
+        the later close-cross of the middle within ``squeeze_hold_bars``,
+        band_pos ≤ 0.70. One fire per coil.
+        No MACD sign gate — the cross is the turn.
+        """
+        if self.last_state not in {MarketState.RANGE, MarketState.UNKNOWN}:
+            return None
+        if Direction.CALL in self._direction_blocked:
+            return None
+        self._squeeze_need_reset = True
+        return self._signal(Direction.CALL, "squeeze_mid_break", spot)
+
     def evaluate(self, bars_1m: Sequence[Bar], spot: Decimal | None = None) -> Signal | None:
-        computed = self._one_minute_context(bars_1m)
         visible = sorted(
             (bar for bar in bars_1m if bar.complete and self._rth(bar)),
             key=lambda bar: bar.end,
@@ -1392,13 +1589,14 @@ class StrategyEngine:
         trading_day = current.end.astimezone(NY_TZ).date()
         if self._current_day != trading_day:
             self._reset_day(trading_day)
+        computed = self._one_minute_context(bars_1m)
         self._today_bars = [
             bar for bar in visible if bar.start.astimezone(NY_TZ).date() == trading_day
         ]
-        # Opening Range: highest high / lowest low of the 09:30-09:40 window
+        # Opening Range: highest high / lowest low of the 09:30-09:35 window
         or_collect_bars = [
             b for b in self._today_bars
-            if b.start.astimezone(NY_TZ).time().replace(tzinfo=None) < time(9, 40)
+            if b.start.astimezone(NY_TZ).time().replace(tzinfo=None) < RULES.phase_collect_end
         ]
         if or_collect_bars:
             self._or_high = max(b.high for b in or_collect_bars)
@@ -1414,7 +1612,9 @@ class StrategyEngine:
             return None
         self.last_context, _ = computed
 
-        closes = [bar.close for bar in visible[-500:]]
+        closes = self._indicator_closes
+        if len(closes) < 3:
+            return None
         if not self._ema_values(closes):
             return None
         if not self._dual_macd_values(closes):
@@ -1454,11 +1654,13 @@ class StrategyEngine:
         #   DN swings: 87% MACDf>0, 66% EMA bull, avg RSI=58, avg BandPos=+0.55
         # Signal chain ordered by decreasing structural confidence within each regime.
         signal: Signal | None = None
+        squeeze_fire = self._refresh_squeeze_state()
 
         if state in {MarketState.TREND_UP, MarketState.TREND_DOWN}:
-            # Trend regime: OR breakout (phase-2) or band-extended entry (phase-3+)
-            signal = self._trend_signal(spot)
-            # VWAP pullback: pullback-to-VWAP continuation or oversold bounce
+            if state is MarketState.TREND_DOWN:
+                signal = self._vwap_reclaim_call(spot)
+            if signal is None:
+                signal = self._trend_signal(spot)
             if signal is None:
                 signal = self._vwap_pullback_signal(spot)
             # MACD-fade: disabled — Aug 1-29 showed 33% WR, -$220 (3 trades); net drag
@@ -1484,9 +1686,13 @@ class StrategyEngine:
             #
             # PUT — MACD-fade: disabled — Aug 1-29 showed 33% WR, -$220 net drag
             # signal = self._vwap_macd_fade_signal(spot)
+            if squeeze_fire:
+                signal = self._squeeze_mid_break_signal(spot)
             # CALL — deep oversold bounce: RSI≤38, BandPos≤-0.60, relaxed MACD gate
             if signal is None:
                 signal = self._deep_oversold_bounce_call(spot)
+            if signal is None:
+                signal = self._vwap_reclaim_call(spot)
             # VWAP structural: vwap_bounce_call (RSI≤43, MACD confirming) or
             # vwap_pullback (EMA downtrend PUT continuation)
             if signal is None:
@@ -1514,11 +1720,15 @@ class StrategyEngine:
             # PUT — MACD-fade: disabled — Aug 1-29 showed 33% WR, -$220 net drag
             # if signal is None:
             #     signal = self._vwap_macd_fade_signal(spot)
+            if signal is None and squeeze_fire:
+                signal = self._squeeze_mid_break_signal(spot)
             # CALL — deep oversold bounce: RSI≤38, no MACD gate (fires at the bottom
             # before MACD has turned; placed before vwap_pullback so RSI≤38 setups
             # are not absorbed by vwap_bounce_call's looser RSI≤43 gate)
             if signal is None:
                 signal = self._deep_oversold_bounce_call(spot)
+            if signal is None:
+                signal = self._vwap_reclaim_call(spot)
             # VWAP structural: vwap_bounce_call (confirmed MACD turn) or vwap_pullback
             if signal is None:
                 signal = self._vwap_pullback_signal(spot)
@@ -1552,6 +1762,8 @@ class StrategyEngine:
             "regime_or_breakout",
             "vwap_pullback",           # EMA downtrend + VWAP rejection gate
             "vwap_bounce_call",        # RSI≤43 + BandPos≤-0.60 + MACD turn + bullish candle gate
+            "vwap_reclaim_call",       # VWAP reclaim; score is low because price is already above VWAP
+            "squeeze_mid_break",       # mid-band breakout; Call score is oversold-oriented and would drop it
             # New mean-reversion signals have scores 7-11 (well above floor=4) due
             # to their strict RSI/BandPos/MACD multi-gate — score acts as quality gate.
             # "macd_narrowing_call"    → score gate suffices (RSI+BandPos+VWAP = 6-8 pts)
@@ -1585,6 +1797,10 @@ class StrategyEngine:
         ctx = self.last_context
         if ctx is None:
             return None
+        if position.strategy_name == "squeeze_mid_break":
+            if ctx.current_close < ctx.boll_middle:
+                return ExitDecision(ExitReason.BOLLINGER_MIDDLE, position.quantity)
+            return None
         # Mean-reversion strategies
         if position.strategy_name in (
             "regime_range_reversion",
@@ -1600,16 +1816,22 @@ class StrategyEngine:
                 return ExitDecision(ExitReason.BOLLINGER_MIDDLE, position.quantity)
             return self._mean_reversion_bar_exit(position)
 
-        if position.direction is Direction.CALL:
-            opposite = self.last_state is MarketState.TREND_DOWN
-            ema_broken = ctx.current_close < self._ema_slow
+        if position.strategy_name == "vwap_reclaim_call":
+            if ctx.vwap_value > ZERO and ctx.current_close < ctx.vwap_value:
+                return ExitDecision(ExitReason.VWAP_CROSS, position.quantity)
+            if ctx.current_close < self._ema_slow:
+                return ExitDecision(ExitReason.TREND_EMA_EXIT, position.quantity)
         else:
-            opposite = self.last_state is MarketState.TREND_UP
-            ema_broken = ctx.current_close > self._ema_slow
-        if opposite:
-            return ExitDecision(ExitReason.STATE_INVALIDATION, position.quantity)
-        if ema_broken:
-            return ExitDecision(ExitReason.TREND_EMA_EXIT, position.quantity)
+            if position.direction is Direction.CALL:
+                opposite = self.last_state is MarketState.TREND_DOWN
+                ema_broken = ctx.current_close < self._ema_slow
+            else:
+                opposite = self.last_state is MarketState.TREND_UP
+                ema_broken = ctx.current_close > self._ema_slow
+            if opposite:
+                return ExitDecision(ExitReason.STATE_INVALIDATION, position.quantity)
+            if ema_broken:
+                return ExitDecision(ExitReason.TREND_EMA_EXIT, position.quantity)
 
         # ATR trailing stop: for trend and pullback strategies, trail by 1 ATR
         # once the trade has moved at least 0.5 ATR in our favor.
@@ -1621,6 +1843,7 @@ class StrategyEngine:
                 "regime_trend_or_breakout",
                 "regime_or_breakout",
                 "vwap_pullback",
+                "vwap_reclaim_call",
             )
             and position.entry_spot is not None
         ):
