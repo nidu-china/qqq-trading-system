@@ -10,6 +10,35 @@ from __future__ import annotations
 
 from typing import Any
 
+# Hybrid entry setups (stored as ``entry_{strategy}`` on buy signals).
+_STRATEGY_ENTRY_LABELS: dict[str, str] = {
+    "vwap_pullback": "VWAP 回踩被拒",
+    "vwap_bounce_call": "VWAP 超卖反弹",
+    "vwap_reclaim_call": "VWAP 收复做多",
+    "vwap_macd_fade": "VWAP MACD 衰减做空",
+    "momentum_exhaustion_put": "动能衰竭做空",
+    "deep_oversold_bounce": "深度超卖反弹",
+    "macd_narrowing_call": "MACD 收窄做多",
+    "macd_narrowing_put": "MACD 收窄做空",
+    "trap_false_breakout": "假突破陷阱（空）",
+    "trap_false_breakdown": "假跌破陷阱（多）",
+    "regime_trend_following": "趋势跟随",
+    "regime_trend_or_breakout": "趋势 OR 突破",
+    "regime_or_breakout": "震荡突破",
+    "regime_range_reversion": "区间回归",
+    "regime_or_reversion": "OR 均值回归",
+    "squeeze_mid_break": "Squeeze 中轨突破",
+}
+
+ENTRY_REASON_LABELS: dict[str, str] = {
+    **{f"entry_{key}": label for key, label in _STRATEGY_ENTRY_LABELS.items()},
+    **_STRATEGY_ENTRY_LABELS,
+    "entry_abandoned": "入场放弃",
+    "entry_exception": "入场异常",
+    "pyramid_add_1": "金字塔加仓（一）",
+    "pyramid_add_2": "金字塔加仓（二）",
+}
+
 EXIT_REASON_LABELS: dict[str, str] = {
     "stop_loss": "止损",
     "direction_reversal": "方向反转",
@@ -28,6 +57,7 @@ EXIT_REASON_LABELS: dict[str, str] = {
     "opening_cutoff": "开盘截止",
     "five_bar_stop": "5根K线止损",
     "trend_ema_exit": "EMA趋势退出",
+    "recovered": "恢复重建",
 }
 
 REJECT_LABELS: dict[str, str] = {
@@ -52,6 +82,13 @@ REJECT_LABELS: dict[str, str] = {
     "option_chain_error": "期权链错误",
     "outside_entry_window": "非入场时间",
     "signal_expired": "信号超时",
+    "daily_loss": "日亏损上限（暂停开仓）",
+    "missing_bid_ask": "缺少买卖价",
+    "crossed_market": "买卖价倒挂",
+    "insufficient_open_interest": "持仓量不足",
+    "insufficient_volume": "成交量不足",
+    "macd_reversal_pending_volume_confirmation": "MACD 反转待确认（量能）",
+    "macd_reversal_pending_cancelled": "MACD 反转待确认（取消）",
 }
 
 REGIME_LABELS: dict[str, str] = {
@@ -67,10 +104,15 @@ REGIME_LABELS: dict[str, str] = {
 
 def all_labels() -> dict[str, dict[str, str]]:
     return {
+        "entry_reasons": ENTRY_REASON_LABELS,
         "exit_reasons": EXIT_REASON_LABELS,
         "reject_reasons": REJECT_LABELS,
         "regimes": REGIME_LABELS,
     }
+
+
+def entry_reason_label(key: str) -> str | None:
+    return ENTRY_REASON_LABELS.get(key)
 
 
 from .policy import StrategyRules

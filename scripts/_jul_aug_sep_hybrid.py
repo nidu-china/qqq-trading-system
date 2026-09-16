@@ -52,6 +52,45 @@ def _wr(trades):
     return f"{wins}/{len(trades)} ({wins / len(trades) * 100:.1f}%)"
 
 
+def _wr_pct(trades) -> float | None:
+    if not trades:
+        return None
+    return sum(1 for t in trades if t.pnl > 0) / len(trades) * 100
+
+
+def _strategy_wr_table(
+    month_trades: list[tuple[str, list]],
+    all_trades: list,
+) -> list[str]:
+    """Rows: (month_label, trades) plus final TOTAL."""
+    by_month: dict[str, list] = {label: ts for label, ts in month_trades}
+    by_month["TOTAL"] = all_trades
+    strategies = sorted(
+        {t.strategy or "?" for ts in by_month.values() for t in ts},
+        key=lambda s: s,
+    )
+    month_labels = [label for label, _ in month_trades] + ["TOTAL"]
+    lines = [
+        "",
+        "WIN RATE BY STRATEGY (Jul / Aug / Sep / Total)",
+        "================================================================================================",
+        f"  {'strategy':<28}  " + "  ".join(f"{m:>12}" for m in month_labels),
+        "  " + "-" * 28 + "  " + "  ".join("-" * 12 for _ in month_labels),
+    ]
+    for strat in strategies:
+        cells = []
+        for ml in month_labels:
+            group = [t for t in by_month[ml] if (t.strategy or "?") == strat]
+            if not group:
+                cells.append("—")
+            else:
+                pct = _wr_pct(group)
+                cells.append(f"{pct:5.1f}% n={len(group)}")
+        lines.append(f"  {strat:<28}  " + "  ".join(f"{c:>12}" for c in cells))
+    lines.append("")
+    return lines
+
+
 def _pnl(trades):
     return sum((t.pnl for t in trades), Decimal(0))
 
@@ -111,6 +150,7 @@ def main():
         "",
     ]
     all_trades = []
+    month_trade_lists: list[tuple[str, list]] = []
     summary_rows = []
     for name, start, end in months:
         print(f"Running {name}...")
@@ -119,6 +159,7 @@ def main():
         block, trades = _month_block(label, start, end, result)
         out_lines.extend(block)
         all_trades.extend(trades)
+        month_trade_lists.append((name, trades))
         summary_rows.append(
             (
                 name,
@@ -148,8 +189,9 @@ def main():
     by_setup: dict[str, list] = defaultdict(list)
     for t in all_trades:
         by_setup[t.strategy or "?"].append(t)
-    out_lines.append("ALL MONTHS by setup")
-    for name, group in sorted(by_setup.items(), key=lambda kv: -abs(_pnl(kv[1]))):
+    out_lines.extend(_strategy_wr_table(month_trade_lists, all_trades))
+    out_lines.append("ALL MONTHS by setup (WR + PnL)")
+    for name, group in sorted(by_setup.items(), key=lambda kv: -len(kv[1]), reverse=True):
         out_lines.append(
             f"  {name:<28} n={len(group):3d}  wr={_wr(group):<16} pnl=${_pnl(group):+,.0f}"
         )
