@@ -12,14 +12,20 @@ depends_on = None
 
 def upgrade() -> None:
     bind = op.get_bind()
-    columns = {column["name"] for column in inspect(bind).get_columns("signals")}
+    inspector = inspect(bind)
+    if "signals" not in inspector.get_table_names():
+        return
+    columns = {column["name"] for column in inspector.get_columns("signals")}
     if "indicators" not in columns:
         op.add_column("signals", sa.Column("indicators", sa.JSON(), nullable=True))
 
 
 def downgrade() -> None:
     bind = op.get_bind()
-    columns = {column["name"] for column in inspect(bind).get_columns("signals")}
+    inspector = inspect(bind)
+    if "signals" not in inspector.get_table_names():
+        return
+    columns = {column["name"] for column in inspector.get_columns("signals")}
     if "indicators" in columns:
         op.drop_column("signals", "indicators")
 
